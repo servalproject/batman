@@ -1,0 +1,180 @@
+#################################
+B.A.T.M.A.N Installation and Use
+#################################
+
+Marek Lindner (lindner_marek-at-yahoo.de)
+Stefan Sperling (stsp-at-stsp.in-berlin.de
+Axel Neumann (neumann-at-notmail.org)
+Corinna 'Elektra' Aichele (onelektra-at-gmx.net)
+Thomas Lopatic  (thomas-at-lopatic.de)
+Felix Fietkau (nbd-at-nbd.name)
+
+
+-------
+Preface
+-------
+
+This is still a experimental piece of code to test the viability of the
+B.A.T.M.A.N routing algorithm based on initial ideas of Thomas Lopatic
+and Corinna 'Elektra' Aichele.
+
+This is implementation 0.1-rc0 of the improved B.A.T.M.A.N-III algorithm. It
+is not unlikely that we have to fix some bugs.
+
+Use - like always - at your own risk!
+
+
+--------
+Features
+--------
+
+Improved B.A.T.M.A.N-III algorithm 
+Free-BSD support 
+Mac OS-X support
+IP-Tunnels 
+Gateway detection 
+Multiple Interfaces support
+Support for a server that collects link-state information from each node to generate two
+dimensional or three dimensional topology graphs.
+
+
+-------
+Roadmap
+-------
+
+So far IP-Tunnels use TCP in TCP - which is known to have bad performance
+when links are lossy. We are going to move to UDP for the IP-Tunnels.
+
+Testing, improvements in the documentation. 
+
+Develop B.A.T.M.A.N-Advanced that routes on Layer 2 and creates a Link-Local-Illusion for higher
+OSI-Layers
+
+Read speed tables from WiFi-Cards to calculate the transfer speed of routes
+in B.A.T.M.A.N-Advanced
+
+
+------------
+Requirements
+------------
+
+Linux with kernel-module 'tun' loaded if you want to use/be a gateway
+FreeBSD
+MacOS-X
+
+------------
+Installation
+------------
+
+You need the usual working environment to compile software. In the
+B.A.T.M.A.N directory type
+
+make <press enter>
+
+After the compilation process is finished you'll find a executable called 'batman'. This
+executable is quite big because it is not stripped.
+
+Strip it by performing:
+
+strip batman <press enter>
+
+Note there is no installation script at the moment. If you want to install
+it, copy the deamon to a location somewhere in your path, for example
+/usr/sbin or /usr/local/bin.
+
+
+
+---
+Use
+---
+
+
+Make sure you have no firewall running that is blocking UDP port 1966. 
+Type in the B.A.T.M.A.N source-directory:
+
+./batman -H
+
+
+Usage: batman [options] interface [interface interface]
+
+       -d debug level
+          default: 0, allowed values: 0 - 3
+
+       -g gateway class
+
+	  Use this feature if you want to offer a internet gateway and tell
+	  clients what kind of gateway you are!
+
+          default:         0 -> this is not an internet gateway
+          allowed values:  1 -> modem line
+                           2 -> ISDN line
+                           3 -> double ISDN
+                           4 -> 256 KBit
+                           5 -> UMTS / 0.5 MBit
+                           6 -> 1 MBit
+                           7 -> 2 MBit
+                           8 -> 3 MBit
+                           9 -> 5 MBit
+                          10 -> 6 MBit
+                          11 -> >6 MBit
+
+       -h shorter help
+       -H this help
+
+
+       -o orginator interval in ms
+          default: 1000, allowed values: >0
+
+       -p preferred gateway
+
+	  This will set up an IP-Tunnel to the destination IP
+
+          default: none, allowed values: IP
+
+       -r routing class (only needed if gateway class = 0)
+
+	  If you are a client, this will select the way you choose an
+	  internet-gateway
+
+          default:         0 -> set no default route
+          allowed values:  1 -> use fast internet connection
+                           2 -> use stable internet connection
+                           3 -> use best statistic internet connection (olsr style)
+
+       -s visualisation server
+
+	  The Server-IP that collects the topology information for
+	  topology-visualisation
+
+          default: none, allowed values: IP
+
+
+
+
+Switch the output of runtime debugging messages to a low level if you want
+to test the software on a slow system.
+
+We would love to see B.A.T.M.A.N in a match against other routing protocols
+in existing mesh networks. You can set up a virtual interface on an
+interface that you run another mesh routing protocol on.
+
+If, for example, you have olsrd running on interface wlan0 with IP address
+104.30.30.30 you could set up a virtual interface wlan0:0 with another
+IP-address within another network:
+
+ifconfig wlan0:0 103.30.30.30 netmask 255.0.0.0 broadcast 103.255.255.255
+
+./batman wlan0:0
+
+Now you can check out which protocol works better.
+
+Happy routing!
+
+The B.A.T.M.A.N contributors
+
+
+
+
+
+
+

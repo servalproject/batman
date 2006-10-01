@@ -1,0 +1,34 @@
+
+version 0.1
+^^^^^^^^^^^
+documentation:
+
+- english documentation updated to 0.10-rc0 - please have a look at it
+- german documentation is unmaintained - maybe remove it? too lazy to write a translation at the moment...
+- changed the name in the documentation and in posix.c to B.A.T.M.A.N-III, since we made quite some changes in the algorithm
+- added the textfile 'THANKS'
+
+
+new functions:
+
+- gateway classes added
+- routing classes added
+- multiple interface support added (experimental)
+- set orginator interval via command line switch
+- batman version check added
+- preferred gateway funtion added
+- FreeBSD support added
+- Mac OS X support added
+
+
+bug fixes:
+- fix bug neighbour in select ( max packet && ttl )
+- performance improvement in update_routes()
+- performance improvement in purge()
+- performance improvement in isDuplicate()
+- JITTER removed
+- interval removed
+- fix crash in purge() - check for router before route is deleted
+- ignore all packets with broadcast source IP
+- prevent routing loop by forwarding o-packets only from best neighbour
+- prevent o-packet loss by forwarding all o-packets from best neighbour even if already seen
