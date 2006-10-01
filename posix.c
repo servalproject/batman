@@ -432,7 +432,7 @@ void *gw_listen( void *arg ) {
 
 						gw_client->last_keep_alive = get_time();
 
-						if ( debug_level >= 2 ) {
+						if ( debug_level >= 1 ) {
 							addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
 							printf( "gateway: client %s sent keep alive on interface %s\n", str2, batman_if->dev );
 						}
@@ -710,6 +710,13 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Cannot bind send socket: %s\n", strerror(errno));
 			close_all_sockets();
 			exit(EXIT_FAILURE);
+		}
+
+		if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
+
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
 		}
 
 		if (bind(batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in)) < 0)

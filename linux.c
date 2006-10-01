@@ -67,6 +67,22 @@ int get_forwarding(void)
 	return state;
 }
 
+int bind_to_iface( int udp_recv_sock, char *dev ) {
+
+	if ( setsockopt( udp_recv_sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 )
+	{
+		if ( errno == 19 ) {
+			fprintf( stderr, "Warning: Cannot bind socket to alias device %s\n", dev );
+		} else {
+			fprintf( stderr, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
+			return -1;
+		}
+	}
+
+	return 1;
+
+}
+
 void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, int sock)
 {
 	struct rtentry route;

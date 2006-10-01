@@ -78,6 +78,12 @@ int get_forwarding(void)
 	return state;
 }
 
+int bind_to_iface( int udp_recv_sock, char *dev ) {
+
+	return 1;
+
+}
+
 /* Message structure used to interface the kernel routing table.
  * See route(4) for details on the message passing interface for
  * manipulating the kernel routing table.
