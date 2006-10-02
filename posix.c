@@ -91,10 +91,11 @@ void *client_to_gw_tun( void *arg ) {
 	struct gw_node *gw_node = (struct gw_node *)arg;
 	struct batman_if *curr_gateway_batman_if;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
+	struct in_addr tmp_ip_holder;
 	struct timeval tv;
-	int res, max_sock, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
+	int res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
 	unsigned int addr_len, curr_gateway_ip;
-	char curr_gateway_tun_if[IFNAMSIZ];
+	char curr_gateway_tun_if[IFNAMSIZ], tun_ip[] = "104.255.255.250\0";
 	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -114,6 +115,13 @@ void *client_to_gw_tun( void *arg ) {
 	my_addr.sin_port = htons(PORT + 1);
 	my_addr.sin_addr.s_addr = curr_gateway_batman_if->addr.sin_addr.s_addr;
 
+
+	if ( inet_pton(AF_INET, tun_ip, &tmp_ip_holder) < 1 ) {
+
+		printf( "Invalid tunnel IP specified: %s\n", tun_ip );
+		exit(EXIT_FAILURE);
+
+	}
 
 	/* connect to server (ask permission) */
 	if ( ( curr_gateway_tcp_sock = socket(PF_INET, SOCK_STREAM, 0) ) < 0 ) {
@@ -152,8 +160,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 
-
-	if ( add_dev_tun( curr_gateway_batman_if, curr_gateway_ip, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
+	if ( add_dev_tun( curr_gateway_batman_if, tmp_ip_holder.s_addr, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
 
 // 		add_del_route( 0, curr_gateway_ip, 0, curr_gateway_tun_if, curr_gateway_tun_fd );
 
@@ -193,8 +200,28 @@ void *client_to_gw_tun( void *arg ) {
 			/* tcp message from server */
 			if ( FD_ISSET( curr_gateway_tcp_sock, &tmp_wait_sockets ) ) {
 
-				/* TODO: if server sends a message (e.g. rejects) */
-				printf( "server message ?\n" );
+				status = read( curr_gateway_tcp_sock, buff, sizeof( buff ) );
+
+				if ( status > 0 ) {
+
+					if ( debug_level >= 1 )
+						printf( "server message ?\n" );
+
+				} else if ( status == -1 ) {
+
+					if ( debug_level >= 1 )
+						printf( "Cannot read message from gateway: %s\n", strerror(errno) );
+
+					break;
+
+				} else if (status == 0) {
+
+					if ( debug_level >= 1 )
+						printf( "Gateway closed connection - timeout ?\n" );
+
+					break;
+
+				}
 
 			/* udp message (tunnel data) */
 			} else if ( FD_ISSET( curr_gateway_tun_sock, &tmp_wait_sockets ) ) {
@@ -446,8 +473,9 @@ void *gw_listen( void *arg ) {
 	struct list_head *client_pos, *client_pos_tmp;
 	struct timeval tv;
 	struct sockaddr_in addr;
+	struct in_addr tmp_ip_holder;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
-	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ];
+	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], tun_ip[] = "104.255.255.251\0";
 	int res, max_sock, buff_len, tun_fd, i;
 	unsigned int addr_len, client_timeout, buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -457,7 +485,14 @@ void *gw_listen( void *arg ) {
 	addr_len = sizeof (struct sockaddr_in);
 	client_timeout = get_time();
 
-	if ( add_dev_tun( batman_if, 0, tun_dev, &tun_fd ) < 0 ) {
+	if ( inet_pton(AF_INET, tun_ip, &tmp_ip_holder) < 1 ) {
+
+		printf( "Invalid tunnel IP specified: %s\n", tun_ip );
+		exit(EXIT_FAILURE);
+
+	}
+
+	if ( add_dev_tun( batman_if, tmp_ip_holder.s_addr, tun_dev, &tun_fd ) < 0 ) {
 		printf( "Could not open tun device on interface: %s\n", gw_addr );
 		return NULL;
 	}

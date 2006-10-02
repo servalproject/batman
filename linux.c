@@ -209,7 +209,8 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 
 	/* set ip of this end point of tunnel */
 	memset( &addr, 0, sizeof(addr) );
-	addr.sin_addr.s_addr = batman_if->addr.sin_addr.s_addr;
+// 	addr.sin_addr.s_addr = batman_if->addr.sin_addr.s_addr;
+	addr.sin_addr.s_addr = dest_addr;
 	addr.sin_family = AF_INET;
 	memcpy( &ifr.ifr_addr, &addr, sizeof(struct sockaddr) );
 
