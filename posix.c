@@ -92,9 +92,10 @@ void *client_to_gw_tun( void *arg ) {
 	struct batman_if *curr_gateway_batman_if;
 	struct sockaddr_in gw_addr, my_addr;
 	struct timeval tv;
-	int res, max_sock, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
+	int res, max_sock, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
 	unsigned int curr_gateway_ip;
-	char curr_gateway_tun_if[IFNAMSIZ], buff[1500];
+	char curr_gateway_tun_if[IFNAMSIZ];
+	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
 
@@ -184,7 +185,7 @@ void *client_to_gw_tun( void *arg ) {
 
 		tmp_wait_sockets = wait_sockets;
 
-		res = select(curr_gateway_tcp_sock + 1, &wait_sockets, NULL, NULL, &tv);
+		res = select(max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv);
 
 		if ( res > 0 ) {
 
@@ -200,13 +201,13 @@ void *client_to_gw_tun( void *arg ) {
 
 			} else if ( FD_ISSET( curr_gateway_tun_fd, &tmp_wait_sockets ) ) {
 
-				if ( read( curr_gateway_tun_fd, buff, sizeof( buff ) ) < 0 ) {
+				if ( ( buff_len = read( curr_gateway_tun_fd, buff, sizeof( buff ) ) ) < 0 ) {
 
 					fprintf(stderr, "Could not read data from %s: %s\n", curr_gateway_tun_if, strerror(errno));
 
 				} else {
 
-					if ( sendto(curr_gateway_tun_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
+					if ( sendto(curr_gateway_tun_sock, buff, buff_len, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
 						fprintf(stderr, "Cannot send to gateway: %s\n", strerror(errno));
 					}
 
@@ -432,10 +433,9 @@ void *gw_listen( void *arg ) {
 	struct timeval tv;
 	struct sockaddr_in addr;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
-	ssize_t recv_len;
-	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], buff[1500];
-	int res, max_sock, tun_fd;
-	unsigned int addr_len, client_timeout;
+	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ];
+	int res, max_sock, buff_len, tun_fd;
+	unsigned int addr_len, client_timeout, buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
 
@@ -499,16 +499,17 @@ void *gw_listen( void *arg ) {
 			/* tunnel activity */
 			} else if ( FD_ISSET( batman_if->tunnel_sock, &tmp_wait_sockets ) ) {
 
-				if ( ( recv_len = recvfrom( batman_if->tunnel_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 )
-				{
+				if ( ( buff_len = recvfrom( batman_if->tunnel_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
+
 					fprintf(stderr, "Cannot receive packet: %s\n", strerror(errno));
-				}
 
-				buff[recv_len] = '\0';
+				} else {
 
-				if ( write( tun_fd, buff, sizeof( buff ) ) < 0 ) {
+					if ( write( tun_fd, buff, buff_len ) < 0 ) {
 
-					fprintf(stderr, "Cannot write packet into %s: %s\n", tun_dev, strerror(errno));
+						fprintf(stderr, "Cannot write packet into %s: %s\n", tun_dev, strerror(errno));
+
+					}
 
 				}
 

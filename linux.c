@@ -172,7 +172,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 
 	/* set up tunnel device */
 	memset( &ifr, 0, sizeof(ifr) );
-	ifr.ifr_flags = IFF_TUN;
+	ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
 
 	if ( ( *fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
@@ -196,6 +196,8 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 		return -1;
 
 	}
+
+	fcntl( *fd, F_SETFL, O_NONBLOCK | O_ASYNC );
 
 
 	tmp_fd = socket(AF_INET, SOCK_DGRAM, 0);
