@@ -207,7 +207,7 @@ void *client_to_gw_tun( void *arg ) {
 					if ( debug_level >= 1 )
 						printf( "server message ?\n" );
 
-				} else if ( status == -1 ) {
+				} else if ( status < 0 ) {
 
 					if ( debug_level >= 1 )
 						printf( "Cannot read message from gateway: %s\n", strerror(errno) );
@@ -476,7 +476,7 @@ void *gw_listen( void *arg ) {
 	struct in_addr tmp_ip_holder;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
 	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], tun_ip[] = "104.255.255.251\0";
-	int res, max_sock, buff_len, tun_fd, i;
+	int res, status, max_sock_min, max_sock, buff_len, tun_fd, i;
 	unsigned int addr_len, client_timeout, buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -503,11 +503,13 @@ void *gw_listen( void *arg ) {
 	FD_SET(batman_if->tunnel_sock, &wait_sockets);
 	FD_SET(tun_fd, &wait_sockets);
 
-	max_sock = batman_if->tcp_gw_sock;
-	if ( batman_if->tunnel_sock > max_sock )
-		max_sock = batman_if->tunnel_sock;
-	if ( tun_fd > max_sock )
-		max_sock = tun_fd;
+	max_sock_min = batman_if->tcp_gw_sock;
+	if ( batman_if->tunnel_sock > max_sock_min )
+		max_sock_min = batman_if->tunnel_sock;
+	if ( tun_fd > max_sock_min )
+		max_sock_min = tun_fd;
+
+	max_sock = max_sock_min;
 
 	while (!is_aborted()) {
 
@@ -585,20 +587,54 @@ void *gw_listen( void *arg ) {
 			/* client sent keep alive */
 			} else {
 
-				list_for_each(client_pos, &batman_if->client_list) {
+				list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
+
+					max_sock =max_sock_min;
 
 					gw_client = list_entry(client_pos, struct gw_client, list);
 
 					if ( FD_ISSET( gw_client->sock, &tmp_wait_sockets ) ) {
 
-						gw_client->last_keep_alive = get_time();
+						status = read( gw_client->sock, buff, sizeof( buff ) );
 
-						if ( debug_level >= 1 ) {
-							addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
-							printf( "gateway: client %s sent keep alive on interface %s\n", str2, batman_if->dev );
+						if ( status > 0 ) {
+
+							gw_client->last_keep_alive = get_time();
+
+							if ( gw_client->sock > max_sock )
+								max_sock = gw_client->sock;
+
+							if ( debug_level >= 1 ) {
+								addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
+								printf( "gateway: client %s sent keep alive on interface %s\n", str2, batman_if->dev );
+							}
+
+						} else {
+
+							if ( status < 0 ) {
+
+								if ( debug_level >= 1 )
+									printf( "Cannot read message from client: %s\n", strerror(errno) );
+
+							} else {
+
+								if ( debug_level >= 1 )
+									printf( "Client closed connection ...\n" );
+
+							}
+
+							FD_CLR(gw_client->sock, &wait_sockets);
+							close( gw_client->sock );
+
+							list_del(client_pos);
+							free_memory(client_pos);
+
 						}
 
-						break;
+					} else {
+
+						if ( gw_client->sock > max_sock )
+							max_sock = gw_client->sock;
 
 					}
 
@@ -619,11 +655,7 @@ void *gw_listen( void *arg ) {
 
 			client_timeout = get_time();
 
-			max_sock = batman_if->tcp_gw_sock;
-			if ( batman_if->tunnel_sock > max_sock )
-				max_sock = batman_if->tunnel_sock;
-			if ( tun_fd > max_sock )
-				max_sock = tun_fd;
+			max_sock =max_sock_min;
 
 			list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
 
