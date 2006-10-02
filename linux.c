@@ -143,11 +143,13 @@ int probe_tun()
 
 	}
 
+	close( fd );
+
 	return 1;
 
 }
 
-int del_ipip_tun( int fd ) {
+int del_dev_tun( int fd ) {
 
 	if ( ioctl( fd, TUNSETPERSIST, 0 ) < 0 ) {
 
@@ -162,7 +164,7 @@ int del_ipip_tun( int fd ) {
 
 }
 
-int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd ) {
+int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd ) {
 
 	int tmp_fd;
 	struct ifreq ifr;
@@ -200,7 +202,7 @@ int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun
 
 	if ( tmp_fd < 0 ) {
 		fprintf(stderr, "Cannot create send socket: %s", strerror(errno));
-		del_ipip_tun( *fd );
+		del_dev_tun( *fd );
 		return -1;
 	}
 
@@ -215,14 +217,15 @@ int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun
 	if ( ioctl( tmp_fd, SIOCSIFADDR, &ifr) < 0 ) {
 
 		perror("SIOCSIFADDR");
-		del_ipip_tun( *fd );
+		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
 
 	}
 
+	/* TODO: remove dest_addr from function call */
 	/* set ip of this remote point of tunnel */
-	memset( &addr, 0, sizeof(addr) );
+	/*memset( &addr, 0, sizeof(addr) );
 	addr.sin_addr.s_addr = dest_addr;
 	addr.sin_family = AF_INET;
 	memcpy( &ifr.ifr_addr, &addr, sizeof(struct sockaddr) );
@@ -230,16 +233,16 @@ int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun
 	if ( ioctl( tmp_fd, SIOCSIFDSTADDR, &ifr) < 0 ) {
 
 		perror("SIOCSIFDSTADDR");
-		del_ipip_tun( *fd );
+		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
 
-	}
+	}*/
 
 	if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr) < 0 ) {
 
 		perror("SIOCGIFFLAGS");
-		del_ipip_tun( *fd );
+		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
 
@@ -251,14 +254,14 @@ int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun
 	if ( ioctl( tmp_fd, SIOCSIFFLAGS, &ifr) < 0 ) {
 
 		perror("SIOCSIFFLAGS");
-		del_ipip_tun( *fd );
+		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
 
 	}
 
 	close( tmp_fd );
-	strncpy( tun_dev, ifr.ifr_name, IFNAMSIZ );
+	strncpy( tun_dev, ifr.ifr_name, IFNAMSIZ - 1 );
 
 	return 1;
 

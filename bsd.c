@@ -199,13 +199,13 @@ void add_del_route(unsigned int dest, unsigned int router, int del,
 	}
 }
 
-int del_ipip_tun(int fd)
+int del_dev_tun(int fd)
 {
 	/* Implement me! */
 	return 1;
 }
 
-int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd )
+int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd )
 {
 	/* Implement me! */
 	return 0;

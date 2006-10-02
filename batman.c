@@ -69,12 +69,14 @@ int routing_class = 0;
 int orginator_interval = 1000; /* orginator message interval in miliseconds */
 
 struct gw_node *curr_gateway = NULL;
-struct batman_if *curr_gateway_batman_if = NULL;
-unsigned int curr_gateway_ip = 0;
-char *curr_gateway_ipip_if = NULL;
 pthread_t curr_gateway_thread_id = 0;
+
+/*struct batman_if *curr_gateway_batman_if = NULL;
+unsigned int curr_gateway_ip = 0;
+char *curr_gateway_tun_if = NULL;
 int curr_gateway_tcp_sock = 0;
-int curr_gateway_ipip_fd = 0;
+int curr_gateway_tun_sock = 0;
+int curr_gateway_tun_fd = 0;*/
 
 unsigned int pref_gateway = 0;
 int found_ifs = 0;
@@ -265,8 +267,8 @@ static void choose_gw()
 				output( "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
 			}
 
-			curr_gateway_ip = curr_gateway->orig_node->orig;
-			curr_gateway_batman_if = curr_gateway->orig_node->batman_if;
+			/*curr_gateway_ip = curr_gateway->orig_node->orig;
+			curr_gateway_batman_if = curr_gateway->orig_node->batman_if;*/
 
 		}
 

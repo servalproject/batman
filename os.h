@@ -37,7 +37,7 @@ int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int soc
 int rand_num(int limit);
 int bind_to_iface( int udp_recv_sock, char *dev );
 int probe_tun();
-int del_ipip_tun( int fd );
-int add_ipip_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd );
+int del_dev_tun( int fd );
+int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd );
 
 #endif

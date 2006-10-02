@@ -86,15 +86,96 @@ void output(char *format, ...)
 
 
 
-void *keep_tun_alive( void *unused ) {
+void *client_to_gw_tun( void *arg ) {
 
+	struct gw_node *gw_node = (struct gw_node *)arg;
+	struct batman_if *curr_gateway_batman_if;
+	struct sockaddr_in gw_addr, my_addr;
 	struct timeval tv;
-	int res;
+	int res, max_sock, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
+	unsigned int curr_gateway_ip;
+	char curr_gateway_tun_if[IFNAMSIZ], buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
+
+
+	curr_gateway_ip = gw_node->orig_node->orig;
+	curr_gateway_batman_if = gw_node->orig_node->batman_if;
+
+	memset( &gw_addr, 0, sizeof(struct sockaddr_in) );
+	memset( &my_addr, 0, sizeof(struct sockaddr_in) );
+
+	gw_addr.sin_family = AF_INET;
+	gw_addr.sin_port = htons(PORT + 1);
+	gw_addr.sin_addr.s_addr = curr_gateway_ip;
+
+	my_addr.sin_family = AF_INET;
+	my_addr.sin_port = htons(PORT + 1);
+	my_addr.sin_addr.s_addr = curr_gateway_batman_if->addr.sin_addr.s_addr;
+
+
+	/* connect to server (ask permission) */
+	if ( ( curr_gateway_tcp_sock = socket(PF_INET, SOCK_STREAM, 0) ) < 0 ) {
+
+		perror("socket");
+		curr_gateway = NULL;
+		return NULL;
+
+	}
+
+	if ( connect ( curr_gateway_tcp_sock, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr) ) < 0 ) {
+
+		perror("connect");
+		curr_gateway = NULL;
+		close( curr_gateway_tcp_sock );
+		return NULL;
+
+	}
+
+	/* connect to server (establish udp tunnel) */
+	if ( ( curr_gateway_tun_sock = socket(PF_INET, SOCK_DGRAM, 0) ) < 0 ) {
+
+		perror("connect");
+		curr_gateway = NULL;
+		close( curr_gateway_tcp_sock );
+		return NULL;
+
+	}
+
+	if ( bind( curr_gateway_tun_sock, (struct sockaddr *)&my_addr, sizeof (struct sockaddr_in) ) < 0) {
+		fprintf(stderr, "Cannot bind tunnel socket: %s\n", strerror(errno));
+		curr_gateway = NULL;
+		close( curr_gateway_tcp_sock );
+		close( curr_gateway_tun_sock );
+		return NULL;
+	}
+
+
+
+	if ( add_dev_tun( curr_gateway_batman_if, curr_gateway_ip, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
+
+// 		add_del_route( 0, curr_gateway_ip, 0, curr_gateway_tun_if, curr_gateway_tun_fd );
+
+	} else {
+
+		fprintf(stderr, "Cannot create tunnel device: %s\n", strerror(errno));
+		curr_gateway = NULL;
+		close( curr_gateway_tcp_sock );
+		close( curr_gateway_tun_sock );
+		return NULL;
+
+	}
 
 
 	FD_ZERO(&wait_sockets);
 	FD_SET(curr_gateway_tcp_sock, &wait_sockets);
+	FD_SET(curr_gateway_tun_sock, &wait_sockets);
+	FD_SET(curr_gateway_tun_fd, &wait_sockets);
+
+	max_sock = curr_gateway_tcp_sock;
+	if ( curr_gateway_tun_sock > max_sock )
+		max_sock = curr_gateway_tun_sock;
+	if ( curr_gateway_tun_fd > max_sock )
+		max_sock = curr_gateway_tun_fd;
 
 	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) ) {
 
@@ -105,9 +186,33 @@ void *keep_tun_alive( void *unused ) {
 
 		res = select(curr_gateway_tcp_sock + 1, &wait_sockets, NULL, NULL, &tv);
 
-		if (res > 0) {
+		if ( res > 0 ) {
 
-			/* TODO: if server sends a message (e.g. rejects) */
+			/* tcp message from server */
+			if ( FD_ISSET( curr_gateway_tcp_sock, &tmp_wait_sockets ) ) {
+
+				/* TODO: if server sends a message (e.g. rejects) */
+
+			/* udp message (tunnel data) */
+			} else if ( FD_ISSET( curr_gateway_tun_sock, &tmp_wait_sockets ) ) {
+
+
+
+			} else if ( FD_ISSET( curr_gateway_tun_fd, &tmp_wait_sockets ) ) {
+
+				if ( read( curr_gateway_tun_fd, buff, sizeof( buff ) ) < 0 ) {
+
+					fprintf(stderr, "Could not read data from %s: %s\n", curr_gateway_tun_if, strerror(errno));
+
+				} else {
+
+					if ( sendto(curr_gateway_tun_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
+						fprintf(stderr, "Cannot send to gateway: %s\n", strerror(errno));
+					}
+
+				}
+
+			}
 
 		} else if ( ( res < 0 ) && (errno != EINTR) ) {
 
@@ -121,6 +226,14 @@ void *keep_tun_alive( void *unused ) {
 
 	}
 
+	/* cleanup */
+// 	add_del_route( 0, curr_gateway_ip, 1, curr_gateway_tun_if, curr_gateway_tun_fd );
+
+	close( curr_gateway_tcp_sock );
+	close( curr_gateway_tun_sock );
+
+	del_dev_tun( curr_gateway_tun_fd );
+
 	return NULL;
 
 }
@@ -128,14 +241,6 @@ void *keep_tun_alive( void *unused ) {
 void del_default_route() {
 
 	curr_gateway = NULL;
-
-	add_del_route( 0, curr_gateway_ip, 1, curr_gateway_ipip_if, curr_gateway_ipip_fd );
-
-	close( curr_gateway_tcp_sock );
-	del_ipip_tun( curr_gateway_ipip_fd );
-
-	curr_gateway_tcp_sock = 0;
-	curr_gateway_ipip_fd = 0;
 
 	if ( curr_gateway_thread_id != 0 )
 		pthread_join( curr_gateway_thread_id, NULL );
@@ -146,52 +251,9 @@ void del_default_route() {
 
 int add_default_route() {
 
-	struct sockaddr_in gw_addr; /* connector's address information  */
+	pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gateway );
 
-	memset( &gw_addr, 0, sizeof(struct sockaddr_in) );
-	gw_addr.sin_family = AF_INET;
-	gw_addr.sin_port = htons(PORT);
-	gw_addr.sin_addr.s_addr = curr_gateway_ip;
-
-	/* connect to server and keep alive */
-	if ( ( curr_gateway_tcp_sock = socket(PF_INET, SOCK_STREAM, 0) ) < 0 ) {
-
-		perror("socket");
-		curr_gateway = NULL;
-		return -1;
-
-	}
-
-	if ( connect ( curr_gateway_tcp_sock, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr) ) < 0 ) {
-
-		    perror("connect");
-		    curr_gateway = NULL;
-		    close( curr_gateway_tcp_sock );
-		    return -1;
-
-	}
-
-	pthread_create( &curr_gateway_thread_id, NULL, &keep_tun_alive, NULL );
-
-	if ( curr_gateway_ipip_if == NULL )
-		curr_gateway_ipip_if = alloc_memory( sizeof(IFNAMSIZ) );
-
-	if ( add_ipip_tun( curr_gateway_batman_if, curr_gateway_ip, curr_gateway_ipip_if, &curr_gateway_ipip_fd ) > 0 ) {
-
-		add_del_route( 0, curr_gateway_ip, 0, curr_gateway_ipip_if, curr_gateway_ipip_fd );
-		return 1;
-
-	} else {
-
-		curr_gateway = NULL;
-		close( curr_gateway_tcp_sock );
-
-		if ( curr_gateway_thread_id != 0 )
-			pthread_join( curr_gateway_thread_id, NULL );
-
-		return -1;
-
-	}
+	return 1;
 
 }
 
@@ -368,16 +430,35 @@ void *gw_listen( void *arg ) {
 	struct gw_client *gw_client;
 	struct list_head *client_pos, *client_pos_tmp;
 	struct timeval tv;
+	struct sockaddr_in addr;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
-	char str1[16], str2[16];
-	int res, max_sock;
-	unsigned int client_timeout = get_time();
+	ssize_t recv_len;
+	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], buff[1500];
+	int res, max_sock, tun_fd;
+	unsigned int addr_len, client_timeout;
 	fd_set wait_sockets, tmp_wait_sockets;
+
+
+	addr_to_string(batman_if->addr.sin_addr.s_addr, gw_addr, sizeof (gw_addr));
+	addr_len = sizeof (struct sockaddr_in);
+	client_timeout = get_time();
+
+	if ( add_dev_tun( batman_if, 0, tun_dev, &tun_fd ) < 0 ) {
+		printf( "Could not open tun device on interface: %s\n", gw_addr );
+		return NULL;
+	}
 
 
 	FD_ZERO(&wait_sockets);
 	FD_SET(batman_if->tcp_gw_sock, &wait_sockets);
+	FD_SET(batman_if->tunnel_sock, &wait_sockets);
+	FD_SET(tun_fd, &wait_sockets);
+
 	max_sock = batman_if->tcp_gw_sock;
+	if ( batman_if->tunnel_sock > max_sock )
+		max_sock = batman_if->tunnel_sock;
+	if ( tun_fd > max_sock )
+		max_sock = tun_fd;
 
 	while (!is_aborted()) {
 
@@ -403,23 +484,38 @@ void *gw_listen( void *arg ) {
 				INIT_LIST_HEAD(&gw_client->list);
 				gw_client->batman_if = batman_if;
 				gw_client->last_keep_alive = get_time();
-				gw_client->tun_dev = alloc_memory( sizeof(IFNAMSIZ) );
 
-				if ( add_ipip_tun( batman_if, gw_client->addr.sin_addr.s_addr, gw_client->tun_dev, &gw_client->tun_fd ) > 0 ) {
+				FD_SET(gw_client->sock, &wait_sockets);
+				if ( gw_client->sock > max_sock )
+					max_sock = gw_client->sock;
 
-					FD_SET(gw_client->sock, &wait_sockets);
-					if ( gw_client->sock > max_sock )
-						max_sock = gw_client->sock;
+				list_add_tail(&gw_client->list, &batman_if->client_list);
 
-					list_add_tail(&gw_client->list, &batman_if->client_list);
+				if ( debug_level >= 1 ) {
+					addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
+					printf( "gateway: %s (%s) got connection from %s (internet via %s)\n", gw_addr, batman_if->dev, str2, tun_dev );
+				}
 
-					if ( debug_level >= 1 ) {
-						addr_to_string(batman_if->addr.sin_addr.s_addr, str1, sizeof (str1));
-						addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
-						printf( "gateway: %s (%s) got connection from %s (internet via %s)\n", str1, batman_if->dev, str2, gw_client->tun_dev );
-					}
+			/* tunnel activity */
+			} else if ( FD_ISSET( batman_if->tunnel_sock, &tmp_wait_sockets ) ) {
+
+				if ( ( recv_len = recvfrom( batman_if->tunnel_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 )
+				{
+					fprintf(stderr, "Cannot receive packet: %s\n", strerror(errno));
+				}
+
+				buff[recv_len] = '\0';
+
+				if ( write( tun_fd, buff, sizeof( buff ) ) < 0 ) {
+
+					fprintf(stderr, "Cannot write packet into %s: %s\n", tun_dev, strerror(errno));
 
 				}
+
+			/* /dev/tunX activity */
+			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
+
+				/* TODO: paste to client */
 
 			/* client sent keep alive */
 			} else {
@@ -457,7 +553,12 @@ void *gw_listen( void *arg ) {
 		if ( ( client_timeout + 59000 ) < get_time() ) {
 
 			client_timeout = get_time();
+
 			max_sock = batman_if->tcp_gw_sock;
+			if ( batman_if->tunnel_sock > max_sock )
+				max_sock = batman_if->tunnel_sock;
+			if ( tun_fd > max_sock )
+				max_sock = tun_fd;
 
 			list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
 
@@ -467,7 +568,6 @@ void *gw_listen( void *arg ) {
 
 					FD_CLR(gw_client->sock, &wait_sockets);
 					close( gw_client->sock );
-					del_ipip_tun( gw_client->tun_fd );
 
 					if ( debug_level >= 1 ) {
 						addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
@@ -490,14 +590,8 @@ void *gw_listen( void *arg ) {
 
 	}
 
-	/* delete all ipip devices on exit */
-	list_for_each(client_pos, &batman_if->client_list) {
-
-		gw_client = list_entry(client_pos, struct gw_client, list);
-
-		del_ipip_tun( gw_client->tun_fd );
-
-	}
+	/* delete tun devices on exit */
+	del_dev_tun( tun_fd );
 
 	return NULL;
 
@@ -510,7 +604,7 @@ int main(int argc, char *argv[])
 	struct in_addr tmp_ip_holder;
 	struct batman_if *batman_if;
 	struct ifreq int_req;
-	int on = 1, res, optchar, found_args = 1, fd;
+	int on = 1, res, optchar, found_args = 1;
 	char str1[16], str2[16], *dev;
 	unsigned int vis_server = 0;
 
@@ -662,6 +756,7 @@ int main(int argc, char *argv[])
 		batman_if->udp_send_sock = socket(PF_INET, SOCK_DGRAM, 0);
 		if (batman_if->udp_send_sock < 0) {
 			fprintf(stderr, "Cannot create send socket: %s", strerror(errno));
+			close_all_sockets();
 			exit(EXIT_FAILURE);
 		}
 
@@ -733,6 +828,8 @@ int main(int argc, char *argv[])
 
 		if ( gateway_class != 0 ) {
 
+			batman_if->addr.sin_port = htons(PORT + 1);
+
 			batman_if->tcp_gw_sock = socket(PF_INET, SOCK_STREAM, 0);
 
 			if (batman_if->tcp_gw_sock < 0) {
@@ -758,6 +855,22 @@ int main(int argc, char *argv[])
 				close_all_sockets();
 				exit(EXIT_FAILURE);
 			}
+
+			batman_if->tunnel_sock = socket(PF_INET, SOCK_DGRAM, 0);
+			if (batman_if->tunnel_sock < 0) {
+				fprintf(stderr, "Cannot create tunnel socket: %s", strerror(errno));
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			if (bind(batman_if->tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in)) < 0)
+			{
+				fprintf(stderr, "Cannot bind tunnel socket: %s\n", strerror(errno));
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			batman_if->addr.sin_port = htons(PORT);
 
 			pthread_create(&batman_if->listen_thread_id, NULL, &gw_listen, batman_if);
 
@@ -816,13 +929,19 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	close( fd );
 
+	if ( debug_level > 0 )
+		printf("debug level: %i\n", debug_level);
 
-	if ( debug_level > 0 ) printf("debug level: %i\n", debug_level);
-	if ( ( debug_level > 0 ) && ( orginator_interval != 1000 ) ) printf( "orginator interval: %i\n", orginator_interval );
-	if ( ( debug_level > 0 ) && ( gateway_class > 0 ) ) printf( "gateway class: %i\n", gateway_class );
-	if ( ( debug_level > 0 ) && ( routing_class > 0 ) ) printf( "routing class: %i\n", routing_class );
+	if ( ( debug_level > 0 ) && ( orginator_interval != 1000 ) )
+		printf( "orginator interval: %i\n", orginator_interval );
+
+	if ( ( debug_level > 0 ) && ( gateway_class > 0 ) )
+		printf( "gateway class: %i\n", gateway_class );
+
+	if ( ( debug_level > 0 ) && ( routing_class > 0 ) )
+		printf( "routing class: %i\n", routing_class );
+
 	if ( ( debug_level > 0 ) && ( pref_gateway > 0 ) ) {
 		addr_to_string(pref_gateway, str1, sizeof (str1));
 		printf( "preferred gateway: %s\n", str1 );
