@@ -102,25 +102,35 @@ void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, i
 	addr = (struct sockaddr_in *)&route.rt_genmask;
 
 	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = 0xffffffff;
+	addr->sin_addr.s_addr = ( ( ( dest == 0 ) && ( router == 0 ) ) ? 0x00000000 : 0xffffffff );
 
 	route.rt_flags = RTF_HOST | RTF_UP;
+	route.rt_metric = 1;
 
-	if (dest != router)
+	if ( (dest != router) || ( ( dest == 0 ) && ( router == 0 ) ) )
 	{
 		addr = (struct sockaddr_in *)&route.rt_gateway;
 
 		addr->sin_family = AF_INET;
 		addr->sin_addr.s_addr = router;
 
-		route.rt_flags |= RTF_GATEWAY;
+		if ( ( dest == 0 ) && ( router == 0 ) ) {
 
-		output("%s route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+			route.rt_metric = 0;
+			route.rt_flags = RTF_UP;
+			output("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
+
+		} else {
+
+			route.rt_flags |= RTF_GATEWAY;
+			output("route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+
+		}
+
 	} else {
 		output("%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev);
 	}
 
-	route.rt_metric = 1;
 
 	route.rt_dev = dev;
 
@@ -164,7 +174,7 @@ int del_dev_tun( int fd ) {
 
 }
 
-int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd ) {
+int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	int tmp_fd;
 	struct ifreq ifr;
@@ -209,8 +219,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 
 	/* set ip of this end point of tunnel */
 	memset( &addr, 0, sizeof(addr) );
-// 	addr.sin_addr.s_addr = batman_if->addr.sin_addr.s_addr;
-	addr.sin_addr.s_addr = dest_addr;
+	addr.sin_addr.s_addr = tun_addr;
 	addr.sin_family = AF_INET;
 	memcpy( &ifr.ifr_addr, &addr, sizeof(struct sockaddr) );
 
@@ -224,21 +233,6 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 
 	}
 
-	/* TODO: remove dest_addr from function call */
-	/* set ip of this remote point of tunnel */
-	/*memset( &addr, 0, sizeof(addr) );
-	addr.sin_addr.s_addr = dest_addr;
-	addr.sin_family = AF_INET;
-	memcpy( &ifr.ifr_addr, &addr, sizeof(struct sockaddr) );
-
-	if ( ioctl( tmp_fd, SIOCSIFDSTADDR, &ifr) < 0 ) {
-
-		perror("SIOCSIFDSTADDR");
-		del_dev_tun( *fd );
-		close( tmp_fd );
-		return -1;
-
-	}*/
 
 	if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr) < 0 ) {
 

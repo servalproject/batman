@@ -160,9 +160,9 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 
-	if ( add_dev_tun( curr_gateway_batman_if, tmp_ip_holder.s_addr, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
+	if ( add_dev_tun( curr_gateway_batman_if->addr.sin_addr.s_addr, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
 
-// 		add_del_route( 0, curr_gateway_ip, 0, curr_gateway_tun_if, curr_gateway_tun_fd );
+		add_del_route( 0, 0, 0, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
 
 	} else {
 
@@ -267,7 +267,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-// 	add_del_route( 0, curr_gateway_ip, 1, curr_gateway_tun_if, curr_gateway_tun_fd );
+	add_del_route( 0, 0, 1, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
 
 	curr_gateway = NULL;
 
@@ -492,7 +492,7 @@ void *gw_listen( void *arg ) {
 
 	}
 
-	if ( add_dev_tun( batman_if, tmp_ip_holder.s_addr, tun_dev, &tun_fd ) < 0 ) {
+	if ( add_dev_tun( tmp_ip_holder.s_addr, tun_dev, &tun_fd ) < 0 ) {
 		printf( "Could not open tun device on interface: %s\n", gw_addr );
 		return NULL;
 	}

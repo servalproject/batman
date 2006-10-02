@@ -52,13 +52,6 @@ extern unsigned int pref_gateway;
 extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
 
-/*extern struct batman_if *curr_gateway_batman_if;
-extern unsigned int curr_gateway_ip;
-extern char *curr_gateway_tun_if;
-extern int curr_gateway_tcp_sock;
-extern int curr_gateway_tun_sock;
-extern int curr_gateway_tun_fd;*/
-
 extern int found_ifs;
 
 extern struct list_head if_list;
