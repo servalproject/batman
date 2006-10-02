@@ -197,8 +197,6 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 
 	}
 
-	fcntl( *fd, F_SETFL, O_NONBLOCK | O_ASYNC );
-
 
 	tmp_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
