@@ -589,11 +589,14 @@ void *gw_listen( void *arg ) {
 
 				list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
 
-					max_sock =max_sock_min;
+					max_sock = max_sock_min;
 
 					gw_client = list_entry(client_pos, struct gw_client, list);
 
 					if ( FD_ISSET( gw_client->sock, &tmp_wait_sockets ) ) {
+
+						if ( debug_level >= 1 )
+							addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
 
 						status = read( gw_client->sock, buff, sizeof( buff ) );
 
@@ -614,12 +617,12 @@ void *gw_listen( void *arg ) {
 							if ( status < 0 ) {
 
 								if ( debug_level >= 1 )
-									printf( "Cannot read message from client: %s\n", strerror(errno) );
+									printf( "Cannot read message from client %s: %s\n", str2, strerror(errno) );
 
 							} else {
 
 								if ( debug_level >= 1 )
-									printf( "Client closed connection ...\n" );
+									printf( "Client %s closed connection ...\n", str2 );
 
 							}
 
@@ -655,7 +658,7 @@ void *gw_listen( void *arg ) {
 
 			client_timeout = get_time();
 
-			max_sock =max_sock_min;
+			max_sock = max_sock_min;
 
 			list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
 
