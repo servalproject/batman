@@ -255,8 +255,37 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	}
 
-	close( tmp_fd );
+	if ( ioctl( tmp_fd, SIOCGIFMTU, &ifr ) < 0 ) {
+
+		perror("SIOCGIFMTU");
+		del_dev_tun( *fd );
+		close( tmp_fd );
+		return -1;
+
+	}
+
+	if ( ifr.ifr_mtu < 500 ) {
+
+		fprintf(stderr, "Warning: MTU smaller than 500 - cannot reduce MTU anymore\n" );
+
+	} else {
+
+		ifr.ifr_mtu -= 28;
+
+		if ( ioctl( tmp_fd, SIOCSIFMTU, &ifr ) < 0 ) {
+
+			perror("SIOCSIFMTU");
+			del_dev_tun( *fd );
+			close( tmp_fd );
+			return -1;
+
+		}
+
+	}
+
+
 	strncpy( tun_dev, ifr.ifr_name, IFNAMSIZ - 1 );
+	close( tmp_fd );
 
 	return 1;
 

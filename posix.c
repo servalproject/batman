@@ -91,11 +91,10 @@ void *client_to_gw_tun( void *arg ) {
 	struct gw_node *gw_node = (struct gw_node *)arg;
 	struct batman_if *curr_gateway_batman_if;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
-	struct in_addr tmp_ip_holder;
 	struct timeval tv;
 	int res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
 	unsigned int addr_len, curr_gateway_ip;
-	char curr_gateway_tun_if[IFNAMSIZ], tun_ip[] = "104.255.255.250\0";
+	char curr_gateway_tun_if[IFNAMSIZ];
 	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -115,13 +114,6 @@ void *client_to_gw_tun( void *arg ) {
 	my_addr.sin_port = htons(PORT + 1);
 	my_addr.sin_addr.s_addr = curr_gateway_batman_if->addr.sin_addr.s_addr;
 
-
-	if ( inet_pton(AF_INET, tun_ip, &tmp_ip_holder) < 1 ) {
-
-		printf( "Invalid tunnel IP specified: %s\n", tun_ip );
-		exit(EXIT_FAILURE);
-
-	}
 
 	/* connect to server (ask permission) */
 	if ( ( curr_gateway_tcp_sock = socket(PF_INET, SOCK_STREAM, 0) ) < 0 ) {
@@ -475,8 +467,8 @@ void *gw_listen( void *arg ) {
 	struct sockaddr_in addr;
 	struct in_addr tmp_ip_holder;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
-	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], tun_ip[] = "104.255.255.251\0";
-	int res, status, max_sock_min, max_sock, buff_len, tun_fd, i;
+	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], tun_ip[] = "104.255.255.254\0";
+	int res, status, max_sock_min, max_sock, buff_len, tun_fd;
 	unsigned int addr_len, client_timeout, buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -567,22 +559,21 @@ void *gw_listen( void *arg ) {
 			/* /dev/tunX activity */
 			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
 
-				if ( ( buff_len = read( tun_fd, buff, sizeof( buff ) ) ) < 0 ) {
+				/* not needed - kernel knows client adress and routes traffic directly */
+
+				fprintf(stderr, "Warning: data coming through tun device %s ?!\n", tun_dev);
+
+				/*if ( ( buff_len = read( tun_fd, buff, sizeof( buff ) ) ) < 0 ) {
 
 					fprintf(stderr, "Could not read data from %s: %s\n", tun_dev, strerror(errno));
 
 				} else {
 
-// 					if ( sendto(curr_gateway_tun_sock, buff, buff_len, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
-// 						fprintf(stderr, "Cannot send to gateway: %s\n", strerror(errno));
-// 					}
+					if ( sendto(curr_gateway_tun_sock, buff, buff_len, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
+						fprintf(stderr, "Cannot send to client: %s\n", strerror(errno));
+					}
 
-					printf( "recv: len= %d\n", buff_len );
-					for ( i = 0; i < buff_len; i++)
-						printf( "%02X", buff[i] );
-					printf("\n");
-
-				}
+				}*/
 
 			/* client sent keep alive */
 			} else {
