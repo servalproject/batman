@@ -31,8 +31,8 @@ Features
 Improved B.A.T.M.A.N-III algorithm 
 Free-BSD support 
 Mac OS-X support
-IP-Tunnels 
-Gateway detection 
+IP-Tunnels via UDP 
+Gateway classes 
 Multiple Interfaces support
 Support for a server that collects link-state information from each node to generate two
 dimensional or three dimensional topology graphs.
@@ -41,9 +41,6 @@ dimensional or three dimensional topology graphs.
 -------
 Roadmap
 -------
-
-So far IP-Tunnels use TCP in TCP - which is known to have bad performance
-when links are lossy. We are going to move to UDP for the IP-Tunnels.
 
 Testing, improvements in the documentation. 
 
@@ -88,12 +85,32 @@ it, copy the deamon to a location somewhere in your path, for example
 Use
 ---
 
-
 Make sure you have no firewall running that is blocking UDP port 1966. 
-Type in the B.A.T.M.A.N source-directory:
+
+I like examples - so let's start with them. I'll assume you perform the
+following steps in the batman source directory after compilation.
+
+Typical client usage example:
+
+./batman -p <ip of preferred gateway> -r 2  -o 2000 -s <visualisation-server ip> wlan0 eth1 ath0
+
+
+Typical gateway usage example:
+
+./batman -g 7 -o 2000 -s <visualisation-server ip> ath0 
+
+NOTE:
+
+You HAVE to select a routing class to connect to a gateway. The routing
+class will be used to look for a fallback gateway if the preferred gateway
+is unavailable. Level 2 or 3 is recommended. Level 1 is not really useable
+yet.
+
+Originator interval must be the same on all nodes in the mesh. 
+  
+Here's what you see if you start long help (with some extra comments)
 
 ./batman -H
-
 
 Usage: batman [options] interface [interface interface]
 
@@ -103,7 +120,7 @@ Usage: batman [options] interface [interface interface]
        -g gateway class
 
 	  Use this feature if you want to offer a internet gateway and tell
-	  clients what kind of gateway you are!
+	  clients how much speed is available.
 
           default:         0 -> this is not an internet gateway
           allowed values:  1 -> modem line
@@ -119,8 +136,8 @@ Usage: batman [options] interface [interface interface]
                           11 -> >6 MBit
 
        -h shorter help
-       -H this help
 
+       -H this help
 
        -o orginator interval in ms
           default: 1000, allowed values: >0
@@ -133,13 +150,18 @@ Usage: batman [options] interface [interface interface]
 
        -r routing class (only needed if gateway class = 0)
 
-	  If you are a client, this will select the way you choose an
+	  If you are a gateway-client, this will select the way you choose an
 	  internet-gateway
 
           default:         0 -> set no default route
           allowed values:  1 -> use fast internet connection
                            2 -> use stable internet connection
                            3 -> use best statistic internet connection (olsr style)
+
+	  1 -> not really usable yet
+	  2 -> use best connection to gateway, faster gateway class will be
+	       preferred if connection quality is similar
+	  3 -> use nearest gateway
 
        -s visualisation server
 
@@ -152,7 +174,7 @@ Usage: batman [options] interface [interface interface]
 
 
 Switch the output of runtime debugging messages to a low level if you want
-to test the software on a slow system.
+to test the software on a slow - embedded - system.
 
 We would love to see B.A.T.M.A.N in a match against other routing protocols
 in existing mesh networks. You can set up a virtual interface on an
@@ -164,7 +186,7 @@ IP-address within another network:
 
 ifconfig wlan0:0 103.30.30.30 netmask 255.0.0.0 broadcast 103.255.255.255
 
-./batman wlan0:0
+./batman -o 2000 wlan0:0
 
 Now you can check out which protocol works better.
 
