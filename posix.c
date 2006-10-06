@@ -184,7 +184,7 @@ void *client_to_gw_tun( void *arg ) {
 	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) ) {
 
 
-		if (server_keep_alive_timeout + 30 < get_time()) {
+		if (server_keep_alive_timeout + 30000 < get_time()) {
 
 			server_keep_alive_timeout = get_time();
 			strcpy (buff, "ping\0");
