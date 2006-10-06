@@ -94,7 +94,7 @@ void *client_to_gw_tun( void *arg ) {
 	struct timeval tv;
 	int res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd, server_keep_alive_timeout;
 	unsigned int addr_len, curr_gateway_ip;
-	char curr_gateway_tun_if[IFNAMSIZ];
+	char curr_gateway_tun_if[IFNAMSIZ], keep_alive_string[] = "ping\0";
 	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -155,7 +155,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 
-	if ( add_dev_tun( curr_gateway_batman_if->addr.sin_addr.s_addr, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
+	if ( add_dev_tun( curr_gateway_batman_if, curr_gateway_batman_if->addr.sin_addr.s_addr, curr_gateway_tun_if, &curr_gateway_tun_fd ) > 0 ) {
 
 		add_del_route( 0, 0, 0, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
 
@@ -184,11 +184,11 @@ void *client_to_gw_tun( void *arg ) {
 	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) ) {
 
 
-		if (server_keep_alive_timeout + 30000 < get_time()) {
+		if ( server_keep_alive_timeout + 30000 < get_time() ) {
 
 			server_keep_alive_timeout = get_time();
-			strcpy (buff, "ping\0");
-			if (write (curr_gateway_tcp_sock, buff,5) < 0) {
+
+			if ( write( curr_gateway_tcp_sock, keep_alive_string, sizeof( keep_alive_string ) ) < 0 ) {
 				fprintf(stderr, "server_keepalive failed: no connect to server\n");
 				break;
 			}
@@ -500,7 +500,7 @@ void *gw_listen( void *arg ) {
 
 	}
 
-	if ( add_dev_tun( tmp_ip_holder.s_addr, tun_dev, &tun_fd ) < 0 ) {
+	if ( add_dev_tun( batman_if, tmp_ip_holder.s_addr, tun_dev, &tun_fd ) < 0 ) {
 		printf( "Could not open tun device on interface: %s\n", gw_addr );
 		return NULL;
 	}

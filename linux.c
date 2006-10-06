@@ -174,15 +174,16 @@ int del_dev_tun( int fd ) {
 
 }
 
-int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
+int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	int tmp_fd;
-	struct ifreq ifr;
+	struct ifreq ifr_tun, ifr_if;
 	struct sockaddr_in addr;
 
 	/* set up tunnel device */
-	memset( &ifr, 0, sizeof(ifr) );
-	ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+	memset( &ifr_tun, 0, sizeof(ifr_tun) );
+	memset( &ifr_if, 0, sizeof(ifr_if) );
+	ifr_tun.ifr_flags = IFF_TUN | IFF_NO_PI;
 
 	if ( ( *fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
@@ -191,7 +192,7 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	}
 
-	if ( ( ioctl( *fd, TUNSETIFF, (void *) &ifr ) ) < 0 ) {
+	if ( ( ioctl( *fd, TUNSETIFF, (void *) &ifr_tun ) ) < 0 ) {
 
 		perror("TUNSETIFF");
 		close(*fd);
@@ -221,10 +222,10 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 	memset( &addr, 0, sizeof(addr) );
 	addr.sin_addr.s_addr = tun_addr;
 	addr.sin_family = AF_INET;
-	memcpy( &ifr.ifr_addr, &addr, sizeof(struct sockaddr) );
+	memcpy( &ifr_tun.ifr_addr, &addr, sizeof(struct sockaddr) );
 
 
-	if ( ioctl( tmp_fd, SIOCSIFADDR, &ifr) < 0 ) {
+	if ( ioctl( tmp_fd, SIOCSIFADDR, &ifr_tun) < 0 ) {
 
 		perror("SIOCSIFADDR");
 		del_dev_tun( *fd );
@@ -234,7 +235,7 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 	}
 
 
-	if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr) < 0 ) {
+	if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr_tun) < 0 ) {
 
 		perror("SIOCGIFFLAGS");
 		del_dev_tun( *fd );
@@ -243,10 +244,10 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	}
 
-	ifr.ifr_flags |= IFF_UP;
-	ifr.ifr_flags |= IFF_RUNNING;
+	ifr_tun.ifr_flags |= IFF_UP;
+	ifr_tun.ifr_flags |= IFF_RUNNING;
 
-	if ( ioctl( tmp_fd, SIOCSIFFLAGS, &ifr) < 0 ) {
+	if ( ioctl( tmp_fd, SIOCSIFFLAGS, &ifr_tun) < 0 ) {
 
 		perror("SIOCSIFFLAGS");
 		del_dev_tun( *fd );
@@ -255,7 +256,10 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	}
 
-	if ( ioctl( tmp_fd, SIOCGIFMTU, &ifr ) < 0 ) {
+	/* get MTU from real interface */
+	strncpy( ifr_if.ifr_name, batman_if->dev, IFNAMSIZ - 1 );
+
+	if ( ioctl( tmp_fd, SIOCGIFMTU, &ifr_if ) < 0 ) {
 
 		perror("SIOCGIFMTU");
 		del_dev_tun( *fd );
@@ -264,15 +268,16 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 
 	}
 
-	if ( ifr.ifr_mtu < 500 ) {
+	/* set MTU of tun interface: real MTU - 28 */
+	if ( ifr_if.ifr_mtu < 100 ) {
 
-		fprintf(stderr, "Warning: MTU smaller than 500 - cannot reduce MTU anymore\n" );
+		fprintf(stderr, "Warning: MTU smaller than 100 - cannot reduce MTU anymore\n" );
 
 	} else {
 
-		ifr.ifr_mtu -= 28;
+		ifr_tun.ifr_mtu = ifr_if.ifr_mtu - 28;
 
-		if ( ioctl( tmp_fd, SIOCSIFMTU, &ifr ) < 0 ) {
+		if ( ioctl( tmp_fd, SIOCSIFMTU, &ifr_tun ) < 0 ) {
 
 			perror("SIOCSIFMTU");
 			del_dev_tun( *fd );
@@ -284,7 +289,7 @@ int add_dev_tun( unsigned int tun_addr, char *tun_dev, int *fd ) {
 	}
 
 
-	strncpy( tun_dev, ifr.ifr_name, IFNAMSIZ - 1 );
+	strncpy( tun_dev, ifr_tun.ifr_name, IFNAMSIZ - 1 );
 	close( tmp_fd );
 
 	return 1;
