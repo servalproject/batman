@@ -92,7 +92,7 @@ void *client_to_gw_tun( void *arg ) {
 	struct batman_if *curr_gateway_batman_if;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
-	int res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd;
+	int res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd, server_keep_alive_timeout;
 	unsigned int addr_len, curr_gateway_ip;
 	char curr_gateway_tun_if[IFNAMSIZ];
 	unsigned char buff[1500];
@@ -117,7 +117,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	/* connect to server (ask permission) */
 	if ( ( curr_gateway_tcp_sock = socket(PF_INET, SOCK_STREAM, 0) ) < 0 ) {
-
+		
 		perror("socket");
 		curr_gateway = NULL;
 		return NULL;
@@ -133,6 +133,9 @@ void *client_to_gw_tun( void *arg ) {
 
 	}
 
+	server_keep_alive_timeout = get_time();
+	
+	
 	/* connect to server (establish udp tunnel) */
 	if ( ( curr_gateway_tun_sock = socket(PF_INET, SOCK_DGRAM, 0) ) < 0 ) {
 
@@ -180,13 +183,26 @@ void *client_to_gw_tun( void *arg ) {
 
 	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) ) {
 
+
+		if (server_keep_alive_timeout + 30 >= get_time()) {
+		
+			server_keep_alive_timeout = get_time();
+			strcpy (buff, "ping\0");
+			if (write (curr_gateway_tcp_sock, buff,5) < 0) {
+				fprintf(stderr, "server_keepalive failed: no connect to server\n");
+				break;
+			}
+
+		}
+		
+		
 		tv.tv_sec = 0;
 		tv.tv_usec = 250;
 
 		tmp_wait_sockets = wait_sockets;
 
 		res = select(max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv);
-
+		
 		if ( res > 0 ) {
 
 			/* tcp message from server */
