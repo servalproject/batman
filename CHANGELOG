@@ -1,9 +1,10 @@
 
 version 0.1
 ^^^^^^^^^^^
+
 documentation:
 
-- english documentation updated to 0.10-rc0 - please have a look at it
+- english documentation updated to 0.1-rc0 - please have a look at it
 - german documentation is unmaintained - maybe remove it? too lazy to write a translation at the moment...
 - changed the name in the documentation and in posix.c to B.A.T.M.A.N-III, since we made quite some changes in the algorithm
 - added the textfile 'THANKS'
@@ -17,6 +18,7 @@ new functions:
 - set orginator interval via command line switch
 - batman version check added
 - preferred gateway funtion added
+- UDP tunnel implemented
 - FreeBSD support added
 - Mac OS X support added
 
