@@ -876,7 +876,7 @@ int main(int argc, char *argv[])
 		}
 
 		memset(&int_req, 0, sizeof (struct ifreq));
-		strcpy(int_req.ifr_name, batman_if->dev);
+		strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
 
 		if (ioctl(batman_if->udp_recv_sock, SIOCGIFADDR, &int_req) < 0)
 		{
