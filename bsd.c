@@ -45,8 +45,7 @@ void set_forwarding(int state)
 
 	/* FreeBSD allows us to set the boolean IP forwarding
 	 * sysctl to anything. Check the value for sanity. */
-	if (state < 0 || state > 1)
-	{
+	if (state < 0 || state > 1) {
 		errno = EINVAL;
 		err(1, "set_forwarding: %i", state);
 	}
@@ -58,9 +57,7 @@ void set_forwarding(int state)
 	mib[3] = IPCTL_FORWARDING;
 
 	if (sysctl(mib, 4, NULL, 0, (void*)&state, sizeof(state)) == -1)
-	{
 		err(1, "Cannot enable packet forwarding");
-	}
 }
 
 int get_forwarding(void)
@@ -78,16 +75,16 @@ int get_forwarding(void)
 	len = sizeof(int);
 
 	if (sysctl(mib, 4, &state, &len, NULL, 0) == -1)
-	{
 		err(1, "Cannot tell if packet forwarding is enabled");
-	}
+
 	return state;
 }
 
-int bind_to_iface( int udp_recv_sock, char *dev ) {
-
+int bind_to_iface( int udp_recv_sock, char *dev )
+{
+	/* XXX: Is binding a socket to a specific
+	 * interface possible in *BSD? */
 	return 1;
-
 }
 
 /* Message structure used to interface the kernel routing table.
@@ -174,8 +171,7 @@ void add_del_route(unsigned int dest, unsigned int router, int del,
 	do {
 		msg.hdr.rtm_seq = seq;
 		len = write(rt_sock, &msg, msg.hdr.rtm_msglen);
-		if (len < 0)
-		{
+		if (len < 0) {
 			warn("Error sending routing message to kernel");
 			err(1, "Cannot %s route to %s",
 				del ? "delete" : "add", str1);
@@ -190,15 +186,14 @@ void add_del_route(unsigned int dest, unsigned int router, int del,
 	} while (len > 0 && (msg.hdr.rtm_seq != seq || msg.hdr.rtm_pid != pid));
 
 	/* Evaluate reply */
-	if (msg.hdr.rtm_version != RTM_VERSION)
-	{
+	if (msg.hdr.rtm_version != RTM_VERSION) {
 		warn("routing message version mismatch: "
 		    "compiled with version %i, "
 		    "but running kernel uses version %i", RTM_VERSION,
 		    msg.hdr.rtm_version);
 	}
-	if (msg.hdr.rtm_errno)
-	{
+
+	if (msg.hdr.rtm_errno) {
 		errno = msg.hdr.rtm_errno;
 		err(1, "Cannot %s route to %s",
 			del ? "delete" : "add", str1);
@@ -224,7 +219,7 @@ int open_tun_any(void)
 		}
 	}
 	return -1;
-};
+}
 #elif defined(__FreeBSD__)
 int open_tun_any(void)
 {
