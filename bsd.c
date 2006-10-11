@@ -21,9 +21,15 @@
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/route.h>
+#include <net/if.h>
+#include <net/if_tun.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -199,20 +205,119 @@ void add_del_route(unsigned int dest, unsigned int router, int del,
 	}
 }
 
-int del_dev_tun(int fd)
+#if defined(__OpenBSD__)
+int open_tun_any(void)
 {
-	/* Implement me! */
-	return 1;
-}
+	int i;
+	int fd;
+	char tundev[12]; /* "/dev/tunxxx\0" */
 
-int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, int *fd )
+	for (i = 0; i < sizeof(tundev); i++)
+		tundev[i] = '\0';
+
+	/* Try opening tun device /dev/tun[0..255] */
+	for (i = 0; i < 256; i++) {
+		snprintf(tundev, sizeof(tundev), "/dev/tun%i", i);
+		if ((fd = open(tundev, O_RDWR)) >= 0) {
+			printf("Using /dev/tun%i\n", i);
+			return fd;
+		}
+	}
+	return -1;
+};
+#elif defined(__FreeBSD__)
+int open_tun_any(void)
 {
-	/* Implement me! */
-	return 0;
-}
+	int fd;
+	struct stat buf;
 
+	/* Open lowest unused tun device */
+	if ((fd = open("/dev/tun", O_RDWR)) >= 0) {
+		fstat(fd, &buf);
+		printf("Using %s\n", devname(buf.st_rdev, S_IFCHR));
+		return fd;
+	}
+	return -1;
+}
+#endif
+
+/* Probe for tun interface availability */
 int probe_tun()
 {
-	/* Implement me! */
-	return 0;
+	int fd;
+	fd = open_tun_any();
+	if (fd > 0)
+		close(fd);
+	return fd;
+}
+
+int del_dev_tun(int fd)
+{
+	return close(fd);
+}
+
+int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, int *fd)
+{
+	struct ifreq ifr_tun, ifr_if;
+	struct tuninfo ti;
+	struct sockaddr_in addr;
+
+	/* set up tunnel device */
+	memset(&ifr_tun, 0, sizeof(ifr_tun));
+	memset(&ifr_if, 0, sizeof(ifr_if));
+
+	if ((*fd = open_tun_any()) < 0) {
+		perror("Could not open tun device");
+		return -1;
+	}
+
+	/* set ip of this end point of tunnel */
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_addr.s_addr = tun_addr;
+	addr.sin_family = AF_INET;
+	memcpy(&ifr_tun.ifr_addr, &addr, sizeof(struct sockaddr));
+
+	if (ioctl(*fd, SIOCSIFADDR, &ifr_tun) < 0) {
+		perror("SIOCSIFADDR");
+		del_dev_tun(*fd);
+		return -1;
+	}
+
+	if (ioctl(*fd, SIOCGIFFLAGS, &ifr_tun) < 0) {
+		perror("SIOCGIFFLAGS");
+		del_dev_tun(*fd);
+		return -1;
+	}
+
+	ifr_tun.ifr_flags |= IFF_UP;
+	ifr_tun.ifr_flags |= IFF_RUNNING;
+
+	if (ioctl(*fd, SIOCSIFFLAGS, &ifr_tun) < 0) {
+		perror("SIOCSIFFLAGS");
+		del_dev_tun(*fd);
+		return -1;
+	}
+
+	/* get MTU from real interface */
+	strncpy(ifr_if.ifr_name, batman_if->dev, IFNAMSIZ - 1);
+	if (ioctl(*fd, SIOCGIFMTU, &ifr_if) < 0) {
+		perror("SIOCGIFMTU");
+		del_dev_tun(*fd);
+		return -1;
+	}
+
+	/* set MTU of tun interface: real MTU - 28 */
+	if (ifr_if.ifr_mtu < 100) {
+		fprintf(stderr, "Warning: MTU smaller than 100 - cannot reduce MTU anymore\n" );
+	} else {
+		ti.mtu = ifr_if.ifr_mtu - 28;
+		if (ioctl(*fd, TUNSIFMODE, &ti) < 0) {
+			perror("TUNSIFMODE");
+			del_dev_tun(*fd);
+			return -1;
+		}
+	}
+
+	strncpy(tun_dev, ifr_tun.ifr_name, IFNAMSIZ - 1);
+	return 1;
 }
