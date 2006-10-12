@@ -260,9 +260,16 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 	/* set up tunnel device */
 	memset(&ifr_tun, 0, sizeof(ifr_tun));
 	memset(&ifr_if, 0, sizeof(ifr_if));
+	memset(&ti, 0, sizeof(ti));
 
 	if ((*fd = open_tun_any()) < 0) {
 		perror("Could not open tun device");
+		return -1;
+	}
+
+	if (ioctl(*fd, TUNGIFINFO, &ti) < 0) {
+		perror("TUNGIFINFO");
+		del_dev_tun(*fd);
 		return -1;
 	}
 
@@ -306,8 +313,8 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 		fprintf(stderr, "Warning: MTU smaller than 100 - cannot reduce MTU anymore\n" );
 	} else {
 		ti.mtu = ifr_if.ifr_mtu - 28;
-		if (ioctl(*fd, TUNSIFMODE, &ti) < 0) {
-			perror("TUNSIFMODE");
+		if (ioctl(*fd, TUNSIFINFO, &ti) < 0) {
+			perror("TUNSIFINFO");
 			del_dev_tun(*fd);
 			return -1;
 		}
