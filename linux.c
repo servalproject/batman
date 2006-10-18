@@ -174,7 +174,7 @@ int del_dev_tun( int fd ) {
 
 }
 
-int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, int *fd ) {
+int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, size_t tun_dev_size, int *fd ) {
 
 	int tmp_fd;
 	struct ifreq ifr_tun, ifr_if;
@@ -289,7 +289,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 	}
 
 
-	strncpy( tun_dev, ifr_tun.ifr_name, IFNAMSIZ - 1 );
+	strncpy( tun_dev, ifr_tun.ifr_name, tun_dev_size - 1 );
 	close( tmp_fd );
 
 	return 1;

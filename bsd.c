@@ -200,28 +200,37 @@ void add_del_route(unsigned int dest, unsigned int router, int del,
 	}
 }
 
-#if defined(__OpenBSD__)
-int open_tun_any(void)
+/*
+ * open_tun_any() opens an available tun device.
+ * It returns the file descriptor as return value,
+ * or -1 on failure.
+ *
+ * The human readable name of the device (e.g. "/dev/tun0") is
+ * copied into the dev_name parameter. The buffer to hold
+ * this string is assumed to be dev_name_size bytes large.
+ */
+#if defined(__OpenBSD__) || defined(__Darwin__)
+int open_tun_any(char *dev_name, size_t dev_name_size)
 {
 	int i;
 	int fd;
-	char tundev[12]; /* "/dev/tunxxx\0" */
+	char tun_dev_name[12]; /* 12 = length("/dev/tunxxx\0") */
 
-	for (i = 0; i < sizeof(tundev); i++)
-		tundev[i] = '\0';
+	for (i = 0; i < sizeof(tun_dev_name); i++)
+		tun_dev_name[i] = '\0';
 
 	/* Try opening tun device /dev/tun[0..255] */
 	for (i = 0; i < 256; i++) {
-		snprintf(tundev, sizeof(tundev), "/dev/tun%i", i);
-		if ((fd = open(tundev, O_RDWR)) >= 0) {
-			printf("Using /dev/tun%i\n", i);
+		snprintf(tun_dev_name, sizeof(tun_dev_name), "/dev/tun%i", i);
+		if ((fd = open(tun_dev_name, O_RDWR)) >= 0) {
+			strlcpy(dev_name, tun_dev_name, dev_name_size);
 			return fd;
 		}
 	}
 	return -1;
 }
 #elif defined(__FreeBSD__)
-int open_tun_any(void)
+int open_tun_any(char *dev_name, size_t dev_name_size)
 {
 	int fd;
 	struct stat buf;
@@ -230,6 +239,7 @@ int open_tun_any(void)
 	if ((fd = open("/dev/tun", O_RDWR)) >= 0) {
 		fstat(fd, &buf);
 		printf("Using %s\n", devname(buf.st_rdev, S_IFCHR));
+		strlcpy(dev_name, devname(buf.st_rdev, S_IFCHR), dev_name_size);
 		return fd;
 	}
 	return -1;
@@ -240,8 +250,8 @@ int open_tun_any(void)
 int probe_tun()
 {
 	int fd;
-	fd = open_tun_any();
-	if (fd > 0)
+	fd = open_tun_any(NULL, 0);
+	if (fd >= 0)
 		close(fd);
 	return fd;
 }
@@ -251,8 +261,9 @@ int del_dev_tun(int fd)
 	return close(fd);
 }
 
-int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, int *fd)
+int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, size_t tun_dev_size, int *fd)
 {
+	int so;
 	struct ifreq ifr_tun, ifr_if;
 	struct tuninfo ti;
 	struct sockaddr_in addr;
@@ -262,46 +273,58 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 	memset(&ifr_if, 0, sizeof(ifr_if));
 	memset(&ti, 0, sizeof(ti));
 
-	if ((*fd = open_tun_any()) < 0) {
+	/* Open tun device. */
+	if ((*fd = open_tun_any(tun_dev, tun_dev_size)) < 0) {
 		perror("Could not open tun device");
 		return -1;
 	}
 
+	printf("Using %s\n", tun_dev);
+
+	/* Initialise tuninfo to defaults. */
 	if (ioctl(*fd, TUNGIFINFO, &ti) < 0) {
 		perror("TUNGIFINFO");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
-	/* set ip of this end point of tunnel */
+	/* Prepare to set IP of this end point of tunnel */
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_addr.s_addr = tun_addr;
 	addr.sin_family = AF_INET;
 	memcpy(&ifr_tun.ifr_addr, &addr, sizeof(struct sockaddr));
 
-	if (ioctl(*fd, SIOCSIFADDR, &ifr_tun) < 0) {
+	/* Set name of interface to configure */
+	strlcpy(ifr_tun.ifr_name, tun_dev, IFNAMSIZ);
+
+	/* Open temporary socket to configure tun interface. */
+	so = socket(AF_INET, SOCK_DGRAM, 0);
+
+	/* Set IP of this end point of tunnel */
+	if (ioctl(so, SIOCSIFADDR, &ifr_tun, sizeof(ifr_tun)) < 0) {
 		perror("SIOCSIFADDR");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
-	if (ioctl(*fd, SIOCGIFFLAGS, &ifr_tun) < 0) {
+	/* Get interface flags for tun device */
+	if (ioctl(so, SIOCGIFFLAGS, &ifr_tun) < 0) {
 		perror("SIOCGIFFLAGS");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
+	/* Set up and running interface flags on tun device. */
 	ifr_tun.ifr_flags |= IFF_UP;
 	ifr_tun.ifr_flags |= IFF_RUNNING;
-
-	if (ioctl(*fd, SIOCSIFFLAGS, &ifr_tun) < 0) {
+	if (ioctl(so, SIOCSIFFLAGS, &ifr_tun) < 0) {
 		perror("SIOCSIFFLAGS");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
 	/* get MTU from real interface */
-	strncpy(ifr_if.ifr_name, batman_if->dev, IFNAMSIZ - 1);
+	strlcpy(ifr_if.ifr_name, batman_if->dev, IFNAMSIZ);
 	if (ioctl(*fd, SIOCGIFMTU, &ifr_if) < 0) {
 		perror("SIOCGIFMTU");
 		del_dev_tun(*fd);
@@ -320,6 +343,6 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 		}
 	}
 
-	strncpy(tun_dev, ifr_tun.ifr_name, IFNAMSIZ - 1);
+	strlcpy(tun_dev, ifr_tun.ifr_name, tun_dev_size);
 	return 1;
 }
