@@ -301,8 +301,10 @@ void del_default_route() {
 
 int add_default_route() {
 
-	if (pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gateway ) != 0)
+	if (pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gateway ) != 0) {
 		perror("Could not spawn thread");
+		curr_gateway = NULL;
+	}
 
 	return 1;
 
