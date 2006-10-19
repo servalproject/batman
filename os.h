@@ -39,5 +39,6 @@ int bind_to_iface( int udp_recv_sock, char *dev );
 int probe_tun();
 int del_dev_tun( int fd );
 int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, size_t tun_dev_size, int *fd );
+void do_log( char *description, char *error_msg );
 
 #endif

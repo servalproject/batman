@@ -92,7 +92,7 @@ int bind_to_iface( int udp_recv_sock, char *dev ) {
 void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, int sock)
 {
 	struct rtentry route;
-	char str1[16], str2[16];
+	char str1[16], str2[16], log_str[100];
 	struct sockaddr_in *addr;
 
 	inet_ntop(AF_INET, &dest, str1, sizeof (str1));
@@ -124,27 +124,43 @@ void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, i
 
 			route.rt_metric = 0;
 			route.rt_flags = RTF_UP;
-			output("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
+
+			if ( debug_level == 1 ) {
+				printf("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
+			} else if ( debug_level == 3 ) {
+				output("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
+			}
 
 		} else {
 
 			route.rt_flags |= RTF_GATEWAY;
-			output("route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+
+			if ( debug_level == 1 ) {
+				printf("%s route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+			} else if ( debug_level == 3 ) {
+				output("%s route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+			}
 
 		}
 
 	} else {
-		output("%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev);
+
+		if ( debug_level == 1 ) {
+			printf("%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev);
+		} else if ( debug_level == 3 ) {
+			output("%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev);
+		}
+
 	}
 
 
 	route.rt_dev = dev;
 
-	if (ioctl(sock, del ? SIOCDELRT : SIOCADDRT, &route) < 0)
-	{
-		fprintf(stderr, "Cannot %s route to %s via %s: %s\n",
-			del ? "delete" : "add", str1, str2, strerror(errno));
+	if ( ioctl( sock, del ? SIOCDELRT : SIOCADDRT, &route ) < 0 ) {
+		snprintf( log_str, sizeof( log_str ), "Error - can't %s route to %s via %s: %s\n", del ? "delete" : "add", str1, str2, strerror(errno) );
+		do_log( log_str, strerror(errno) );
 	}
+
 }
 
 /* Probe for tun interface availability */
@@ -154,7 +170,7 @@ int probe_tun()
 
 	if ( ( fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
-		fprintf( stderr, "Error - could not open '/dev/net/tun' ! Is the tun kernel module loaded ?\n" );
+		do_log( "Error - could not open '/dev/net/tun' ! Is the tun kernel module loaded ?\n", strerror(errno) );
 		return 0;
 
 	}
@@ -169,7 +185,7 @@ int del_dev_tun( int fd ) {
 
 	if ( ioctl( fd, TUNSETPERSIST, 0 ) < 0 ) {
 
-		perror("TUNSETPERSIST");
+		do_log( "Error - can't delete tun device: %s\n", strerror(errno) );
 		return -1;
 
 	}
@@ -193,14 +209,14 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 	if ( ( *fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
-		perror("/dev/net/tun");
+		do_log( "Error - can't create tun device (/dev/net/tun): %s\n", strerror(errno) );
 		return -1;
 
 	}
 
 	if ( ( ioctl( *fd, TUNSETIFF, (void *) &ifr_tun ) ) < 0 ) {
 
-		perror("TUNSETIFF");
+		do_log( "Error - can't create tun device (TUNSETIFF): %s\n", strerror(errno) );
 		close(*fd);
 		return -1;
 
@@ -208,7 +224,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 	if ( ioctl( *fd, TUNSETPERSIST, 1 ) < 0 ) {
 
-		perror("TUNSETPERSIST");
+		do_log( "Error - can't create tun device (TUNSETPERSIST): %s\n", strerror(errno) );
 		close(*fd);
 		return -1;
 
@@ -218,7 +234,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 	tmp_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
 	if ( tmp_fd < 0 ) {
-		fprintf(stderr, "Cannot create send socket: %s", strerror(errno));
+		do_log( "Error - can't create tun device (udp socket): %s\n", strerror(errno) );
 		del_dev_tun( *fd );
 		return -1;
 	}
@@ -233,7 +249,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 	if ( ioctl( tmp_fd, SIOCSIFADDR, &ifr_tun) < 0 ) {
 
-		perror("SIOCSIFADDR");
+		do_log( "Error - can't create tun device (SIOCSIFADDR): %s\n", strerror(errno) );
 		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
@@ -243,7 +259,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 	if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr_tun) < 0 ) {
 
-		perror("SIOCGIFFLAGS");
+		do_log( "Error - can't create tun device (SIOCGIFFLAGS): %s\n", strerror(errno) );
 		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
@@ -255,7 +271,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 	if ( ioctl( tmp_fd, SIOCSIFFLAGS, &ifr_tun) < 0 ) {
 
-		perror("SIOCSIFFLAGS");
+		do_log( "Error - can't create tun device (SIOCSIFFLAGS): %s\n", strerror(errno) );
 		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
@@ -267,7 +283,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 	if ( ioctl( tmp_fd, SIOCGIFMTU, &ifr_if ) < 0 ) {
 
-		perror("SIOCGIFMTU");
+		do_log( "Error - can't create tun device (SIOCGIFMTU): %s\n", strerror(errno) );
 		del_dev_tun( *fd );
 		close( tmp_fd );
 		return -1;
@@ -277,7 +293,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 	/* set MTU of tun interface: real MTU - 28 */
 	if ( ifr_if.ifr_mtu < 100 ) {
 
-		fprintf(stderr, "Warning: MTU smaller than 100 - cannot reduce MTU anymore\n" );
+		do_log( "Warning - MTU smaller than 100 -> can't reduce MTU anymore\n", strerror(errno) );
 
 	} else {
 
@@ -285,7 +301,7 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_d
 
 		if ( ioctl( tmp_fd, SIOCSIFMTU, &ifr_tun ) < 0 ) {
 
-			perror("SIOCSIFMTU");
+			do_log( "Error - can't create tun device (SIOCSIFMTU): %s\n", strerror(errno) );
 			del_dev_tun( *fd );
 			close( tmp_fd );
 			return -1;

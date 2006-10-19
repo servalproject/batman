@@ -143,7 +143,7 @@ struct orig_node *get_orig_node( unsigned int addr )
 			return orig_node;
 	}
 
-	if (debug_level >= 2)
+	if (debug_level == 3)
 		output("Creating new originator\n");
 
 	orig_node = alloc_memory(sizeof(struct orig_node));
@@ -177,12 +177,10 @@ static void choose_gw()
 
 		if ( curr_gateway != NULL ) {
 
-			if (debug_level >= 1)
-				output( "Removing default route - no gateway in range\n" );
+			if (debug_level == 1)
+				printf( "Removing default route - no gateway in range\n" );
 
 			del_default_route();
-
-			curr_gateway = NULL;
 
 		}
 
@@ -227,9 +225,9 @@ static void choose_gw()
 
 			tmp_curr_gw = gw_node;
 
-			if (debug_level >= 1) {
+			if (debug_level == 1) {
 				addr_to_string( tmp_curr_gw->orig_node->orig, orig_str, ADDR_STR_LEN );
-				output( "Preferred gateway found: %s (%i,%i,%i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->packet_count, ( gw_node->orig_node->packet_count * gw_node->orig_node->gwflags ) );
+				printf( "Preferred gateway found: %s (%i,%i,%i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->packet_count, ( gw_node->orig_node->packet_count * gw_node->orig_node->gwflags ) );
 			}
 
 			break;
@@ -243,8 +241,8 @@ static void choose_gw()
 
 		if ( curr_gateway != NULL ) {
 
-			if (debug_level >= 1)
-				output( "Removing default route - better gateway found\n" );
+			if (debug_level == 1)
+				printf( "Removing default route - better gateway found\n" );
 
 			del_default_route();
 
@@ -255,15 +253,14 @@ static void choose_gw()
 		/* may be the last gateway is now gone */
 		if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
 
-			if (debug_level >= 1) {
+			if (debug_level == 1) {
 				addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
-				output( "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
+				printf( "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
 			}
 
-		}
-
-		if ( !is_aborted() )
 			add_default_route();
+
+		}
 
 	}
 
@@ -281,7 +278,7 @@ static void update_routes( struct orig_node *orig_node )
 	int max_pack, max_ttl, neigh_ttl[found_ifs], neigh_pkts[found_ifs];
 	static char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
 
-	if (debug_level >= 2)
+	if (debug_level == 3)
 		output("update_routes() \n");
 
 	max_ttl  = 0;
@@ -313,13 +310,13 @@ static void update_routes( struct orig_node *orig_node )
 			max_ttl = neigh_ttl[max_if->if_num];
 
 			next_hop = neigh_node;
-			if (debug_level >= 2)
+			if (debug_level == 3)
 				output("%d living received packets via selected router \n", neigh_pkts[max_if->if_num] );
 		}
 	}
 
 	if (next_hop != NULL) {
-		if (debug_level >= 2) {
+		if (debug_level == 3) {
 			addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
 			addr_to_string(next_hop->addr, next_str, ADDR_STR_LEN);
 			output("Route to %s via %s\n", orig_str, next_str);
@@ -328,17 +325,18 @@ static void update_routes( struct orig_node *orig_node )
 		orig_node->packet_count = neigh_pkts[max_if->if_num];
 
 		if (orig_node->router != next_hop->addr) {
-			if (debug_level >= 2)
+			if (debug_level == 3)
 			output("Route changed\n");
 
 			if (orig_node->router != 0) {
-				if (debug_level >= 2)
+				if (debug_level == 3)
 					output("Deleting previous route\n");
 
 				add_del_route(orig_node->orig, orig_node->router, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
 			}
 
-			if (debug_level >= 2) { output("Adding new route\n");  }
+			if (debug_level == 3)
+				output("Adding new route\n");
 
 
 			/* TODO: maybe the order delete, add should be changed ???? */
@@ -364,10 +362,10 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 		if ( gw_node->orig_node == orig_node ) {
 
-			if (debug_level >= 1) {
+			if (debug_level == 1) {
 
 				addr_to_string( gw_node->orig_node->orig, orig_str, ADDR_STR_LEN );
-				output( "Gateway class of originator %s changed from %i to %i\n", orig_str, gw_node->orig_node->gwflags, new_gwflags );
+				printf( "Gateway class of originator %s changed from %i to %i\n", orig_str, gw_node->orig_node->gwflags, new_gwflags );
 
 			}
 
@@ -376,8 +374,8 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 				list_del(gw_pos);
 				free_memory(gw_pos);
 
-				if (debug_level >= 1)
-					output( "Gateway %s removed from gateway list\n", orig_str );
+				if (debug_level == 1)
+					printf( "Gateway %s removed from gateway list\n", orig_str );
 
 			} else {
 
@@ -392,9 +390,9 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 	}
 
-	if (debug_level >= 1) {
+	if (debug_level == 1) {
 		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
-		output( "Found new gateway %s with class %i\n", orig_str, new_gwflags );
+		printf( "Found new gateway %s with class %i\n", orig_str, new_gwflags );
 	}
 
 	gw_node = alloc_memory(sizeof(struct gw_node));
@@ -418,10 +416,10 @@ static void debug()
 	static char str[ADDR_STR_LEN];
 	int l;
 
-	if (debug_level < 2)
+	if (debug_level != 2)
 		return;
 
-	if (debug_level >= 2) {
+	if (debug_level == 2) {
 		output("------------------ DEBUG ------------------\n");
 		output("Forward list\n");
 
@@ -489,7 +487,6 @@ int isDuplicate(unsigned int orig, unsigned short seqno)
 					pack_node = list_entry(pack_pos, struct pack_node, list);
 
 					if (orig_node->orig == orig && pack_node->seqno == seqno){
-	/* 					if (debug_level >= 2)  {  output("isDuplicate(): YES \n");  } */
 						return 1;
 					}
 
@@ -524,7 +521,7 @@ struct orig_node *update_last_hop(struct packet *in, unsigned int neigh)
 {
 	struct orig_node *orig_neigh_node;
 
-	if (debug_level >= 3) {
+	if (debug_level == 3) {
 		output("update_last_hop(): Searching originator entry of last-hop neighbour of received packet \n"); }
 	orig_neigh_node = get_orig_node( neigh );
 
@@ -541,7 +538,7 @@ void update_originator(struct packet *in, unsigned int neigh, struct batman_if *
 	struct neigh_node *neigh_node = NULL;
 	struct pack_node *pack_node = NULL;
 
-	if (debug_level >= 3)
+	if (debug_level == 3)
 		output("update_originator(): Searching and updating originator entry of received packet,  \n");
 
 	orig_node = get_orig_node( in->orig );
@@ -562,7 +559,7 @@ void update_originator(struct packet *in, unsigned int neigh, struct batman_if *
 	}
 
 	if (neigh_node == NULL)  {
-		if (debug_level >= 2)
+		if (debug_level == 3)
 			output("Creating new last-hop neighbour of originator\n");
 
 		neigh_node = alloc_memory(sizeof (struct neigh_node));
@@ -572,7 +569,7 @@ void update_originator(struct packet *in, unsigned int neigh, struct batman_if *
 		neigh_node->addr = neigh;
 
 		list_add_tail(&neigh_node->list, &orig_node->neigh_list);
-	} else if (debug_level >= 2)
+	} else if (debug_level == 3)
 		output("Updating existing last-hop neighbour of originator\n");
 
 	list_for_each(pack_pos, &neigh_node->pack_list) {
@@ -583,7 +580,7 @@ void update_originator(struct packet *in, unsigned int neigh, struct batman_if *
 	}
 
 	if (pack_node == NULL)  {
-		if (debug_level >= 2)
+		if (debug_level == 3)
 			output("Creating new packet entry for last-hop neighbor of originator \n");
 
 		pack_node = alloc_memory(sizeof (struct pack_node));
@@ -593,7 +590,8 @@ void update_originator(struct packet *in, unsigned int neigh, struct batman_if *
 		pack_node->if_incoming = if_incoming;
 		list_add_tail(&pack_node->list, &neigh_node->pack_list);
 	} else
-		output("ERROR - Updating existing packet\n");
+		if (debug_level == 3)
+			output("ERROR - Updating existing packet\n");
 
 	neigh_node->best_ttl = in->ttl;
 	pack_node->ttl = in->ttl;
@@ -608,14 +606,14 @@ void schedule_forward_packet( struct packet *in, int unidirectional, struct orig
 	struct forw_node *forw_node, *forw_node_new;
 	struct list_head *forw_pos;
 
-	if (debug_level >= 2)
+	if (debug_level == 3)
 		output("schedule_forward_packet():  \n");
 
 	if (in->ttl <= 1) {
-		if (debug_level >= 2)
+		if (debug_level == 3)
 			output("ttl exceeded \n");
 	} else if ( ( orig_node->router != neigh ) && ( orig_node->router != 0 ) ) {
-		if (debug_level >= 2)
+		if (debug_level == 3)
 			output("not my best neighbour\n");
 	} else {
 
@@ -627,7 +625,7 @@ void schedule_forward_packet( struct packet *in, int unidirectional, struct orig
 		forw_node_new->pack.ttl--;
 
 		if (unidirectional) {
-			if (debug_level >= 2)
+			if (debug_level == 3)
 				output("sending with unidirectional flag \n");
 
 			forw_node_new->pack.flags = (forw_node_new->pack.flags | UNIDIRECTIONAL);
@@ -663,7 +661,7 @@ void send_outstanding_packets()
 		{
 			pack = &forw_node->pack;
 
-			if (debug_level >= 2) {
+			if (debug_level == 3) {
 				addr_to_string(pack->orig, orig_str, ADDR_STR_LEN);
 				output("Forwarding packet (originator %s, seqno %d, TTL %d)\n",
 						 orig_str, pack->seqno, pack->ttl);
@@ -736,7 +734,7 @@ void purge()
 	int gw_purged = 0;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 
-	if (debug_level >= 2)
+	if (debug_level == 3)
 		output("purge() \n");
 
 	/* for all origins... */
@@ -754,7 +752,7 @@ void purge()
 				/* remove them if outdated */
 				if ((int)((pack_node->time + TIMEOUT) < get_time()))
 				{
-					if (debug_level >= 2) {
+					if (debug_level == 3) {
 						addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
 						addr_to_string(neigh_node->addr, neigh_str, ADDR_STR_LEN);
 						output("Packet timeout (originator %s, neighbour %s, seqno %d, TTL %d, time %u)\n",
@@ -772,7 +770,7 @@ void purge()
 
 			/* if no more packets, remove neighbour (next hop) towards given origin */
 			if (list_empty(&neigh_node->pack_list)) {
-				if (debug_level >= 2) {
+				if (debug_level == 3) {
 					addr_to_string(neigh_node->addr, neigh_str, sizeof (neigh_str));
 					addr_to_string(orig_node->orig, orig_str, sizeof (orig_str));
 					output("Removing orphaned neighbour %s for originator %s\n", neigh_str, orig_str);
@@ -784,7 +782,7 @@ void purge()
 
 		/* if no more neighbours (next hops) towards given origin, remove origin */
 		if (list_empty(&orig_node->neigh_list) && ((int)(orig_node->last_aware) + TIMEOUT <= ((int)(get_time())))) {
-			if (debug_level >= 2) {
+			if (debug_level == 3) {
 				addr_to_string(orig_node->orig, orig_str, sizeof (orig_str));
 				output("Removing orphaned originator %s\n", orig_str);
 			}
@@ -796,8 +794,8 @@ void purge()
 				if ( gw_node->orig_node == orig_node ) {
 
 					addr_to_string( gw_node->orig_node->orig, orig_str, ADDR_STR_LEN );
-					if (debug_level >= 1)
-						output( "Removing gateway %s from gateway list\n", orig_str );
+					if (debug_level == 1)
+						printf( "Removing gateway %s from gateway list\n", orig_str );
 
 					list_del(gw_pos);
 					free_memory(gw_pos);
@@ -814,7 +812,7 @@ void purge()
 
 			if ( orig_node->router != 0 ) {
 
-				if (debug_level >= 2)
+				if (debug_level == 3)
 					output("Deleting route to originator \n");
 
 				add_del_route(orig_node->orig, 0, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
@@ -891,7 +889,7 @@ int batman()
 
 	while (!is_aborted())
 	{
-		if (debug_level >= 2)
+		if (debug_level == 3)
 			output(" \n \n");
 
 		schedule_own_packet();
@@ -912,7 +910,7 @@ int batman()
 
 		if (res > 0)
 		{
-			if (debug_level >= 3)  {
+			if (debug_level == 3)  {
 				addr_to_string(in.orig, orig_str, sizeof (orig_str));
 				addr_to_string(neigh, neigh_str, sizeof (neigh_str));
 				output("Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, in.seqno, in.ttl);
@@ -932,14 +930,14 @@ int batman()
 
 			if (is_my_addr == 1 /* && in.orig == my_addr */) {
 
-				if (debug_level >= 3) {
+				if (debug_level == 3) {
 					addr_to_string(neigh, neigh_str, sizeof (neigh_str));
 					output("Ignoring all (zero-hop) packets send by me (sender: %s)\n", neigh_str);
 				}
 
 			} else if (is_broadcast == 1) {
 
-				if (debug_level >= 0) {
+				if (debug_level == 3) {
 					addr_to_string(neigh, neigh_str, sizeof (neigh));
 					output("Ignoring all packets with broadcast source IP (sender: %s)\n", neigh_str);
 				}
@@ -968,7 +966,7 @@ int batman()
 
 				}
 
-				if (debug_level >= 2) {
+				if (debug_level == 3) {
 
 					addr_to_string(in.orig, orig_str, sizeof (orig_str));
 					addr_to_string(neigh, neigh_str, sizeof (neigh_str));
@@ -997,7 +995,7 @@ int batman()
 
 				if ( in.version != BATMAN_VERSION ) {
 
-					if (debug_level >= 1)
+					if (debug_level == 1)
 						output( "Incompatible batman version (%i) - ignoring packet... \n", in.version );
 
 				} else if ( in.flags & UNIDIRECTIONAL ) {
@@ -1006,7 +1004,7 @@ int batman()
 
 						orig_neigh_node->last_reply = get_time();
 
-						if (debug_level >= 2)
+						if (debug_level == 3)
 							output("received my own packet from neighbour indicating bidirectional link, updating last_reply stamp \n");
 
 					}
@@ -1038,7 +1036,7 @@ int batman()
 
 				} else {
 
-					if (debug_level >= 2)
+					if (debug_level == 3)
 						output("Ignoring packet... \n");
 
 				}
@@ -1056,7 +1054,8 @@ int batman()
 		time_count++;
 	}
 
-	output("Deleting all BATMAN routes\n");
+	if ( debug_level > 0 )
+		printf("Deleting all BATMAN routes\n");
 
 	list_for_each(orig_pos, &orig_list) {
 		orig_node = list_entry(orig_pos, struct orig_node, list);

@@ -39,7 +39,7 @@ ifeq ($(UNAME),OpenBSD)
 OS_OBJ=	posix.o bsd.o
 endif
 
-batman:		batman.o $(OS_OBJ)
+batmand:	batman.o $(OS_OBJ)
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
 clean:
