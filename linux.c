@@ -69,15 +69,21 @@ int get_forwarding(void)
 
 int bind_to_iface( int udp_recv_sock, char *dev ) {
 
-	if ( setsockopt( udp_recv_sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 )
-	{
-		if ( errno == 19 ) {
-			fprintf( stderr, "Warning: Cannot bind socket to alias device %s\n", dev );
-		} else {
-			fprintf( stderr, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
-			return -1;
-		}
+	char *colon_ptr;
+
+	/* if given interface is an alias bind to parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
+
+	if ( setsockopt( udp_recv_sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 ) {
+
+		fprintf( stderr, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
+		return -1;
+
 	}
+
+	if ( colon_ptr != NULL )
+		*colon_ptr = ':';
 
 	return 1;
 
