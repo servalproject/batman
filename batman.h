@@ -110,6 +110,8 @@ struct gw_node
 {
 	struct list_head list;
 	struct orig_node *orig_node;
+	int unavail_factor;
+	int last_failure;
 };
 
 struct batman_if

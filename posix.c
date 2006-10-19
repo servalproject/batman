@@ -143,6 +143,10 @@ void *client_to_gw_tun( void *arg ) {
 
 		do_log( "Error - can't connect to gateway: %s\n", strerror(errno) );
 		close( curr_gateway_tcp_sock );
+
+		gw_node->last_failure = get_time();
+		gw_node->unavail_factor++;
+
 		curr_gateway = NULL;
 		return NULL;
 
@@ -205,9 +209,15 @@ void *client_to_gw_tun( void *arg ) {
 			server_keep_alive_timeout = get_time();
 
 			if ( write( curr_gateway_tcp_sock, keep_alive_string, sizeof( keep_alive_string ) ) < 0 ) {
+
 				if ( debug_level == 1 )
 					printf( "server_keepalive failed: no connect to server\n" );
+
+				gw_node->last_failure = get_time();
+				gw_node->unavail_factor++;
+
 				break;
+
 			}
 
 		}
@@ -243,6 +253,9 @@ void *client_to_gw_tun( void *arg ) {
 
 					if ( debug_level == 1 )
 						printf( "Gateway closed connection - timeout ?\n" );
+
+					gw_node->last_failure = get_time();
+					gw_node->unavail_factor++;
 
 					break;
 

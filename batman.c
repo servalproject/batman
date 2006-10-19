@@ -193,6 +193,10 @@ static void choose_gw()
 
 		gw_node = list_entry(pos, struct gw_node, list);
 
+		/* ignore this gateway if recent connection attempts were unsuccessful */
+		if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > get_time() )
+			continue;
+
 		switch ( routing_class ) {
 
 			case 1:   /* fast connection */
@@ -400,6 +404,9 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 	INIT_LIST_HEAD(&gw_node->list);
 
 	gw_node->orig_node = orig_node;
+	gw_node->unavail_factor = 0;
+	gw_node->last_failure = get_time();
+
 	list_add_tail(&gw_node->list, &gw_list);
 
 	choose_gw();
