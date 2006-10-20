@@ -47,7 +47,10 @@ extern int debug_level;
 extern int orginator_interval;
 extern int gateway_class;
 extern int routing_class;
+extern int num_hna;
 extern unsigned int pref_gateway;
+
+extern unsigned char *hna_buff;
 
 extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
@@ -55,6 +58,7 @@ pthread_t curr_gateway_thread_id;
 extern int found_ifs;
 
 extern struct list_head if_list;
+extern struct list_head hna_list;
 extern struct vis_if vis_if;
 
 struct packet
@@ -80,6 +84,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	unsigned char flags;
 	unsigned char gwflags;     /* flags related to gateway functions: gateway class */
 	struct list_head neigh_list;
+	struct list_head hna_list;
 };
 
 struct neigh_node
@@ -89,6 +94,14 @@ struct neigh_node
 	unsigned short best_ttl;   /* ttl of last packet */
 	struct list_head pack_list;
 };
+
+struct hna_node
+{
+	struct list_head list;
+	unsigned int addr;
+	unsigned int netmask;
+};
+
 
 struct pack_node
 {

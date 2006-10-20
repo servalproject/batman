@@ -72,6 +72,10 @@ struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
 
 unsigned int pref_gateway = 0;
+
+unsigned char *hna_buff = NULL;
+
+int num_hna = 0;
 int found_ifs = 0;
 
 
@@ -80,6 +84,7 @@ static LIST_HEAD(orig_list);
 static LIST_HEAD(forw_list);
 static LIST_HEAD(gw_list);
 LIST_HEAD(if_list);
+LIST_HEAD(hna_list);
 static unsigned int next_own;
 
 struct vis_if vis_if;
@@ -200,11 +205,12 @@ static void choose_gw()
 		switch ( routing_class ) {
 
 			case 1:   /* fast connection */
-				if ( ( gw_node->orig_node->gwflags > max_gw_class ) || ( ( gw_node->orig_node->gwflags == max_gw_class ) && ( gw_node->orig_node->packet_count > max_packets ) ) )
+				if ( ( ( gw_node->orig_node->packet_count * gw_node->orig_node->gwflags ) > max_gw_factor ) || ( ( ( gw_node->orig_node->packet_count * gw_node->orig_node->gwflags ) == max_gw_factor ) && ( gw_node->orig_node->packet_count > max_packets ) ) )
 					tmp_curr_gw = gw_node;
 				break;
 
 			case 2:   /* stable connection */
+				/* FIXME - not implemented yet */
 				if ( ( ( gw_node->orig_node->packet_count * gw_node->orig_node->gwflags ) > max_gw_factor ) || ( ( ( gw_node->orig_node->packet_count * gw_node->orig_node->gwflags ) == max_gw_factor ) && ( gw_node->orig_node->packet_count > max_packets ) ) )
 					tmp_curr_gw = gw_node;
 				break;
@@ -678,8 +684,8 @@ void send_outstanding_packets()
 
 				batman_if = list_entry(if_pos, struct batman_if, list);
 
-				if (send_packet((unsigned char *)pack, sizeof (struct packet), &batman_if->broad, batman_if->udp_send_sock) < 0) {
-					output("ERROR: send_packet returned -1 \n");
+				if (send_packet((unsigned char *)pack, ( num_hna > 0 ? sizeof (struct packet) + num_hna * 5 * sizeof( unsigned char ) : sizeof (struct packet) ), &batman_if->broad, batman_if->udp_send_sock) < 0) {
+					do_log( "ERROR: %s returned -1\n", "send_packet" );
 					exit( -1);
 				}
 
@@ -714,10 +720,18 @@ void schedule_own_packet() {
 
 			batman_if = list_entry(if_pos, struct batman_if, list);
 
-			forw_node_new = alloc_memory(sizeof (struct forw_node));
+			if ( num_hna > 0 )
+				forw_node_new = alloc_memory(sizeof (struct forw_node) + num_hna * 5 * sizeof( unsigned char ) );
+			else
+				forw_node_new = alloc_memory(sizeof (struct forw_node));
+
 			INIT_LIST_HEAD(&forw_node_new->list);
 
 			memcpy(&forw_node_new->pack, &batman_if->out, sizeof (struct packet));
+
+			if ( num_hna > 0 )
+				memcpy(&forw_node_new->pack + sizeof (struct packet), hna_buff, num_hna * 5 * sizeof( unsigned char ) );
+
 			forw_node_new->when = next_own;
 
 			list_add(&forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos));
@@ -865,22 +879,41 @@ void send_vis_packet()
 
 int batman()
 {
-	struct list_head *forw_pos, *orig_pos, *if_pos, *neigh_pos;
+	struct list_head *forw_pos, *orig_pos, *if_pos, *neigh_pos, *hna_pos;
 	struct forw_node *forw_node;
 	struct orig_node *orig_node, *orig_neigh_node;
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
+	struct hna_node *hna_node;
 	struct packet in;
-	int res;
-	unsigned int neigh;
+	unsigned int neigh, hna;
+	unsigned char hna_recv_buff[1500 - sizeof (struct packet)];
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
-	int forward_old;
+	int forward_old, res, hna_buff_len, hna_buff_count, netmask;
 	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, forward_duplicate_packet;
 	int time_count = 0;
 
 	next_own = 0;
 
+	if ( !( list_empty(&hna_list) ) ) {
+
+		list_for_each(hna_pos, &hna_list) {
+
+			hna_node = list_entry(hna_pos, struct hna_node, list);
+
+			hna_buff = realloc_memory( hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ) );
+
+			memmove( &hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4 );
+			hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char ) hna_node->netmask;
+
+			num_hna++;
+
+		}
+
+	}
+
 	list_for_each(if_pos, &if_list) {
+
 		batman_if = list_entry(if_pos, struct batman_if, list);
 
 		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
@@ -889,6 +922,7 @@ int batman()
 		batman_if->out.seqno = 0;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = BATMAN_VERSION;
+
 	}
 
 	forward_old = get_forwarding();
@@ -908,7 +942,8 @@ int batman()
 
 		list_for_each(forw_pos, &forw_list) {
 			forw_node = list_entry(forw_pos, struct forw_node, list);
-			res = receive_packet((unsigned char *)&in, sizeof (struct packet), &neigh, forw_node->when, &if_incoming);
+			hna_buff_len = 1500 - sizeof (struct packet);
+			res = receive_packet((unsigned char *)&in, sizeof (struct packet), hna_recv_buff, &hna_buff_len, &neigh, forw_node->when, &if_incoming);
 			break;
 		}
 
@@ -917,6 +952,25 @@ int batman()
 
 		if (res > 0)
 		{
+			if ( hna_buff_len > 0 ) {
+
+				printf( "hna message received .. \n" );
+				hna_buff_count = 0;
+
+				while ( ( hna_buff_count + 1 ) * 5 >= hna_buff_len ) {
+
+					hna_buff_count++;
+
+					memmove( &hna, ( unsigned int *)&hna_recv_buff[ hna_buff_count * 5 ], 4 );
+					netmask = ( unsigned int )hna_recv_buff[ ( hna_buff_count * 5 ) + 4 ];
+
+					addr_to_string(hna, orig_str, sizeof (orig_str));
+					printf( "hna: %s/%i\n", orig_str, netmask );
+
+				}
+
+			}
+
 			if (debug_level == 3)  {
 				addr_to_string(in.orig, orig_str, sizeof (orig_str));
 				addr_to_string(neigh, neigh_str, sizeof (neigh_str));

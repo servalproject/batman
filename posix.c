@@ -422,12 +422,13 @@ int rand_num(int limit)
 	return rand() % limit;
 }
 
-int receive_packet(unsigned char *buff, int len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming)
+int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned char *hna_buff, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming)
 {
 	fd_set wait_set;
 	int res, max_sock = 0;
 	struct sockaddr_in addr;
-	unsigned int addr_len;
+	unsigned int addr_len, bytes_read;
+	unsigned char *buff = NULL;
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
@@ -439,6 +440,8 @@ int receive_packet(unsigned char *buff, int len, unsigned int *neigh, unsigned i
 
 	tv.tv_sec = diff / 1000;
 	tv.tv_usec = (diff % 1000) * 1000;
+
+	buff = alloc_memory( packet_buff_len + *hna_buff_len );
 
 	FD_ZERO(&wait_set);
 
@@ -476,10 +479,27 @@ int receive_packet(unsigned char *buff, int len, unsigned int *neigh, unsigned i
 
 		if ( FD_ISSET( batman_if->udp_recv_sock, &wait_set) ) {
 
-			if (recvfrom(batman_if->udp_recv_sock, buff, len, 0, (struct sockaddr *)&addr, &addr_len) < 0)
+			if ( ( bytes_read = recvfrom( batman_if->udp_recv_sock, buff, packet_buff_len + *hna_buff_len, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 )
 			{
 				do_log( "Error - can't receive packet: %s\n", strerror(errno) );
 				return -1;
+			}
+
+			if ( bytes_read == packet_buff_len ) {
+
+				memmove( packet_buff, buff, bytes_read );
+				*hna_buff_len = 0;
+
+			} else if ( bytes_read > packet_buff_len ) {
+
+				memmove( packet_buff, buff, packet_buff_len );
+				memmove( hna_buff, buff + packet_buff_len, bytes_read - packet_buff_len );
+				*hna_buff_len = bytes_read - packet_buff_len;
+
+			} else {
+
+				return 0;
+
 			}
 
 			(*if_incoming) = batman_if;
@@ -745,18 +765,66 @@ int main(int argc, char *argv[])
 {
 	struct in_addr tmp_ip_holder;
 	struct batman_if *batman_if;
+	struct hna_node *hna_node;
 	struct ifreq int_req;
-	int on = 1, res, optchar, found_args = 1, pid;
-	char str1[16], str2[16], *dev;
+	int on = 1, res, optchar, found_args = 1, pid, netmask;
+	char str1[16], str2[16], *dev, *slash_ptr;
 	unsigned int vis_server = 0;
 
 	stop = 0;
 	dev = NULL;
 	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
 
-	while ( ( optchar = getopt ( argc, argv, "d:hHo:g:p:r:s:" ) ) != -1 ) {
+	while ( ( optchar = getopt ( argc, argv, "a:d:hHo:g:p:r:s:" ) ) != -1 ) {
 
 		switch ( optchar ) {
+
+			case 'a':
+
+				if ( ( slash_ptr = strchr( optarg, '/' ) ) == NULL ) {
+
+					printf( "Invalid announced network (netmask is missing): %s\n", optarg );
+					exit(EXIT_FAILURE);
+
+				}
+
+				*slash_ptr = '\0';
+
+				if ( inet_pton(AF_INET, optarg, &tmp_ip_holder) < 1 ) {
+
+					*slash_ptr = '/';
+					printf( "Invalid announced network (IP is invalid): %s\n", optarg );
+					exit(EXIT_FAILURE);
+
+				}
+
+				errno = 0;
+				netmask = strtol(slash_ptr + 1, NULL , 10);
+
+				if ( (errno == ERANGE && (netmask == LONG_MAX || netmask == LONG_MIN) ) || (errno != 0 && netmask == 0) ) {
+					perror("strtol");
+					exit(EXIT_FAILURE);
+				}
+
+				if ( netmask < 0 || netmask > 32 ) {
+
+					*slash_ptr = '/';
+					printf( "Invalid announced network (netmask is invalid): %s\n", optarg );
+					exit(EXIT_FAILURE);
+
+				}
+
+				hna_node = alloc_memory(sizeof(struct hna_node));
+				memset(hna_node, 0, sizeof(struct hna_node));
+				INIT_LIST_HEAD(&hna_node->list);
+
+				hna_node->addr = tmp_ip_holder.s_addr;
+				hna_node->netmask = netmask;
+
+				list_add_tail(&hna_node->list, &hna_list);
+
+				found_args += 2;
+				break;
 
 			case 'd':
 
@@ -779,15 +847,15 @@ int main(int argc, char *argv[])
 			case 'g':
 
 				errno = 0;
-				gateway_class = strtol (optarg, NULL , 10);
+				gateway_class = strtol(optarg, NULL , 10);
 
 				if ( (errno == ERANGE && (gateway_class == LONG_MAX || gateway_class == LONG_MIN) ) || (errno != 0 && gateway_class == 0) ) {
 					perror("strtol");
 					exit(EXIT_FAILURE);
 				}
 
-				if ( gateway_class < 0 || gateway_class > 32 ) {
-					printf( "Invalid gateway class specified: %i.\nThe class is a value between 0 and 32.\n", gateway_class );
+				if ( gateway_class < 0 || gateway_class > 11 ) {
+					printf( "Invalid gateway class specified: %i.\nThe class is a value between 0 and 11.\n", gateway_class );
 					exit(EXIT_FAILURE);
 				}
 
