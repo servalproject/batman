@@ -89,8 +89,8 @@ int bind_to_iface( int udp_recv_sock, char *dev ) {
 
 }
 
-void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, int sock)
-{
+void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router, int del, char *dev, int sock ) {
+
 	struct rtentry route;
 	char str1[16], str2[16], log_str[100];
 	struct sockaddr_in *addr;
@@ -108,9 +108,10 @@ void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, i
 	addr = (struct sockaddr_in *)&route.rt_genmask;
 
 	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = ( ( ( dest == 0 ) && ( router == 0 ) ) ? 0x00000000 : 0xffffffff );
+	addr->sin_addr.s_addr = netmask;
+// 	addr->sin_addr.s_addr = ( ( ( dest == 0 ) && ( router == 0 ) ) ? 0x00000000 : 0xffffffff );
 
-	route.rt_flags = RTF_HOST | RTF_UP;
+	route.rt_flags = ( netmask == 32 ? RTF_HOST | RTF_UP : RTF_UP );
 	route.rt_metric = 1;
 
 	if ( (dest != router) || ( ( dest == 0 ) && ( router == 0 ) ) )
@@ -136,9 +137,9 @@ void add_del_route(unsigned int dest, unsigned int router, int del, char *dev, i
 			route.rt_flags |= RTF_GATEWAY;
 
 			if ( debug_level == 1 ) {
-				printf("%s route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+				printf("%s route to %s via %s/%i (%s)\n", del ? "Deleting" : "Adding", str1, str2, netmask, dev);
 			} else if ( debug_level == 3 ) {
-				output("%s route to %s via %s (%s)\n", del ? "Deleting" : "Adding", str1, str2, dev);
+				output("%s route to %s via %s/%i (%s)\n", del ? "Deleting" : "Adding", str1, str2, netmask, dev);
 			}
 
 		}

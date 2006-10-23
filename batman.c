@@ -159,6 +159,7 @@ struct orig_node *get_orig_node( unsigned int addr )
 	orig_node->orig = addr;
 	orig_node->gwflags = 0;
 	orig_node->packet_count = 0;
+	orig_node->hna_buff_len = 0;
 
 	list_add_tail(&orig_node->list, &orig_list);
 
@@ -342,7 +343,7 @@ static void update_routes( struct orig_node *orig_node )
 				if (debug_level == 3)
 					output("Deleting previous route\n");
 
-				add_del_route(orig_node->orig, orig_node->router, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
+				add_del_route(orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
 			}
 
 			if (debug_level == 3)
@@ -351,7 +352,7 @@ static void update_routes( struct orig_node *orig_node )
 
 			/* TODO: maybe the order delete, add should be changed ???? */
 			orig_node->batman_if = max_if;
-			add_del_route(orig_node->orig, next_hop->addr, 0, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
+			add_del_route(orig_node->orig, 32, next_hop->addr, 0, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
 
 			orig_node->router = next_hop->addr;
 		}
@@ -544,12 +545,14 @@ struct orig_node *update_last_hop(struct packet *in, unsigned int neigh)
 
 }
 
-void update_originator(struct packet *in, unsigned int neigh, struct batman_if *if_incoming)
-{
+void update_originator( struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
+
 	struct list_head *neigh_pos, *pack_pos;
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node = NULL;
 	struct pack_node *pack_node = NULL;
+	unsigned int hna, netmask;
+	int hna_buff_count = 0;
 
 	if (debug_level == 3)
 		output("update_originator(): Searching and updating originator entry of received packet,  \n");
@@ -610,11 +613,60 @@ void update_originator(struct packet *in, unsigned int neigh, struct batman_if *
 	pack_node->ttl = in->ttl;
 	pack_node->time = get_time();
 
+	/* announced network(s) */
+	if ( ( hna_buff_len > 0 ) || ( orig_node->hna_buff_len > 0 ) ) {
+
+		/* remove old announced network(s) */
+		if ( orig_node->hna_buff_len > 0 ) {
+
+			while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
+
+				memmove( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
+				netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+
+				if ( netmask < 32 )
+					add_del_route( hna, netmask, orig_node->orig, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+
+				hna_buff_count++;
+
+			}
+
+			free_memory( orig_node->hna_buff );
+			orig_node->hna_buff_len = 0;
+
+		}
+
+		/* add new announced network(s) */
+		if ( hna_buff_len > 0 ) {
+
+			orig_node->hna_buff = alloc_memory( hna_buff_len );
+			orig_node->hna_buff_len = hna_buff_len;
+
+			memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
+
+			hna_buff_count = 0;
+
+			while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
+
+				memmove( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
+				netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+
+				if ( netmask < 32 )
+					add_del_route( hna, netmask, orig_node->orig, 0, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+
+				hna_buff_count++;
+
+			}
+
+		}
+
+	}
+
 	update_routes( orig_node );
 
 }
 
-void schedule_forward_packet( struct packet *in, int unidirectional, struct orig_node *orig_node, unsigned int neigh )
+void schedule_forward_packet( struct packet *in, int unidirectional, struct orig_node *orig_node, unsigned int neigh, unsigned char *hna_recv_buff, int hna_buff_len )
 {
 	struct forw_node *forw_node, *forw_node_new;
 	struct list_head *forw_pos;
@@ -646,6 +698,20 @@ void schedule_forward_packet( struct packet *in, int unidirectional, struct orig
 
 		forw_node_new->when = get_time();
 
+		if ( hna_buff_len > 0 ) {
+
+			forw_node_new->hna_buff = alloc_memory( hna_buff_len );
+			forw_node_new->hna_buff_len = hna_buff_len;
+
+			memcpy( forw_node_new->hna_buff, hna_recv_buff, hna_buff_len );
+
+		} else {
+
+			forw_node_new->hna_buff = NULL;
+			forw_node_new->hna_buff_len = 0;
+
+		}
+
 		list_for_each(forw_pos, &forw_list) {
 			forw_node = list_entry(forw_pos, struct forw_node, list);
 			if ((int)(forw_node->when - forw_node_new->when) > 0)
@@ -661,8 +727,8 @@ void send_outstanding_packets()
 	struct forw_node *forw_node;
 	struct list_head *forw_pos, *if_pos, *temp;
 	struct batman_if *batman_if;
-	struct packet *pack;
 	static char orig_str[ADDR_STR_LEN];
+	unsigned char *send_buff;
 
 	if (list_empty(&forw_list))
 		return;
@@ -672,19 +738,30 @@ void send_outstanding_packets()
 
 		if (forw_node->when <= get_time())
 		{
-			pack = &forw_node->pack;
+
+			if ( forw_node->hna_buff_len > 0 ) {
+
+				send_buff = alloc_memory(sizeof (struct packet) + forw_node->hna_buff_len);
+				memcpy(send_buff, (unsigned char *)&forw_node->pack, sizeof (struct packet));
+				memcpy(send_buff + sizeof (struct packet), forw_node->hna_buff, forw_node->hna_buff_len);
+
+			} else {
+
+				send_buff = alloc_memory(sizeof (struct packet));
+				memcpy(send_buff, (unsigned char *)&forw_node->pack, sizeof (struct packet));
+
+			}
 
 			if (debug_level == 3) {
-				addr_to_string(pack->orig, orig_str, ADDR_STR_LEN);
-				output("Forwarding packet (originator %s, seqno %d, TTL %d)\n",
-						 orig_str, pack->seqno, pack->ttl);
+				addr_to_string(forw_node->pack.orig, orig_str, ADDR_STR_LEN);
+				output("Forwarding packet (originator %s, seqno %d, TTL %d)\n", orig_str, forw_node->pack.seqno, forw_node->pack.ttl);
 			}
 
 			list_for_each(if_pos, &if_list) {
 
 				batman_if = list_entry(if_pos, struct batman_if, list);
 
-				if (send_packet((unsigned char *)pack, ( num_hna > 0 ? sizeof (struct packet) + num_hna * 5 * sizeof( unsigned char ) : sizeof (struct packet) ), &batman_if->broad, batman_if->udp_send_sock) < 0) {
+				if (send_packet(send_buff, sizeof (struct packet) + forw_node->hna_buff_len, &batman_if->broad, batman_if->udp_send_sock) < 0) {
 					do_log( "ERROR: %s returned -1\n", "send_packet" );
 					exit( -1);
 				}
@@ -693,6 +770,7 @@ void send_outstanding_packets()
 
 			list_del(forw_pos);
 			free_memory(forw_node);
+
 		}
 	}
 }
@@ -720,17 +798,25 @@ void schedule_own_packet() {
 
 			batman_if = list_entry(if_pos, struct batman_if, list);
 
-			if ( num_hna > 0 )
-				forw_node_new = alloc_memory(sizeof (struct forw_node) + num_hna * 5 * sizeof( unsigned char ) );
-			else
-				forw_node_new = alloc_memory(sizeof (struct forw_node));
+			forw_node_new = alloc_memory(sizeof (struct forw_node));
 
 			INIT_LIST_HEAD(&forw_node_new->list);
 
 			memcpy(&forw_node_new->pack, &batman_if->out, sizeof (struct packet));
 
-			if ( num_hna > 0 )
-				memcpy(&forw_node_new->pack + sizeof (struct packet), hna_buff, num_hna * 5 * sizeof( unsigned char ) );
+			if ( num_hna > 0 ) {
+
+				forw_node_new->hna_buff = alloc_memory( num_hna * 5 * sizeof( unsigned char ) );
+				forw_node_new->hna_buff_len = num_hna * 5 * sizeof( unsigned char );
+
+				memcpy( forw_node_new->hna_buff, hna_buff, num_hna * 5 * sizeof( unsigned char ) );
+
+			} else {
+
+				forw_node_new->hna_buff = NULL;
+				forw_node_new->hna_buff_len = 0;
+
+			}
 
 			forw_node_new->when = next_own;
 
@@ -752,7 +838,8 @@ void purge()
 	struct neigh_node *neigh_node;
 	struct pack_node *pack_node;
 	struct gw_node *gw_node;
-	int gw_purged = 0;
+	int gw_purged = 0, hna_buff_count;
+	unsigned int hna, netmask;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 
 	if (debug_level == 3)
@@ -831,12 +918,35 @@ void purge()
 
 			list_del(orig_pos);
 
+			/* remove announced network(s) */
+			if ( orig_node->hna_buff_len > 0 ) {
+
+				hna_buff_count = 0;
+
+				while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
+
+					memmove( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
+					netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+
+					if ( netmask < 32 )
+						add_del_route( hna, netmask, orig_node->orig, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+
+					hna_buff_count++;
+
+				}
+
+				free_memory( orig_node->hna_buff );
+				orig_node->hna_buff_len = 0;
+
+			}
+
 			if ( orig_node->router != 0 ) {
 
 				if (debug_level == 3)
 					output("Deleting route to originator \n");
 
-				add_del_route(orig_node->orig, 0, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
+				add_del_route(orig_node->orig, 32, 0, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
+
 				free_memory(orig_node);
 
 			}
@@ -886,10 +996,10 @@ int batman()
 	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
 	struct packet in;
-	unsigned int neigh, hna;
+	unsigned int neigh, hna, netmask;
 	unsigned char hna_recv_buff[1500 - sizeof (struct packet)];
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
-	int forward_old, res, hna_buff_len, hna_buff_count, netmask;
+	int forward_old, res, hna_buff_len, hna_buff_count;
 	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, forward_duplicate_packet;
 	int time_count = 0;
 
@@ -952,25 +1062,6 @@ int batman()
 
 		if (res > 0)
 		{
-			if ( hna_buff_len > 0 ) {
-
-				printf( "hna message received .. \n" );
-				hna_buff_count = 0;
-
-				while ( ( hna_buff_count + 1 ) * 5 >= hna_buff_len ) {
-
-					hna_buff_count++;
-
-					memmove( &hna, ( unsigned int *)&hna_recv_buff[ hna_buff_count * 5 ], 4 );
-					netmask = ( unsigned int )hna_recv_buff[ ( hna_buff_count * 5 ) + 4 ];
-
-					addr_to_string(hna, orig_str, sizeof (orig_str));
-					printf( "hna: %s/%i\n", orig_str, netmask );
-
-				}
-
-			}
-
 			if (debug_level == 3)  {
 				addr_to_string(in.orig, orig_str, sizeof (orig_str));
 				addr_to_string(neigh, neigh_str, sizeof (neigh_str));
@@ -1051,6 +1142,29 @@ int batman()
 					if ( in.gwflags != 0 )
 						output("Is an internet gateway (class %i) \n", in.gwflags);
 
+					if ( hna_buff_len > 0 ) {
+
+						printf( "HNA information received (%i HNA network%s):\n", hna_buff_len / 5, ( hna_buff_len / 5 > 1 ? "s": "" ) );
+						hna_buff_count = 0;
+
+						while ( ( hna_buff_count + 1 ) * 5 <= hna_buff_len ) {
+
+							memmove( &hna, ( unsigned int *)&hna_recv_buff[ hna_buff_count * 5 ], 4 );
+							netmask = ( unsigned int )hna_recv_buff[ ( hna_buff_count * 5 ) + 4 ];
+
+							addr_to_string(hna, orig_str, sizeof (orig_str));
+
+							if ( netmask > 32 )
+								printf( "hna: %s/%i -> ignoring (invalid netmask)\n", orig_str, netmask );
+							else
+								printf( "hna: %s/%i\n", orig_str, netmask );
+
+							hna_buff_count++;
+
+						}
+
+					}
+
 				}
 
 
@@ -1078,15 +1192,15 @@ int batman()
 					   if it is not our best link to it in order to prevent routing problems */
 					if ( ( in.orig == neigh ) && ( ( !isBidirectionalNeigh( orig_neigh_node ) ) || ( orig_neigh_node->router != 0 ) ) ) {
 
-						schedule_forward_packet(&in, 1, orig_neigh_node, neigh);
+						schedule_forward_packet( &in, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len );
 
 					/* bidirectional link - retransmit packet and update ranking */
 					} else if ( ( isBidirectionalNeigh( orig_neigh_node ) ) && ( is_my_orig != 1 ) ) {
 
-						schedule_forward_packet(&in, 0, orig_neigh_node, neigh);
+						schedule_forward_packet( &in, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len );
 
 						if ( !is_duplicate )
-							update_originator( &in, neigh, if_incoming );
+							update_originator( &in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
 
 					/* received my own packet from neighbour indicating bidirectional link */
 					} else if ( is_my_orig == 1 ) {
@@ -1122,7 +1236,7 @@ int batman()
 		orig_node = list_entry(orig_pos, struct orig_node, list);
 
 		if (orig_node->router != 0)
-			add_del_route(orig_node->orig, orig_node->router, 1, orig_node->batman_if->dev, batman_if->udp_send_sock);
+			add_del_route(orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, batman_if->udp_send_sock);
 	}
 
 	set_forwarding(forward_old);

@@ -83,6 +83,8 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	unsigned int last_aware;   /* if node is a neighbour, when last packet via this node was received */
 	unsigned char flags;
 	unsigned char gwflags;     /* flags related to gateway functions: gateway class */
+	unsigned char *hna_buff;
+	int hna_buff_len;
 	struct list_head neigh_list;
 	struct list_head hna_list;
 };
@@ -117,6 +119,8 @@ struct forw_node                 /* structure for forw_list maintaining packets 
 	struct list_head list;
 	unsigned int when;
 	struct packet pack;
+	unsigned char *hna_buff;
+	int hna_buff_len;
 };
 
 struct gw_node

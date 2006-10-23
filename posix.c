@@ -178,7 +178,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( add_dev_tun( curr_gateway_batman_if, curr_gateway_batman_if->addr.sin_addr.s_addr, curr_gateway_tun_if, sizeof(curr_gateway_tun_if), &curr_gateway_tun_fd ) > 0 ) {
 
-		add_del_route( 0, 0, 0, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
+		add_del_route( 0, 0, 0, 0, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
 
 	} else {
 
@@ -304,7 +304,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-	add_del_route( 0, 0, 1, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
+	add_del_route( 0, 0, 0, 1, curr_gateway_tun_if, curr_gateway_batman_if->udp_send_sock );
 
 	close( curr_gateway_tcp_sock );
 	close( curr_gateway_tun_sock );
@@ -425,14 +425,13 @@ int rand_num(int limit)
 int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned char *hna_buff, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming)
 {
 	fd_set wait_set;
-	int res, max_sock = 0;
+	int res, bytes_read, max_sock = 0;
 	struct sockaddr_in addr;
-	unsigned int addr_len, bytes_read;
+	unsigned int addr_len;
 	unsigned char *buff = NULL;
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
-
 	int diff = timeout - get_time();
 
 	if (diff < 0)
