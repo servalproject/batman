@@ -1202,6 +1202,7 @@ int main(int argc, char *argv[])
 
 
 	signal(SIGINT, handler);
+	signal(SIGTERM, handler);
 
 	gettimeofday(&start_time, NULL);
 

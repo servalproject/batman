@@ -92,6 +92,7 @@ struct vis_if vis_if;
 void usage(void)
 {
 	fprintf(stderr, "Usage: batman [options] interface [interface interface]\n" );
+	fprintf(stderr, "       -a announce network(s)\n" );
 	fprintf(stderr, "       -d debug level\n" );
 	fprintf(stderr, "       -g gateway class\n" );
 	fprintf(stderr, "       -h this help\n" );
@@ -105,6 +106,8 @@ void usage(void)
 void verbose_usage(void)
 {
 	fprintf(stderr, "Usage: batman [options] interface [interface interface]\n\n" );
+	fprintf(stderr, "       -a announce network(s)\n" );
+	fprintf(stderr, "          network/netmask is expected\n" );
 	fprintf(stderr, "       -d debug level\n" );
 	fprintf(stderr, "          default: 0, allowed values: 0 - 3\n\n" );
 	fprintf(stderr, "       -g gateway class\n" );
@@ -164,6 +167,34 @@ struct orig_node *get_orig_node( unsigned int addr )
 	list_add_tail(&orig_node->list, &orig_list);
 
 	return orig_node;
+}
+
+
+void add_del_hna( struct orig_node *orig_node, int del ) {
+
+	int hna_buff_count = 0;
+	unsigned int hna, netmask;
+
+
+	while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
+
+		memcpy( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
+		netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+
+		if ( ( netmask > 0 ) && ( netmask < 33 ) )
+			add_del_route( hna, netmask, orig_node->orig, del, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+
+		hna_buff_count++;
+
+	}
+
+	if ( del ) {
+
+		free_memory( orig_node->hna_buff );
+		orig_node->hna_buff_len = 0;
+
+	}
+
 }
 
 
@@ -286,8 +317,7 @@ static void update_routes( struct orig_node *orig_node, unsigned char *hna_recv_
 	struct neigh_node *neigh_node, *next_hop;
 	struct pack_node *pack_node;
 	struct batman_if *max_if;
-	int max_pack, max_ttl, neigh_ttl[found_ifs], neigh_pkts[found_ifs], hna_buff_count;
-	unsigned int hna, netmask;
+	int max_pack, max_ttl, neigh_ttl[found_ifs], neigh_pkts[found_ifs];
 	static char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
 
 	if (debug_level == 3)
@@ -343,32 +373,16 @@ static void update_routes( struct orig_node *orig_node, unsigned char *hna_recv_
 				output("Route changed\n");
 
 			if (orig_node->router != 0) {
+
 				if (debug_level == 3)
 					output("Deleting previous route\n");
 
 				/* remove old announced network(s) */
-				if ( orig_node->hna_buff_len > 0 ) {
-
-					hna_buff_count = 0;
-
-					while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
-
-						memcpy( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
-						netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
-
-						if ( ( netmask > 0 ) && ( netmask < 33 ) )
-							add_del_route( hna, netmask, orig_node->orig, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
-
-						hna_buff_count++;
-
-					}
-
-					free_memory( orig_node->hna_buff );
-					orig_node->hna_buff_len = 0;
-
-				}
+				if ( orig_node->hna_buff_len > 0 )
+					add_del_hna( orig_node, 1 );
 
 				add_del_route(orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
+
 			}
 
 			if (debug_level == 3)
@@ -388,19 +402,23 @@ static void update_routes( struct orig_node *orig_node, unsigned char *hna_recv_
 
 				memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
 
-				hna_buff_count = 0;
+				add_del_hna( orig_node, 0 );
 
-				while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
+			}
 
-					memcpy( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
-					netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+		} else if ( ( hna_buff_len != orig_node->hna_buff_len ) || ( ( hna_buff_len > 0 ) && ( orig_node->hna_buff_len > 0 ) && ( memcmp(orig_node->hna_buff, hna_recv_buff, hna_buff_len ) != 0 ) ) ) {
 
-					if ( ( netmask > 0 ) && ( netmask < 33 ) )
-						add_del_route( hna, netmask, orig_node->orig, 0, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+			if ( orig_node->hna_buff_len > 0 )
+				add_del_hna( orig_node, 1 );
 
-					hna_buff_count++;
+			if ( hna_buff_len > 0 ) {
 
-				}
+				orig_node->hna_buff = alloc_memory( hna_buff_len );
+				orig_node->hna_buff_len = hna_buff_len;
+
+				memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
+
+				add_del_hna( orig_node, 0 );
 
 			}
 
@@ -837,8 +855,7 @@ void purge()
 	struct neigh_node *neigh_node;
 	struct pack_node *pack_node;
 	struct gw_node *gw_node;
-	int gw_purged = 0, hna_buff_count;
-	unsigned int hna, netmask;
+	int gw_purged = 0;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 
 	if (debug_level == 3)
@@ -917,27 +934,9 @@ void purge()
 
 			list_del(orig_pos);
 
-			/* remove announced network(s) */
-			if ( orig_node->hna_buff_len > 0 ) {
-
-				hna_buff_count = 0;
-
-				while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
-
-					memmove( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
-					netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
-
-					if ( ( netmask > 0 ) && ( netmask < 33 ) )
-						add_del_route( hna, netmask, orig_node->orig, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
-
-					hna_buff_count++;
-
-				}
-
-				free_memory( orig_node->hna_buff );
-				orig_node->hna_buff_len = 0;
-
-			}
+			/* remove old announced network(s) */
+			if ( orig_node->hna_buff_len > 0 )
+				add_del_hna( orig_node, 1 );
 
 			if ( orig_node->router != 0 ) {
 
@@ -1185,11 +1184,11 @@ int batman()
 
 				} else if ( !is_duplicate || forward_duplicate_packet ) {
 
-					/* if a unidirectional neighbour sends us a packet - retransmit it with unidirectional flag
+					/* if an unidirectional neighbour sends us a packet - retransmit it with unidirectional flag
 					   to tell him that we get its packets */
 					/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag
 					   if it is not our best link to it in order to prevent routing problems */
-					if ( ( in.orig == neigh ) && ( ( !isBidirectionalNeigh( orig_neigh_node ) ) || ( orig_neigh_node->router != 0 ) ) ) {
+					if ( ( in.orig == neigh ) && ( ( !isBidirectionalNeigh( orig_neigh_node ) ) || ( ( orig_neigh_node->router != 0 ) && ( orig_neigh_node->router != neigh ) ) ) ) {
 
 						schedule_forward_packet( &in, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len );
 
@@ -1236,26 +1235,8 @@ int batman()
 		orig_node = list_entry(orig_pos, struct orig_node, list);
 
 		/* remove old announced network(s) */
-		if ( orig_node->hna_buff_len > 0 ) {
-
-			hna_buff_count = 0;
-
-			while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
-
-				memcpy( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
-				netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
-
-				if ( ( netmask > 0 ) && ( netmask < 33 ) )
-					add_del_route( hna, netmask, orig_node->orig, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
-
-				hna_buff_count++;
-
-			}
-
-			free_memory( orig_node->hna_buff );
-			orig_node->hna_buff_len = 0;
-
-		}
+		if ( orig_node->hna_buff_len > 0 )
+			add_del_hna( orig_node, 1 );
 
 		if ( orig_node->router != 0 )
 			add_del_route(orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, batman_if->udp_send_sock);
