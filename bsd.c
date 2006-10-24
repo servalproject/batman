@@ -100,8 +100,7 @@ struct rt_msg
 	struct sockaddr_in gateway;
 };
 
-void add_del_route(unsigned int dest, unsigned int router, int del,
-		char *dev, int sock)
+void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router, int del, char *dev, int sock ) {
 {
 	char str1[16], str2[16];
 	int rt_sock;

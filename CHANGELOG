@@ -19,6 +19,7 @@ new functions:
 - batman version check added
 - preferred gateway funtion added
 - UDP tunnel implemented
+- Network announcement implemented
 - daemonizing batman -> batmand
 - improving output / logging to syslog added
 - FreeBSD support added

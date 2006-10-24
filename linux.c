@@ -108,10 +108,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 	addr = (struct sockaddr_in *)&route.rt_genmask;
 
 	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = netmask;
-// 	addr->sin_addr.s_addr = ( ( ( dest == 0 ) && ( router == 0 ) ) ? 0x00000000 : 0xffffffff );
+	addr->sin_addr.s_addr = ( netmask == 32 ? 0xffffffff : htonl( ~ ( 0xffffffff >> netmask ) ) );
 
-	route.rt_flags = ( netmask == 32 ? RTF_HOST | RTF_UP : RTF_UP );
+	route.rt_flags = ( netmask == 32 ? ( RTF_HOST | RTF_UP ) : RTF_UP );
 	route.rt_metric = 1;
 
 	if ( (dest != router) || ( ( dest == 0 ) && ( router == 0 ) ) )
@@ -124,7 +123,6 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 		if ( ( dest == 0 ) && ( router == 0 ) ) {
 
 			route.rt_metric = 0;
-			route.rt_flags = RTF_UP;
 
 			if ( debug_level == 1 ) {
 				printf("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
@@ -137,9 +135,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 			route.rt_flags |= RTF_GATEWAY;
 
 			if ( debug_level == 1 ) {
-				printf("%s route to %s via %s/%i (%s)\n", del ? "Deleting" : "Adding", str1, str2, netmask, dev);
+				printf("%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev);
 			} else if ( debug_level == 3 ) {
-				output("%s route to %s via %s/%i (%s)\n", del ? "Deleting" : "Adding", str1, str2, netmask, dev);
+				output("%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev);
 			}
 
 		}
@@ -154,11 +152,10 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 
 	}
 
-
 	route.rt_dev = dev;
 
 	if ( ioctl( sock, del ? SIOCDELRT : SIOCADDRT, &route ) < 0 ) {
-		snprintf( log_str, sizeof( log_str ), "Error - can't %s route to %s via %s: %s\n", del ? "delete" : "add", str1, str2, strerror(errno) );
+		snprintf( log_str, sizeof( log_str ), "Error - can't %s route to %s/%i via %s: %s\n", del ? "delete" : "add", str1, netmask, str2, strerror(errno) );
 		do_log( log_str, strerror(errno) );
 	}
 
