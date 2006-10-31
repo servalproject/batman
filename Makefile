@@ -17,6 +17,7 @@
 #
 
 CC =		gcc
+# CC =		mipsel-linux-uclibc-gcc
 CFLAGS =	-Wall -O0 -g3
 LDFLAGS =	-lpthread
 #LDFLAGS =	-static -lpthread
