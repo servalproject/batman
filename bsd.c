@@ -222,7 +222,8 @@ int open_tun_any(char *dev_name, size_t dev_name_size)
 	for (i = 0; i < 256; i++) {
 		snprintf(tun_dev_name, sizeof(tun_dev_name), "/dev/tun%i", i);
 		if ((fd = open(tun_dev_name, O_RDWR)) >= 0) {
-			strlcpy(dev_name, tun_dev_name, dev_name_size);
+			if (dev_name != NULL)
+				strlcpy(dev_name, tun_dev_name, dev_name_size);
 			return fd;
 		}
 	}
