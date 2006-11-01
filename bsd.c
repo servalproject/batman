@@ -123,7 +123,7 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 	msg.hdr.rtm_type = del ? RTM_DELETE : RTM_ADD;
 	msg.hdr.rtm_version = RTM_VERSION;
 	msg.hdr.rtm_flags = RTF_STATIC | RTF_UP | RTF_HOST;
-	msg.hdr.rtm_addrs = RTA_DST;
+	msg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
 
 	so_dest = &msg.dest;
 	so_dest->sin_family = AF_INET;
@@ -133,9 +133,6 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 	msg.hdr.rtm_msglen = sizeof(struct rt_msghdr)
 		+ (2 * sizeof(struct sockaddr_in));
 
-	msg.hdr.rtm_flags |= RTF_GATEWAY;
-	msg.hdr.rtm_addrs |= RTA_GATEWAY;
-
 	so_gateway = &msg.gateway;
 	so_gateway->sin_family = AF_INET;
 	so_gateway->sin_len = sizeof(struct sockaddr_in);
@@ -144,8 +141,12 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 		/* This is not a direct route; router is our gateway
 		 * to the remote host.
 		 * We essentially run 'route add <remote ip> <gateway ip> */
+
+		msg.hdr.rtm_flags |= RTF_GATEWAY;
 		so_gateway->sin_addr.s_addr = router;
 	} else {
+		return;
+#if 0
 		/* This is a direct route to the remote host.
 		 * We use our own IP address as gateway.
 		 * We essentially run 'route add <remote ip> <local ip> */
@@ -154,6 +155,7 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 			err(1, "Could not get name of interface %s", dev);
 		}
 		so_gateway->sin_addr.s_addr = ifname.sin_addr.s_addr;
+#endif
 	}
 
 	output("%s route to %s via %s\n", del ? "Deleting" : "Adding", str1, str2);
@@ -221,7 +223,7 @@ int open_tun_any(char *dev_name, size_t dev_name_size)
 	/* Try opening tun device /dev/tun[0..255] */
 	for (i = 0; i < 256; i++) {
 		snprintf(tun_dev_name, sizeof(tun_dev_name), "/dev/tun%i", i);
-		if ((fd = open(tun_dev_name, O_RDWR)) >= 0) {
+		if ((fd = open(tun_dev_name, O_RDWR)) != -1) {
 			if (dev_name != NULL)
 				strlcpy(dev_name, tun_dev_name, dev_name_size);
 			return fd;
@@ -236,10 +238,11 @@ int open_tun_any(char *dev_name, size_t dev_name_size)
 	struct stat buf;
 
 	/* Open lowest unused tun device */
-	if ((fd = open("/dev/tun", O_RDWR)) >= 0) {
+	if ((fd = open("/dev/tun", O_RDWR)) != -1) {
 		fstat(fd, &buf);
 		printf("Using %s\n", devname(buf.st_rdev, S_IFCHR));
-		strlcpy(dev_name, devname(buf.st_rdev, S_IFCHR), dev_name_size);
+		if (dev_name != NULL)
+			strlcpy(dev_name, devname(buf.st_rdev, S_IFCHR), dev_name_size);
 		return fd;
 	}
 	return -1;
@@ -251,9 +254,10 @@ int probe_tun()
 {
 	int fd;
 	fd = open_tun_any(NULL, 0);
-	if (fd >= 0)
-		close(fd);
-	return fd;
+	if (fd == -1)
+		return 0;
+	close(fd);
+	return 1;
 }
 
 int del_dev_tun(int fd)
@@ -301,6 +305,7 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 	so = socket(AF_INET, SOCK_DGRAM, 0);
 
 	/* Set IP of this end point of tunnel */
+	/* XXX FAILS XXX */
 	if (ioctl(so, SIOCSIFADDR, &ifr_tun, sizeof(ifr_tun)) < 0) {
 		perror("SIOCSIFADDR");
 		del_dev_tun(*fd);
