@@ -526,12 +526,14 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock)
 {
 
-	if (sendto(sock, buff, len, 0, (struct sockaddr *)broad, sizeof (struct sockaddr_in)) < 0)
-	{
+	char log_str[200];
+
+	if ( sendto( sock, buff, len, 0, (struct sockaddr *)broad, sizeof (struct sockaddr_in) ) < 0 ) {
 
 		if ( errno == 1 ) {
 
-			do_log( "Error - can't send packet: %s.\nDoes your Firewall allow outgoing UDP packets on port 1966 ?\n", strerror(errno) );
+			snprintf( log_str, sizeof( log_str ), "Error - can't send packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs(broad->sin_port ) );
+			do_log( log_str, strerror(errno) );
 
 		} else {
 
