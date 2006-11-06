@@ -22,6 +22,7 @@ new functions:
 - Network announcement implemented
 - daemonizing batman -> batmand
 - improving output / logging to syslog added
+- neighbours and gateways can be listed
 - FreeBSD support added
 - Mac OS X support added
 
