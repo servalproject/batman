@@ -42,7 +42,6 @@
 
 
 
-
 extern int debug_level;
 extern int orginator_interval;
 extern int gateway_class;
@@ -93,6 +92,7 @@ struct neigh_node
 {
 	struct list_head list;
 	unsigned int addr;
+	unsigned int packet_count; /* packets gathered from this neighbour */
 	unsigned short best_ttl;   /* ttl of last packet */
 	struct list_head pack_list;
 };

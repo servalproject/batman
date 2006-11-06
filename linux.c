@@ -124,9 +124,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 
 			route.rt_metric = 0;
 
-			if ( debug_level == 1 ) {
+			if ( debug_level == 3 ) {
 				printf("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
-			} else if ( debug_level == 3 ) {
+			} else if ( debug_level == 4 ) {
 				output("%s default route via %s\n", del ? "Deleting" : "Adding", dev);
 			}
 
@@ -134,9 +134,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 
 			route.rt_flags |= RTF_GATEWAY;
 
-			if ( debug_level == 1 ) {
+			if ( debug_level == 3 ) {
 				printf("%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev);
-			} else if ( debug_level == 3 ) {
+			} else if ( debug_level == 4 ) {
 				output("%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev);
 			}
 
@@ -144,9 +144,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 
 	} else {
 
-		if ( debug_level == 1 ) {
+		if ( debug_level == 3 ) {
 			printf("%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev);
-		} else if ( debug_level == 3 ) {
+		} else if ( debug_level == 4 ) {
 			output("%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev);
 		}
 

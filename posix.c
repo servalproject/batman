@@ -210,7 +210,7 @@ void *client_to_gw_tun( void *arg ) {
 
 			if ( write( curr_gateway_tcp_sock, keep_alive_string, sizeof( keep_alive_string ) ) < 0 ) {
 
-				if ( debug_level == 1 )
+				if ( debug_level == 3 )
 					printf( "server_keepalive failed: no connect to server\n" );
 
 				gw_node->last_failure = get_time();
@@ -239,19 +239,19 @@ void *client_to_gw_tun( void *arg ) {
 
 				if ( status > 0 ) {
 
-					if ( debug_level == 1 )
+					if ( debug_level == 3 )
 						printf( "server message ?\n" );
 
 				} else if ( status < 0 ) {
 
-					if ( debug_level == 1 )
+					if ( debug_level == 3 )
 						printf( "Cannot read message from gateway: %s\n", strerror(errno) );
 
 					break;
 
 				} else if (status == 0) {
 
-					if ( debug_level == 1 )
+					if ( debug_level == 3 )
 						printf( "Gateway closed connection - timeout ?\n" );
 
 					gw_node->last_failure = get_time();
@@ -383,6 +383,7 @@ int is_aborted()
 
 void *alloc_memory(int len)
 {
+
 	void *res = malloc(len);
 
 	if (res == NULL)
@@ -392,6 +393,7 @@ void *alloc_memory(int len)
 	}
 
 	return res;
+
 }
 
 void *realloc_memory(void *ptr, int len)
@@ -468,8 +470,12 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 		}
 	}
 
-	if (res == 0)
+	if ( res == 0 ) {
+
+		free_memory( buff );
 		return 0;
+
+	}
 
 	addr_len = sizeof (struct sockaddr_in);
 
@@ -497,6 +503,7 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 
 			} else {
 
+				free_memory( buff );
 				return 0;
 
 			}
@@ -508,21 +515,36 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 
 	}
 
+	free_memory( buff );
 
 	*neigh = addr.sin_addr.s_addr;
 
 	return 1;
+
 }
 
 int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock)
 {
+
 	if (sendto(sock, buff, len, 0, (struct sockaddr *)broad, sizeof (struct sockaddr_in)) < 0)
 	{
-		do_log( "Error - can't send packet: %s\n", strerror(errno) );
+
+		if ( errno == 1 ) {
+
+			do_log( "Error - can't send packet: %s.\nDoes your Firewall allow outgoing UDP packets on port 1966 ?\n", strerror(errno) );
+
+		} else {
+
+			do_log( "Error - can't send packet: %s.\n", strerror(errno) );
+
+		}
+
 		return -1;
+
 	}
 
 	return 0;
+
 }
 
 static void handler(int sig)
@@ -605,7 +627,7 @@ void *gw_listen( void *arg ) {
 
 				list_add_tail(&gw_client->list, &batman_if->client_list);
 
-				if ( debug_level == 1 ) {
+				if ( debug_level == 3 ) {
 					addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
 					printf( "gateway: %s (%s) got connection from %s (internet via %s)\n", gw_addr, batman_if->dev, str2, tun_dev );
 				}
@@ -669,7 +691,7 @@ void *gw_listen( void *arg ) {
 							if ( gw_client->sock > max_sock )
 								max_sock = gw_client->sock;
 
-							if ( debug_level == 1 ) {
+							if ( debug_level == 3 ) {
 								addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
 								printf( "gateway: client %s sent keep alive on interface %s\n", str2, batman_if->dev );
 							}
@@ -682,7 +704,7 @@ void *gw_listen( void *arg ) {
 
 							} else {
 
-								if ( debug_level == 1 )
+								if ( debug_level == 3 )
 									printf( "Client %s closed connection ...\n", str2 );
 
 							}
@@ -730,7 +752,7 @@ void *gw_listen( void *arg ) {
 					FD_CLR(gw_client->sock, &wait_sockets);
 					close( gw_client->sock );
 
-					if ( debug_level == 1 ) {
+					if ( debug_level == 3 ) {
 						addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
 						printf( "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
 					}
@@ -835,8 +857,8 @@ int main(int argc, char *argv[])
 						exit(EXIT_FAILURE);
 				}
 
-				if ( debug_level < 0 || debug_level > 3 ) {
-						printf( "Invalid debug level: %i\nDebug level has to be between 0 and 3.\n", debug_level );
+				if ( debug_level < 0 || debug_level > 4 ) {
+						printf( "Invalid debug level: %i\nDebug level has to be between 0 and 4.\n", debug_level );
 						exit(EXIT_FAILURE);
 				}
 
@@ -983,7 +1005,6 @@ int main(int argc, char *argv[])
 				break;
 
 			case 0:   /* child process - new daemon */
-				openlog( "batmand", LOG_PID, LOG_DAEMON );
 				break;
 
 			case 1:   /* parent process */
@@ -997,6 +1018,25 @@ int main(int argc, char *argv[])
 			do_log( "Error - can't create new session: %s\n", strerror(errno) );
 			close_all_sockets();
 			exit( EXIT_FAILURE );
+
+		}
+
+		/* fork again for openwrt */
+		switch( pid = fork() ) {
+
+			case -1:   /* error */
+				printf( "Error - can't fork to background: %s\n", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+				break;
+
+			case 0:   /* child process - new daemon */
+				openlog( "batmand", LOG_PID, LOG_DAEMON );
+				break;
+
+			case 1:   /* parent process */
+				exit( EXIT_SUCCESS );
+				break;
 
 		}
 
