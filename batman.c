@@ -488,9 +488,9 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 	}
 
-	if (debug_level == 3) {
+	if ( debug_level == 3 ) {
 		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
-		printf( "Found new gateway %s (class: %i)\n", orig_str, new_gwflags );
+		printf( "Found new gateway %s -> class: %i - %s\n", orig_str, new_gwflags, gw2string[new_gwflags] );
 	}
 
 	gw_node = alloc_memory(sizeof(struct gw_node));
@@ -517,12 +517,14 @@ static void debug() {
 	struct neigh_node *neigh_node;
 	struct pack_node *pack_node;
 	struct gw_node *gw_node;
+	unsigned int batman_count = 0;
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN];
 
 	if ( ( debug_level == 0 ) || ( debug_level == 3 ) )
 		return;
 
-	system( "clear" );
+	if ( debug_level != 4 )
+		system( "clear" );
 
 	if ( debug_level == 2 ) {
 
@@ -569,9 +571,9 @@ static void debug() {
 		if ( list_empty(&orig_list) ) {
 
 			if ( debug_level != 4 ) {
-				printf( "No gateways in range ...\n" );
+				printf( "No batman nodes in range ...\n" );
 			} else {
-				output( "No gateways in range ...\n" );
+				output( "No batman nodes in range ...\n" );
 			}
 
 		} else {
@@ -581,6 +583,8 @@ static void debug() {
 
 				if ( orig_node->router == 0 )
 					continue;
+
+				batman_count++;
 
 				addr_to_string( orig_node->orig, str, sizeof (str) );
 				addr_to_string( orig_node->router, str2, sizeof (str2) );
@@ -616,6 +620,16 @@ static void debug() {
 
 				if ( debug_level != 4 )
 					printf( "\n" );
+
+			}
+
+			if ( batman_count == 0 ) {
+
+				if ( debug_level != 4 ) {
+					printf( "No batman nodes in range ...\n" );
+				} else {
+					output( "No batman nodes in range ...\n" );
+				}
 
 			}
 
