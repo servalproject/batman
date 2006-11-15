@@ -767,7 +767,7 @@ void update_originator( struct packet *in, unsigned int neigh, struct batman_if 
 
 void schedule_forward_packet( struct packet *in, int unidirectional, struct orig_node *orig_node, unsigned int neigh, unsigned char *hna_recv_buff, int hna_buff_len )
 {
-	struct forw_node *forw_node, *forw_node_new;
+	struct forw_node *forw_node = NULL, *forw_node_new;
 	struct list_head *forw_pos;
 
 	if (debug_level == 4)
@@ -817,8 +817,10 @@ void schedule_forward_packet( struct packet *in, int unidirectional, struct orig
 				break;
 		}
 
-		list_add(&forw_node_new->list, &forw_list);
+		list_add( &forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos) );
+
 	}
+
 }
 
 void send_outstanding_packets()
@@ -851,7 +853,7 @@ void send_outstanding_packets()
 
 			}
 
-			if (debug_level == 4) {
+			if ( debug_level == 4 ) {
 				addr_to_string(forw_node->pack.orig, orig_str, ADDR_STR_LEN);
 				output("Forwarding packet (originator %s, seqno %d, TTL %d)\n", orig_str, forw_node->pack.seqno, forw_node->pack.ttl);
 			}
@@ -875,7 +877,9 @@ void send_outstanding_packets()
 			free_memory(forw_node);
 
 		}
+
 	}
+
 }
 
 void schedule_own_packet() {
@@ -923,7 +927,7 @@ void schedule_own_packet() {
 
 			forw_node_new->when = next_own;
 
-			list_add(&forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos));
+			list_add( &forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos) );
 
 			next_own += orginator_interval;
 			batman_if->out.seqno++;
@@ -1133,6 +1137,7 @@ int batman()
 			output(" \n \n");
 
 		schedule_own_packet();
+
 		if(vis_if.sock && time_count == 50)
 		{
 			time_count = 0;
