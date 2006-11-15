@@ -964,7 +964,7 @@ int main(int argc, char *argv[])
 				printf( "         /   _  \\__^..^__/  _  \\ \n" );
 				printf( "                  _\\vv/ _\n" );
 				printf( "                    \\/ \n\n" );
-				printf( "May the bat guide your paths ...\n" );
+				printf( "May the bat guide your path ...\n" );
 				return (0);
 
 			case 'h':
@@ -1125,14 +1125,14 @@ int main(int argc, char *argv[])
 		batman_if->broad.sin_port = htons(PORT);
 		batman_if->broad.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_broadaddr)->sin_addr.s_addr;
 
-		if (setsockopt(batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int)) < 0)
+		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 )
 		{
 			do_log( "Error - can't enable broadcasts: %s\n", strerror(errno) );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
 		}
 
-		if (bind(batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in)) < 0)
+		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 )
 		{
 			do_log( "Error - can't bind send socket: %s\n", strerror(errno) );
 			close_all_sockets();
@@ -1146,7 +1146,7 @@ int main(int argc, char *argv[])
 
 		}
 
-		if (bind(batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in)) < 0)
+		if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 )
 		{
 			do_log( "Error - can't bind receive socket: %s\n", strerror(errno) );
 			close_all_sockets();
