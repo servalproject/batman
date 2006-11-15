@@ -520,6 +520,7 @@ static void debug() {
 	unsigned int batman_count = 0;
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN];
 
+
 	if ( ( debug_level == 0 ) || ( debug_level == 3 ) )
 		return;
 
@@ -554,8 +555,8 @@ static void debug() {
 
 		if ( debug_level == 4 ) {
 
-			output("------------------ DEBUG ------------------\n");
-			output("Forward list\n");
+			output( "------------------ DEBUG ------------------\n" );
+			output( "Forward list\n" );
 
 			list_for_each(forw_pos, &forw_list) {
 				forw_node = list_entry(forw_pos, struct forw_node, list);
@@ -563,12 +564,56 @@ static void debug() {
 				output("    %s at %u\n", str, forw_node->when);
 			}
 
+			output( "Originator list\n" );
+
 		}
 
-		if ( debug_level == 4 )
-			output("Originator list\n");
+		list_for_each(orig_pos, &orig_list) {
+			orig_node = list_entry(orig_pos, struct orig_node, list);
 
-		if ( list_empty(&orig_list) ) {
+			if ( orig_node->router == 0 )
+				continue;
+
+			batman_count++;
+
+			addr_to_string( orig_node->orig, str, sizeof (str) );
+			addr_to_string( orig_node->router, str2, sizeof (str2) );
+
+			if ( debug_level != 4 ) {
+				printf( "%s, GW: %s(%i) via:", str, str2, orig_node->packet_count );
+			} else {
+				output( "%s, GW: %s(%i), last_aware:%u, last_reply:%u, last_seen:%u via:\n", str, str2, orig_node->packet_count, orig_node->last_aware, orig_node->last_reply, orig_node->last_seen );
+			}
+
+			list_for_each(neigh_pos, &orig_node->neigh_list) {
+				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
+
+				addr_to_string(neigh_node->addr, str, sizeof (str));
+
+				if ( debug_level != 4 ) {
+					printf( " %s(%i)", str, neigh_node->packet_count );
+				} else {
+					output( "\t\t%s (%d)\n", str, neigh_node->packet_count );
+				}
+
+				if ( debug_level == 4 ) {
+
+					list_for_each(pack_pos, &neigh_node->pack_list) {
+						pack_node = list_entry(pack_pos, struct pack_node, list);
+						output("        Sequence number: %d, TTL: %d at: %u \n",
+								pack_node->seqno, pack_node->ttl, pack_node->time);
+					}
+
+				}
+
+			}
+
+			if ( debug_level != 4 )
+				printf( "\n" );
+
+		}
+
+		if ( batman_count == 0 ) {
 
 			if ( debug_level != 4 ) {
 				printf( "No batman nodes in range ...\n" );
@@ -576,67 +621,10 @@ static void debug() {
 				output( "No batman nodes in range ...\n" );
 			}
 
-		} else {
-
-			list_for_each(orig_pos, &orig_list) {
-				orig_node = list_entry(orig_pos, struct orig_node, list);
-
-				if ( orig_node->router == 0 )
-					continue;
-
-				batman_count++;
-
-				addr_to_string( orig_node->orig, str, sizeof (str) );
-				addr_to_string( orig_node->router, str2, sizeof (str2) );
-
-				if ( debug_level != 4 ) {
-					printf( "%s, GW: %s(%i) via:", str, str2, orig_node->packet_count );
-				} else {
-					output("%s, GW: %s(%i), last_aware:%u, last_reply:%u, last_seen:%u via:\n", str, str2, orig_node->packet_count, orig_node->last_aware, orig_node->last_reply, orig_node->last_seen);
-				}
-
-				list_for_each(neigh_pos, &orig_node->neigh_list) {
-					neigh_node = list_entry(neigh_pos, struct neigh_node, list);
-
-					addr_to_string(neigh_node->addr, str, sizeof (str));
-
-					if ( debug_level != 4 ) {
-						printf( " %s(%i)", str, neigh_node->packet_count );
-					} else {
-						output( "\t\t%s (%d)\n", str, neigh_node->packet_count );
-					}
-
-					if ( debug_level == 4 ) {
-
-						list_for_each(pack_pos, &neigh_node->pack_list) {
-							pack_node = list_entry(pack_pos, struct pack_node, list);
-							output("        Sequence number: %d, TTL: %d at: %u \n",
-									pack_node->seqno, pack_node->ttl, pack_node->time);
-						}
-
-					}
-
-				}
-
-				if ( debug_level != 4 )
-					printf( "\n" );
-
-			}
-
-			if ( batman_count == 0 ) {
-
-				if ( debug_level != 4 ) {
-					printf( "No batman nodes in range ...\n" );
-				} else {
-					output( "No batman nodes in range ...\n" );
-				}
-
-			}
-
 		}
 
 		if ( debug_level == 4 )
-			output("---------------------------------------------- END DEBUG\n");
+			output( "---------------------------------------------- END DEBUG\n" );
 
 	}
 

@@ -565,7 +565,8 @@ void *gw_listen( void *arg ) {
 	socklen_t sin_size = sizeof(struct sockaddr_in);
 	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], tun_ip[] = "104.255.255.254\0";
 	int res, status, max_sock_min, max_sock, buff_len, tun_fd;
-	unsigned int addr_len, client_timeout, buff[1500];
+	unsigned int addr_len, client_timeout;
+	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 
 
@@ -673,9 +674,9 @@ void *gw_listen( void *arg ) {
 			/* client sent keep alive */
 			} else {
 
-				list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
+				max_sock = max_sock_min;
 
-					max_sock = max_sock_min;
+				list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
 
 					gw_client = list_entry(client_pos, struct gw_client, list);
 
@@ -798,7 +799,7 @@ int main(int argc, char *argv[])
 	dev = NULL;
 	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
 
-	while ( ( optchar = getopt ( argc, argv, "a:d:hHo:g:p:r:s:" ) ) != -1 ) {
+	while ( ( optchar = getopt ( argc, argv, "a:d:hHo:g:p:r:s:V" ) ) != -1 ) {
 
 		switch ( optchar ) {
 
@@ -955,6 +956,16 @@ int main(int argc, char *argv[])
 
 				found_args += 2;
 				break;
+
+			case 'V':
+				printf( "B.A.T.M.A.N-III v%s (internal version %i)\n\n", VERSION, BATMAN_VERSION );
+				printf( "   ____________              ____________\n" );
+				printf( "                /`       ´\\ \n" );
+				printf( "         /   _  \\__^..^__/  _  \\ \n" );
+				printf( "                  _\\vv/ _\n" );
+				printf( "                    \\/ \n\n" );
+				printf( "May the bat guide your paths ...\n" );
+				return (0);
 
 			case 'h':
 			default:
@@ -1238,6 +1249,11 @@ int main(int argc, char *argv[])
 		if ( pref_gateway > 0 ) {
 			addr_to_string(pref_gateway, str1, sizeof (str1));
 			printf( "preferred gateway: %s\n", str1 );
+		}
+
+		if ( vis_server > 0 ) {
+			addr_to_string(vis_server, str1, sizeof (str1));
+			printf( "visualisation server: %s\n", str1 );
 		}
 
 	}
