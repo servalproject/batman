@@ -929,10 +929,11 @@ void schedule_own_packet() {
 
 			list_add( &forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos) );
 
-			next_own += orginator_interval;
 			batman_if->out.seqno++;
 
 		}
+
+		next_own += orginator_interval;
 
 	}
 
@@ -945,7 +946,7 @@ void purge()
 	struct neigh_node *neigh_node;
 	struct pack_node *pack_node;
 	struct gw_node *gw_node;
-	int gw_purged = 0;
+	int gw_purged = 0, purged_packets;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 
 	if (debug_level == 4)
@@ -954,6 +955,8 @@ void purge()
 	/* for all origins... */
 	list_for_each_safe(orig_pos, orig_temp, &orig_list) {
 		orig_node = list_entry(orig_pos, struct orig_node, list);
+
+		purged_packets = 0;
 
 		/* for all neighbours towards the origins... */
 		list_for_each_safe(neigh_pos, neigh_temp, &orig_node->neigh_list) {
@@ -972,14 +975,18 @@ void purge()
 						output("Packet timeout (originator %s, neighbour %s, seqno %d, TTL %d, time %u)\n",
 						     orig_str, neigh_str, pack_node->seqno, pack_node->ttl, pack_node->time);
 					}
+
+					purged_packets++;
 					list_del(pack_pos);
 					free_memory(pack_node);
+
 				} else {
 
 					/* if this packet is not outdated the following packets won't be either */
 					break;
 
 				}
+
 			}
 
 			/* if no more packets, remove neighbour (next hop) towards given origin */
@@ -996,6 +1003,7 @@ void purge()
 
 		/* if no more neighbours (next hops) towards given origin, remove origin */
 		if (list_empty(&orig_node->neigh_list) && ((int)(orig_node->last_aware) + TIMEOUT <= ((int)(get_time())))) {
+
 			if (debug_level == 4) {
 				addr_to_string(orig_node->orig, orig_str, sizeof (orig_str));
 				output("Removing orphaned originator %s\n", orig_str);
@@ -1042,7 +1050,14 @@ void purge()
 				free_memory(orig_node);
 
 			}
+
+		} else if ( purged_packets > 0 ) {
+
+			/* update packet count of orginator */
+			update_routes( orig_node, orig_node->hna_buff, orig_node->hna_buff_len );
+
 		}
+
 	}
 
 	if ( gw_purged )
