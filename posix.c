@@ -389,7 +389,7 @@ void *alloc_memory(int len)
 	if (res == NULL)
 	{
 		do_log( "Error - out of memory: %s\n", strerror(errno) );
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	return res;
@@ -403,7 +403,7 @@ void *realloc_memory(void *ptr, int len)
 	if (res == NULL)
 	{
 		do_log( "Error - out of memory: %s\n", strerror(errno) );
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	return res;
@@ -791,6 +791,7 @@ int main(int argc, char *argv[])
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct ifreq int_req;
+	struct timespec sleep_time = { 0, 250 * 1000 * 1000 };   /* 500 mili seconds */
 	int on = 1, res, optchar, found_args = 1, pid, netmask;
 	char str1[16], str2[16], *dev, *slash_ptr;
 	unsigned int vis_server = 0;
@@ -827,14 +828,14 @@ int main(int argc, char *argv[])
 
 				if ( (errno == ERANGE && (netmask == LONG_MAX || netmask == LONG_MIN) ) || (errno != 0 && netmask == 0) ) {
 					perror("strtol");
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				if ( netmask < 0 || netmask > 32 ) {
 
 					*slash_ptr = '/';
 					printf( "Invalid announced network (netmask is invalid): %s\n", optarg );
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 
 				}
 
@@ -847,6 +848,7 @@ int main(int argc, char *argv[])
 
 				list_add_tail(&hna_node->list, &hna_list);
 
+				*slash_ptr = '/';
 				found_args += 2;
 				break;
 
@@ -856,13 +858,13 @@ int main(int argc, char *argv[])
 				debug_level = strtol (optarg, NULL , 10);
 
 				if ( (errno == ERANGE && (debug_level == LONG_MAX || debug_level == LONG_MIN) ) || (errno != 0 && debug_level == 0) ) {
-						perror("strtol");
-						exit(EXIT_FAILURE);
+					perror("strtol");
+      					exit(EXIT_FAILURE);
 				}
 
 				if ( debug_level < 0 || debug_level > 4 ) {
-						printf( "Invalid debug level: %i\nDebug level has to be between 0 and 4.\n", debug_level );
-						exit(EXIT_FAILURE);
+					printf( "Invalid debug level: %i\nDebug level has to be between 0 and 4.\n", debug_level );
+      					exit(EXIT_FAILURE);
 				}
 
 				found_args += 2;
@@ -875,12 +877,12 @@ int main(int argc, char *argv[])
 
 				if ( (errno == ERANGE && (gateway_class == LONG_MAX || gateway_class == LONG_MIN) ) || (errno != 0 && gateway_class == 0) ) {
 					perror("strtol");
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				if ( gateway_class < 0 || gateway_class > 11 ) {
 					printf( "Invalid gateway class specified: %i.\nThe class is a value between 0 and 11.\n", gateway_class );
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				found_args += 2;
@@ -897,12 +899,12 @@ int main(int argc, char *argv[])
 
 				if ( (errno == ERANGE && (orginator_interval == LONG_MAX || orginator_interval == LONG_MIN) ) || (errno != 0 && orginator_interval == 0) ) {
 					perror("strtol");
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				if (orginator_interval < 1) {
 					printf( "Invalid orginator interval specified: %i.\nThe Interval has to be greater than 0.\n", orginator_interval );
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				found_args += 2;
@@ -914,7 +916,7 @@ int main(int argc, char *argv[])
 				if ( inet_pton(AF_INET, optarg, &tmp_ip_holder) < 1 ) {
 
 					printf( "Invalid preferred gateway IP specified: %s\n", optarg );
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 
 				}
 
@@ -930,12 +932,12 @@ int main(int argc, char *argv[])
 
 				if ( (errno == ERANGE && (routing_class == LONG_MAX || routing_class == LONG_MIN) ) || (errno != 0 && routing_class == 0) ) {
 					perror("strtol");
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				if (routing_class < 0 || routing_class > 3) {
 					printf( "Invalid routing class specified: %i.\nThe class is a value between 0 and 3.\n", routing_class );
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 				}
 
 				found_args += 2;
@@ -947,7 +949,7 @@ int main(int argc, char *argv[])
 				if ( inet_pton(AF_INET, optarg, &tmp_ip_holder) < 1 ) {
 
 					printf( "Invalid preferred visualation server IP specified: %s\n", optarg );
-					exit(EXIT_FAILURE);
+     					exit(EXIT_FAILURE);
 
 				}
 
@@ -958,12 +960,34 @@ int main(int argc, char *argv[])
 				break;
 
 			case 'V':
+				res = 3;
+
+				while( res > 0 ) {
+
+					system( "clear" );
+					printf(  "\n\n      ____________      ____________\n             /  /|\\`  ´/|\\   \\ \n                 \\ ^..^ / \n                   \\vv/ \n                    \\/ \n" );
+					nanosleep( &sleep_time, NULL );
+
+					system( "clear" );
+					printf( "\n\n   ____________              ____________\n                /`       ´\\ \n         /   _  \\__^..^__/  _  \\ \n                  _\\vv/ _\n                    \\/ \n\n" );
+					nanosleep( &sleep_time, NULL );
+
+					system( "clear" );
+					printf( "\n\n\n              /\\`        ´\\ \n             /  \\__^..^__/ \\ \n            /   / _\\vv/ _\\  \\ \n           /        \\/       \\ \n          /                   \\ \n\n" );
+					nanosleep( &sleep_time, NULL );
+
+					system( "clear" );
+					printf( "\n\n   ____________              ____________\n                /`       ´\\ \n         /   _  \\__^..^__/  _  \\ \n                  _\\vv/ _\n                    \\/ \n\n" );
+					nanosleep( &sleep_time, NULL );
+
+					res--;
+
+				}
+
+				system( "clear" );
+
 				printf( "B.A.T.M.A.N-III v%s (internal version %i)\n\n", VERSION, BATMAN_VERSION );
-				printf( "   ____________              ____________\n" );
-				printf( "                /`       ´\\ \n" );
-				printf( "         /   _  \\__^..^__/  _  \\ \n" );
-				printf( "                  _\\vv/ _\n" );
-				printf( "                    \\/ \n\n" );
+				printf( "   ____________              ____________\n                /`       ´\\ \n         /   _  \\__^..^__/  _  \\ \n                  _\\vv/ _\n                    \\/ \n\n" );
 				printf( "May the bat guide your path ...\n" );
 				return (0);
 
@@ -976,24 +1000,21 @@ int main(int argc, char *argv[])
 
 	}
 
-	if ( ( gateway_class != 0 ) && ( routing_class != 0 ) )
-	{
+	if ( ( gateway_class != 0 ) && ( routing_class != 0 ) ) {
 		fprintf(stderr, "Error - routing class can't be set while gateway class is in use !\n");
 		usage();
 		close_all_sockets();
 		exit(EXIT_FAILURE);
 	}
 
-	if ( ( gateway_class != 0 ) && ( pref_gateway != 0 ) )
-	{
+	if ( ( gateway_class != 0 ) && ( pref_gateway != 0 ) ) {
 		fprintf(stderr, "Error - preferred gateway can't be set while gateway class is in use !\n");
 		usage();
 		close_all_sockets();
 		exit(EXIT_FAILURE);
 	}
 
-	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) )
-	{
+	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) ) {
 		fprintf(stderr, "Error - preferred gateway can't be set without specifying routing class !\n");
 		usage();
 		close_all_sockets();
@@ -1002,64 +1023,20 @@ int main(int argc, char *argv[])
 
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun() ) ) {
 		close_all_sockets();
-		exit( EXIT_FAILURE );
+		exit( 1 );
 	}
 
 
 	/* daemonize */
 	if ( debug_level == 0 ) {
 
-		switch( pid = fork() ) {
+		if ( daemon( 0, 0 ) < 0 ) {
 
-			case -1:   /* error */
-				printf( "Error - can't fork to background: %s\n", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-				break;
-
-			case 0:   /* child process - new daemon */
-				break;
-
-			case 1:   /* parent process */
-				exit( EXIT_SUCCESS );
-				break;
-
-		}
-
-		if ( setsid() < 0 ) {
-
-			do_log( "Error - can't create new session: %s\n", strerror(errno) );
+			printf( "Error - can't fork to background: %s\n", strerror(errno) );
 			close_all_sockets();
-			exit( EXIT_FAILURE );
+			exit(EXIT_FAILURE);
 
 		}
-
-		/* fork again for openwrt */
-		switch( pid = fork() ) {
-
-			case -1:   /* error */
-				printf( "Error - can't fork to background: %s\n", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-				break;
-
-			case 0:   /* child process - new daemon */
-				openlog( "batmand", LOG_PID, LOG_DAEMON );
-				break;
-
-			case 1:   /* parent process */
-				exit( EXIT_SUCCESS );
-				break;
-
-		}
-
-		close( STDIN_FILENO );
-		close( STDOUT_FILENO );
-		close( STDERR_FILENO );
-
-		chdir( "/" );
-
-		umask( 0 );
 
 	} else if ( debug_level > 0 ) {
 
@@ -1136,7 +1113,7 @@ int main(int argc, char *argv[])
 		{
 			do_log( "Error - can't bind send socket: %s\n", strerror(errno) );
 			close_all_sockets();
-			exit(EXIT_FAILURE);
+   			exit(EXIT_FAILURE);
 		}
 
 		if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
