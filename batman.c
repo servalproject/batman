@@ -1248,6 +1248,9 @@ int batman()
 					if ( isBidirectionalNeigh( orig_neigh_node ) )
 						output("received via bidirectional link \n");
 
+					if ( !( in.flags & UNIDIRECTIONAL ) && !( isBidirectionalNeigh( orig_neigh_node ) ) )
+						output("neighbour thinks connection is bidirectional - I disagree \n");
+
 					if ( in.gwflags != 0 )
 						output("Is an internet gateway (class %i) \n", in.gwflags);
 

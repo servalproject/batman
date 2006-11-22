@@ -792,7 +792,7 @@ int main(int argc, char *argv[])
 	struct hna_node *hna_node;
 	struct ifreq int_req;
 	struct timespec sleep_time = { 0, 250 * 1000 * 1000 };   /* 500 mili seconds */
-	int on = 1, res, optchar, found_args = 1, pid, netmask;
+	int on = 1, res, optchar, found_args = 1, netmask;
 	char str1[16], str2[16], *dev, *slash_ptr;
 	unsigned int vis_server = 0;
 
@@ -1038,7 +1038,9 @@ int main(int argc, char *argv[])
 
 		}
 
-	} else if ( debug_level > 0 ) {
+		openlog( "batmand", LOG_PID, LOG_DAEMON );
+
+	} else {
 
 		printf( "B.A.T.M.A.N-III v%s (internal version %i)\n", VERSION, BATMAN_VERSION );
 
@@ -1201,8 +1203,7 @@ int main(int argc, char *argv[])
 		memset(&vis_if, 0, sizeof(vis_if));
 
 
-	if ( found_ifs == 0 )
-	{
+	if ( found_ifs == 0 ) {
 		do_log( "Error - no interface specified\n", strerror(errno) );
 		usage();
 		close_all_sockets();
