@@ -44,4 +44,4 @@ batmand:	batman.o $(OS_OBJ)
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
 clean:
-		rm -f batman *.o *~
+		rm -f batmand *.o *~
