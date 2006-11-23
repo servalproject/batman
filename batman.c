@@ -98,7 +98,7 @@ static LIST_HEAD(forw_list);
 static LIST_HEAD(gw_list);
 LIST_HEAD(if_list);
 LIST_HEAD(hna_list);
-static unsigned int next_own;
+static unsigned int last_own_packet;
 
 struct vis_if vis_if;
 
@@ -837,8 +837,7 @@ void send_outstanding_packets()
 	list_for_each_safe(forw_pos, temp, &forw_list) {
 		forw_node = list_entry(forw_pos, struct forw_node, list);
 
-		if (forw_node->when <= get_time())
-		{
+		if (forw_node->when <= get_time()) {
 
 			if ( forw_node->hna_buff_len > 0 ) {
 
@@ -883,23 +882,16 @@ void send_outstanding_packets()
 }
 
 void schedule_own_packet() {
-	int queue_own = 1;
-	struct forw_node *forw_node = NULL, *forw_node_new;
-	struct list_head *forw_pos, *if_pos;
+
+	struct forw_node *forw_node_new;
+	struct list_head *if_pos;
 	struct batman_if *batman_if;
+	int curr_time;
 
-	list_for_each(forw_pos, &forw_list) {
-		forw_node = list_entry(forw_pos, struct forw_node, list);
-		break;
-	}
 
-	if (forw_node != NULL)
-	{
-		if ((int)(forw_node->when - next_own) < 0)
-			queue_own = 0;
-	}
+	curr_time = get_time();
 
-	if (queue_own != 0) {
+	if ( ( last_own_packet + orginator_interval ) <= curr_time ) {
 
 		list_for_each(if_pos, &if_list) {
 
@@ -925,15 +917,15 @@ void schedule_own_packet() {
 
 			}
 
-			forw_node_new->when = next_own;
+			forw_node_new->when = curr_time;
 
-			list_add( &forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos) );
+			list_add( &forw_node_new->list, &forw_list );
 
 			batman_if->out.seqno++;
 
 		}
 
-		next_own += orginator_interval;
+		last_own_packet = curr_time;
 
 	}
 
@@ -1096,21 +1088,20 @@ void send_vis_packet()
 
 int batman()
 {
-	struct list_head *forw_pos, *orig_pos, *if_pos, *neigh_pos, *hna_pos;
-	struct forw_node *forw_node;
+	struct list_head *orig_pos, *if_pos, *neigh_pos, *hna_pos;
 	struct orig_node *orig_node, *orig_neigh_node;
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
 	struct packet in;
-	unsigned int neigh, hna, netmask, debug_timeout;
+	unsigned int neigh, hna, netmask, debug_timeout, select_timeout;
 	unsigned char hna_recv_buff[1500 - sizeof (struct packet)];
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	int forward_old, res, hna_buff_len, hna_buff_count;
 	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, forward_duplicate_packet;
-	int time_count = 0;
+	int time_count = 0, curr_time;
 
-	next_own = 0;
+	last_own_packet = get_time() - orginator_interval;
 	debug_timeout = get_time();
 
 	if ( !( list_empty(&hna_list) ) ) {
@@ -1159,12 +1150,13 @@ int batman()
 			send_vis_packet();
 		}
 
-		list_for_each(forw_pos, &forw_list) {
-			forw_node = list_entry(forw_pos, struct forw_node, list);
-			hna_buff_len = 1500 - sizeof (struct packet);
-			res = receive_packet((unsigned char *)&in, sizeof (struct packet), hna_recv_buff, &hna_buff_len, &neigh, forw_node->when, &if_incoming);
-			break;
-		}
+		hna_buff_len = 1500 - sizeof (struct packet);
+
+		/* harden select_timeout against sudden time change (e.g. ntpdate) */
+		curr_time = get_time();
+		select_timeout = ( curr_time >= last_own_packet + orginator_interval ? orginator_interval : last_own_packet + orginator_interval - curr_time );
+
+		res = receive_packet((unsigned char *)&in, sizeof (struct packet), hna_recv_buff, &hna_buff_len, &neigh, select_timeout, &if_incoming);
 
 		if (res < 0)
 			return -1;
@@ -1254,7 +1246,7 @@ int batman()
 					if ( in.gwflags != 0 )
 						output("Is an internet gateway (class %i) \n", in.gwflags);
 
-					if ( hna_buff_len > 0 ) {
+					if ( hna_buff_len > 4 ) {
 
 						printf( "HNA information received (%i HNA network%s):\n", hna_buff_len / 5, ( hna_buff_len / 5 > 1 ? "s": "" ) );
 						hna_buff_count = 0;
@@ -1282,7 +1274,7 @@ int batman()
 
 				if ( in.version != BATMAN_VERSION ) {
 
-					if (debug_level == 3)
+					if (debug_level == 4)
 						output( "Incompatible batman version (%i) - ignoring packet... \n", in.version );
 
 				} else if ( in.flags & UNIDIRECTIONAL ) {

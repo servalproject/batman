@@ -434,13 +434,10 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
-	int diff = timeout - get_time();
 
-	if (diff < 0)
-		return 0;
 
-	tv.tv_sec = diff / 1000;
-	tv.tv_usec = (diff % 1000) * 1000;
+	tv.tv_sec = timeout / 1000;
+	tv.tv_usec = (timeout % 1000) * 1000;
 
 	buff = alloc_memory( packet_buff_len + *hna_buff_len );
 
