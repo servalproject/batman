@@ -79,7 +79,9 @@ int gateway_class = 0;
 int routing_class = 0;
 
 
-int orginator_interval = 1000; /* orginator message interval in miliseconds */
+int orginator_interval = 1000;   /* orginator message interval in miliseconds */
+
+int bidirectional_timeout = 0;   /* bidirectional neighbour reply timeout in ms */
 
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
@@ -670,7 +672,7 @@ int isDuplicate(unsigned int orig, unsigned short seqno)
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 
-	if( orig_neigh_node->last_reply[if_incoming->if_num] > 0 && (orig_neigh_node->last_reply[if_incoming->if_num] + (BIDIRECT_TO)) >= get_time() )
+	if( orig_neigh_node->last_reply[if_incoming->if_num] > 0 && (orig_neigh_node->last_reply[if_incoming->if_num] + (bidirectional_timeout)) >= get_time() )
 		return 1;
 	else
 		return 0;
@@ -1109,6 +1111,7 @@ int batman()
 
 	last_own_packet = get_time() - orginator_interval;
 	debug_timeout = get_time();
+	bidirectional_timeout = orginator_interval * 3;
 
 	if ( !( list_empty(&hna_list) ) ) {
 

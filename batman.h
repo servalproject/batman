@@ -36,9 +36,8 @@
  * and recompile the code
  * Here is the stuff you may want to play with: */
 
-#define BIDIRECT_TO 3000 /* bidirectional neighbour reply timeout in ms */
-#define TTL 50 /* Time To Live of broadcast messages */
-#define TIMEOUT 30000 /* sliding window size of received orginator messages in ms */
+#define TTL 50            /* Time To Live of broadcast messages */
+#define TIMEOUT 60000     /* sliding window size of received orginator messages in ms */
 
 
 
