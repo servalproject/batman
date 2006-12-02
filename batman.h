@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define VERSION "0.1 rc5"
+#define VERSION "0.1 rc 6a"
 #define BATMAN_VERSION 1
 #define PORT 1966
 #define UNIDIRECTIONAL 0xF0
@@ -78,7 +78,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct batman_if *batman_if;
 	unsigned int packet_count; /* packets gathered from its router */
 	unsigned int last_seen;    /* when last originator packet (with new seq-number) from this node was received */
-	unsigned int last_reply;   /* if node is a neighbour, when my originator packet was last broadcasted (replied) by this node and received by me */
+	unsigned int *last_reply;   /* if node is a neighbour, when my originator packet was last broadcasted (replied) by this node and received by me */
 	unsigned int last_aware;   /* if node is a neighbour, when last packet via this node was received */
 	unsigned char flags;
 	unsigned char gwflags;     /* flags related to gateway functions: gateway class */

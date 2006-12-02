@@ -1069,50 +1069,93 @@ int main(int argc, char *argv[])
 		}
 
 		batman_if->udp_recv_sock = socket(PF_INET, SOCK_DGRAM, 0);
-		if (batman_if->udp_recv_sock < 0)
-		{
+		if ( batman_if->udp_recv_sock < 0 ) {
+
 			do_log( "Error - can't create recieve socket: %s", strerror(errno) );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
+
 		}
+
+
+		/* FIXME: does that help ?
+		socklen_t get_len;
+		int get_value;
+		get_len = sizeof (get_value);
+		if ( getsockopt( batman_if->udp_recv_sock, SOL_SOCKET, SO_RCVBUF, &get_value, &get_len ) < 0 ) {
+
+			do_log( "Error - can't get socket option: %s\n", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		printf( "receive buffer (%s): %i (before)\n", batman_if->dev, get_value );
+
+		get_value = get_value * 2;
+
+		if ( setsockopt( batman_if->udp_recv_sock, SOL_SOCKET, SO_RCVBUF, &get_value, sizeof (int) ) < 0 ) {
+
+			do_log( "Error - can't set recv buffer size: %s\n", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( getsockopt( batman_if->udp_recv_sock, SOL_SOCKET, SO_RCVBUF, &get_value, &get_len ) < 0 ) {
+
+			do_log( "Error - can't get socket option: %s\n", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		printf( "receive buffer (%s): %i (now)\n", batman_if->dev, get_value );
+
+		*/
+
 
 		memset(&int_req, 0, sizeof (struct ifreq));
 		strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
 
-		if (ioctl(batman_if->udp_recv_sock, SIOCGIFADDR, &int_req) < 0)
-		{
+		if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
+
 			do_log( "Error - can't get IP address of interface %s\n", batman_if->dev );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
+
 		}
 
 		batman_if->addr.sin_family = AF_INET;
 		batman_if->addr.sin_port = htons(PORT);
 		batman_if->addr.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr;
 
-		if (ioctl(batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req) < 0)
-		{
+		if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
+
 			do_log( "Error - can't get broadcast IP address of interface %s\n", batman_if->dev );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
+
 		}
 
 		batman_if->broad.sin_family = AF_INET;
 		batman_if->broad.sin_port = htons(PORT);
 		batman_if->broad.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_broadaddr)->sin_addr.s_addr;
 
-		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 )
-		{
+		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
+
 			do_log( "Error - can't enable broadcasts: %s\n", strerror(errno) );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
+
 		}
 
-		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 )
-		{
+		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
+
 			do_log( "Error - can't bind send socket: %s\n", strerror(errno) );
 			close_all_sockets();
-   			exit(EXIT_FAILURE);
+			exit(EXIT_FAILURE);
+
 		}
 
 		if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
@@ -1122,12 +1165,14 @@ int main(int argc, char *argv[])
 
 		}
 
-		if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 )
-		{
+		if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 ) {
+
 			do_log( "Error - can't bind receive socket: %s\n", strerror(errno) );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
+
 		}
+
 
 		addr_to_string(batman_if->addr.sin_addr.s_addr, str1, sizeof (str1));
 		addr_to_string(batman_if->broad.sin_addr.s_addr, str2, sizeof (str2));

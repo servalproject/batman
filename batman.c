@@ -181,6 +181,9 @@ struct orig_node *get_orig_node( unsigned int addr )
 	orig_node->packet_count = 0;
 	orig_node->hna_buff_len = 0;
 
+	orig_node->last_reply = alloc_memory( found_ifs * sizeof(int) );
+	memset( orig_node->last_reply, 0, found_ifs * sizeof(int) );
+
 	list_add_tail(&orig_node->list, &orig_list);
 
 	return orig_node;
@@ -665,11 +668,13 @@ int isDuplicate(unsigned int orig, unsigned short seqno)
 	return 0;
 }
 
-int isBidirectionalNeigh( struct orig_node *orig_neigh_node )
-{
-	if( orig_neigh_node->last_reply > 0 && (orig_neigh_node->last_reply + (BIDIRECT_TO)) >= get_time() )
+int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
+
+	if( orig_neigh_node->last_reply[if_incoming->if_num] > 0 && (orig_neigh_node->last_reply[if_incoming->if_num] + (BIDIRECT_TO)) >= get_time() )
 		return 1;
-	else return 0;
+	else
+		return 0;
+
 }
 
 int hasUnidirectionalFlag( struct packet *in )
@@ -1039,9 +1044,10 @@ void purge()
 
 				add_del_route(orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock);
 
-				free_memory(orig_node);
-
 			}
+
+			free_memory( orig_node->last_reply );
+			free_memory( orig_node );
 
 		} else if ( purged_packets > 0 ) {
 
@@ -1098,7 +1104,7 @@ int batman()
 	unsigned char hna_recv_buff[1500 - sizeof (struct packet)];
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	int forward_old, res, hna_buff_len, hna_buff_count;
-	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, forward_duplicate_packet;
+	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
 	int time_count = 0, curr_time;
 
 	last_own_packet = get_time() - orginator_interval;
@@ -1163,34 +1169,41 @@ int batman()
 
 		if (res > 0)
 		{
-			if (debug_level == 4)  {
+			if ( debug_level == 4 )  {
 				addr_to_string(in.orig, orig_str, sizeof (orig_str));
 				addr_to_string(neigh, neigh_str, sizeof (neigh_str));
 				output("Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, in.seqno, in.ttl);
 			}
 
-			is_my_addr = is_my_orig = is_broadcast = is_duplicate = forward_duplicate_packet = 0;
+			is_my_addr = is_my_orig = is_broadcast = is_duplicate = is_bidirectional = forward_duplicate_packet = 0;
 
 			list_for_each(if_pos, &if_list) {
+
 				batman_if = list_entry(if_pos, struct batman_if, list);
 
-				if ( neigh == batman_if->addr.sin_addr.s_addr ) is_my_addr = 1;
-				if ( in.orig == batman_if->addr.sin_addr.s_addr ) is_my_orig = 1;
-				if ( neigh == batman_if->broad.sin_addr.s_addr ) is_broadcast = 1;
+				if ( neigh == batman_if->addr.sin_addr.s_addr )
+					is_my_addr = 1;
+
+				if ( in.orig == batman_if->addr.sin_addr.s_addr )
+					is_my_orig = 1;
+
+				if ( neigh == batman_if->broad.sin_addr.s_addr )
+					is_broadcast = 1;
+
 			}
 
 			is_duplicate = isDuplicate( in.orig, in.seqno );
 
-			if (is_my_addr == 1 /* && in.orig == my_addr */) {
+			if ( is_my_addr == 1 ) {
 
-				if (debug_level == 4) {
+				if ( debug_level == 4 ) {
 					addr_to_string(neigh, neigh_str, sizeof (neigh_str));
 					output("Ignoring all (zero-hop) packets send by me (sender: %s)\n", neigh_str);
 				}
 
-			} else if (is_broadcast == 1) {
+			} else if ( is_broadcast == 1 ) {
 
-				if (debug_level == 4) {
+				if ( debug_level == 4 ) {
 					addr_to_string(neigh, neigh_str, sizeof (neigh));
 					output("Ignoring all packets with broadcast source IP (sender: %s)\n", neigh_str);
 				}
@@ -1198,6 +1211,8 @@ int batman()
 			} else {
 
 				orig_neigh_node = update_last_hop( &in, neigh );
+
+				is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
 
 				/* we are forwarding duplicate o-packets if they come via our best neighbour and ttl is valid */
 				if ( ( is_duplicate ) && ( ( orig_neigh_node->router == neigh ) || ( orig_neigh_node->router == 0 ) ) ) {
@@ -1219,7 +1234,7 @@ int batman()
 
 				}
 
-				if (debug_level == 4) {
+				if ( debug_level == 4 ) {
 
 					addr_to_string(in.orig, orig_str, sizeof (orig_str));
 					addr_to_string(neigh, neigh_str, sizeof (neigh_str));
@@ -1237,10 +1252,10 @@ int batman()
 					if ( in.flags & UNIDIRECTIONAL )
 						output("Packet with unidirectional flag \n");
 
-					if ( isBidirectionalNeigh( orig_neigh_node ) )
+					if ( is_bidirectional )
 						output("received via bidirectional link \n");
 
-					if ( !( in.flags & UNIDIRECTIONAL ) && !( isBidirectionalNeigh( orig_neigh_node ) ) )
+					if ( !( in.flags & UNIDIRECTIONAL ) && ( !is_bidirectional ) )
 						output("neighbour thinks connection is bidirectional - I disagree \n");
 
 					if ( in.gwflags != 0 )
@@ -1274,16 +1289,16 @@ int batman()
 
 				if ( in.version != BATMAN_VERSION ) {
 
-					if (debug_level == 4)
+					if ( debug_level == 4 )
 						output( "Incompatible batman version (%i) - ignoring packet... \n", in.version );
 
 				} else if ( in.flags & UNIDIRECTIONAL ) {
 
-					if ( ( is_my_orig == 1 ) && ( !isBidirectionalNeigh( orig_neigh_node ) ) ) {
+					if ( ( is_my_orig == 1 ) && ( !is_bidirectional ) ) {
 
-						orig_neigh_node->last_reply = get_time();
+						orig_neigh_node->last_reply[if_incoming->if_num] = get_time();
 
-						if (debug_level == 4)
+						if ( debug_level == 4 )
 							output("received my own packet from neighbour indicating bidirectional link, updating last_reply stamp \n");
 
 					}
@@ -1294,14 +1309,16 @@ int batman()
 					   to tell him that we get its packets */
 					/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag
 					   if it is not our best link to it in order to prevent routing problems */
-					if ( ( in.orig == neigh ) && ( ( !isBidirectionalNeigh( orig_neigh_node ) ) || ( ( orig_neigh_node->router != 0 ) && ( orig_neigh_node->router != neigh ) ) ) ) {
+					if ( ( in.orig == neigh ) && ( ( !is_bidirectional ) || ( ( orig_neigh_node->router != 0 ) && ( orig_neigh_node->router != neigh ) ) ) ) {
 
 						schedule_forward_packet( &in, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len );
 
 					/* bidirectional link - retransmit packet and update ranking */
-					} else if ( ( isBidirectionalNeigh( orig_neigh_node ) ) && ( is_my_orig != 1 ) ) {
+					} else if ( ( is_bidirectional ) && ( is_my_orig != 1 ) ) {
 
-						schedule_forward_packet( &in, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len );
+						/* forward only only if received via best neighbour */
+						if ( orig_neigh_node->router == neigh )
+							schedule_forward_packet( &in, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len );
 
 						if ( !is_duplicate )
 							update_originator( &in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
@@ -1309,18 +1326,19 @@ int batman()
 					/* received my own packet from neighbour indicating bidirectional link */
 					} else if ( is_my_orig == 1 ) {
 
-						orig_neigh_node->last_reply = get_time();
+						orig_neigh_node->last_reply[if_incoming->if_num] = get_time();
 
 					}
 
 				} else {
 
-					if (debug_level == 4)
+					if ( debug_level == 4 )
 						output("Ignoring packet... \n");
 
 				}
 
 			}
+
 		}
 
 		send_outstanding_packets();
@@ -1342,7 +1360,7 @@ int batman()
 	}
 
 	if ( debug_level > 0 )
-		printf("Deleting all BATMAN routes\n");
+		printf( "Deleting all BATMAN routes\n" );
 
 	list_for_each(orig_pos, &orig_list) {
 
@@ -1353,11 +1371,12 @@ int batman()
 			add_del_hna( orig_node, 1 );
 
 		if ( orig_node->router != 0 )
-			add_del_route(orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, batman_if->udp_send_sock);
+			add_del_route( orig_node->orig, 32, orig_node->router, 1, orig_node->batman_if->dev, batman_if->udp_send_sock );
 
 	}
 
-	set_forwarding(forward_old);
+	set_forwarding( forward_old );
 
 	return 0;
+
 }
