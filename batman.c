@@ -777,15 +777,15 @@ void schedule_forward_packet( struct packet *in, int unidirectional, struct orig
 	struct forw_node *forw_node = NULL, *forw_node_new;
 	struct list_head *forw_pos;
 
-	if (debug_level == 4)
-		output("schedule_forward_packet():  \n");
+	if ( debug_level == 4 )
+		output( "schedule_forward_packet():  \n" );
 
-	if (in->ttl <= 1) {
-		if (debug_level == 4)
-			output("ttl exceeded \n");
+	if ( in->ttl <= 1 ) {
+		if ( debug_level == 4 )
+			output( "ttl exceeded \n" );
 	} else if ( ( orig_node->router != neigh ) && ( in->orig != neigh ) ) {
-		if (debug_level == 4)
-			output("not my best neighbour\n");
+		if ( debug_level == 4 )
+			output( "not my best neighbour\n" );
 	} else {
 
 		forw_node_new = alloc_memory(sizeof (struct forw_node));
@@ -796,10 +796,10 @@ void schedule_forward_packet( struct packet *in, int unidirectional, struct orig
 		forw_node_new->pack.ttl--;
 
 		if (unidirectional) {
-			if (debug_level == 4)
-				output("sending with unidirectional flag \n");
+			if ( debug_level == 4 )
+				output( "sending with unidirectional flag \n" );
 
-			forw_node_new->pack.flags = (forw_node_new->pack.flags | UNIDIRECTIONAL);
+			forw_node_new->pack.flags = ( forw_node_new->pack.flags | UNIDIRECTIONAL );
 		}
 
 		forw_node_new->when = get_time();
@@ -1109,8 +1109,7 @@ int batman()
 	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
 	int time_count = 0, curr_time;
 
-	last_own_packet = get_time() - orginator_interval;
-	debug_timeout = get_time();
+	last_own_packet = debug_timeout = get_time();
 	bidirectional_timeout = orginator_interval * 3;
 
 	if ( !( list_empty(&hna_list) ) ) {
@@ -1151,8 +1150,6 @@ int batman()
 		if (debug_level == 4)
 			output(" \n \n");
 
-		schedule_own_packet();
-
 		if(vis_if.sock && time_count == 50)
 		{
 			time_count = 0;
@@ -1163,7 +1160,7 @@ int batman()
 
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time();
-		select_timeout = ( curr_time >= last_own_packet + orginator_interval ? orginator_interval : last_own_packet + orginator_interval - curr_time );
+		select_timeout = ( curr_time >= last_own_packet + orginator_interval - 10 ? orginator_interval : last_own_packet + orginator_interval - curr_time );
 
 		res = receive_packet((unsigned char *)&in, sizeof (struct packet), hna_recv_buff, &hna_buff_len, &neigh, select_timeout, &if_incoming);
 
@@ -1343,6 +1340,8 @@ int batman()
 			}
 
 		}
+
+		schedule_own_packet();
 
 		send_outstanding_packets();
 

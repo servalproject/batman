@@ -998,21 +998,21 @@ int main(int argc, char *argv[])
 	}
 
 	if ( ( gateway_class != 0 ) && ( routing_class != 0 ) ) {
-		fprintf(stderr, "Error - routing class can't be set while gateway class is in use !\n");
+		fprintf( stderr, "Error - routing class can't be set while gateway class is in use !\n" );
 		usage();
 		close_all_sockets();
 		exit(EXIT_FAILURE);
 	}
 
 	if ( ( gateway_class != 0 ) && ( pref_gateway != 0 ) ) {
-		fprintf(stderr, "Error - preferred gateway can't be set while gateway class is in use !\n");
+		fprintf( stderr, "Error - preferred gateway can't be set while gateway class is in use !\n" );
 		usage();
 		close_all_sockets();
 		exit(EXIT_FAILURE);
 	}
 
 	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) ) {
-		fprintf(stderr, "Error - preferred gateway can't be set without specifying routing class !\n");
+		fprintf( stderr, "Error - preferred gateway can't be set without specifying routing class !\n" );
 		usage();
 		close_all_sockets();
 		exit(EXIT_FAILURE);
@@ -1021,6 +1021,13 @@ int main(int argc, char *argv[])
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun() ) ) {
 		close_all_sockets();
 		exit( 1 );
+	}
+
+	if ( argc <= found_args ) {
+		fprintf( stderr,"Error - no interface specified\n", strerror(errno) );
+		usage();
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 	}
 
 
@@ -1150,6 +1157,13 @@ int main(int argc, char *argv[])
 
 		}
 
+		if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
+
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
 		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
 
 			do_log( "Error - can't bind send socket: %s\n", strerror(errno) );
@@ -1244,14 +1258,6 @@ int main(int argc, char *argv[])
 		vis_if.sock = ((struct batman_if *)if_list.next)->udp_send_sock;
 	} else
 		memset(&vis_if, 0, sizeof(vis_if));
-
-
-	if ( found_ifs == 0 ) {
-		do_log( "Error - no interface specified\n", strerror(errno) );
-		usage();
-		close_all_sockets();
-		exit(EXIT_FAILURE);
-	}
 
 
 	if ( debug_level > 0 ) {
