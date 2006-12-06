@@ -1024,7 +1024,7 @@ int main(int argc, char *argv[])
 	}
 
 	if ( argc <= found_args ) {
-		fprintf( stderr,"Error - no interface specified\n", strerror(errno) );
+		fprintf( stderr, "Error - no interface specified\n" );
 		usage();
 		close_all_sockets();
 		exit(EXIT_FAILURE);

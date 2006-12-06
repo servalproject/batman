@@ -28,6 +28,7 @@
 #define BATMAN_VERSION 1
 #define PORT 1966
 #define UNIDIRECTIONAL 0xF0
+#define DIRECTLINK 0x80
 #define ADDR_STR_LEN 16
 
 /*
@@ -38,6 +39,7 @@
 
 #define TTL 50            /* Time To Live of broadcast messages */
 #define TIMEOUT 60000     /* sliding window size of received orginator messages in ms */
+#define JITTER 50
 
 
 
@@ -62,7 +64,7 @@ extern struct vis_if vis_if;
 struct packet
 {
 	unsigned long  orig;
-	unsigned char  flags;    /* 0xF0: UNIDIRECTIONAL link, 0x80: ip-gateway, ... */
+	unsigned char  flags;    /* 0xF0: UNIDIRECTIONAL link, 0x80: DIRECTLINK flag, ... */
 	unsigned char  ttl;
 	unsigned short seqno;
 	unsigned char  gwflags;  /* flags related to gateway functions: gateway class */
@@ -120,6 +122,7 @@ struct forw_node                 /* structure for forw_list maintaining packets 
 	struct packet pack;
 	unsigned char *hna_buff;
 	int hna_buff_len;
+	struct batman_if *if_outgoing;
 };
 
 struct gw_node

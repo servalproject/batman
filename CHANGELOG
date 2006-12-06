@@ -16,6 +16,7 @@ new functions:
 - routing classes added
 - multiple interface support added (experimental)
 - set orginator interval via command line switch
+- set bidirectional timeout to 3 * orginator interval
 - batman version check added
 - preferred gateway funtion added
 - UDP tunnel implemented
@@ -24,7 +25,7 @@ new functions:
 - improving output / logging to syslog added
 - neighbours and gateways can be listed
 - FreeBSD support added
-- Mac OS X support added
+- Mac OSX support added
 
 
 bug fixes:
@@ -32,7 +33,6 @@ bug fixes:
 - performance improvement in update_routes()
 - performance improvement in purge()
 - performance improvement in isDuplicate()
-- JITTER removed
 - interval removed
 - fix crash in purge() - check for router before route is deleted
 - ignore all packets with broadcast source IP
