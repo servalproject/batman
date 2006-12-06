@@ -204,7 +204,7 @@ void add_del_hna( struct orig_node *orig_node, int del ) {
 		netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
 
 		if ( ( netmask > 0 ) && ( netmask < 33 ) )
-			add_del_route( hna, netmask, orig_node->orig, del, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+			add_del_route( hna, netmask, orig_node->router, del, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
 
 		hna_buff_count++;
 
@@ -798,7 +798,7 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int directl
 
 			forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) + hna_buff_len );
 			memcpy( forw_node_new->pack_buff, in, sizeof(struct packet) );
-			memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_buff, hna_buff_len );
+			memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_recv_buff, hna_buff_len );
 			forw_node_new->pack_buff_len = sizeof(struct packet) + hna_buff_len;
 
 		} else {
