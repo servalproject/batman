@@ -27,8 +27,8 @@
 #define VERSION "0.1 rc 6b"
 #define BATMAN_VERSION 1
 #define PORT 1966
-#define UNIDIRECTIONAL 0xF0
-#define DIRECTLINK 0x80
+#define UNIDIRECTIONAL 0x80
+#define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
 
 /*

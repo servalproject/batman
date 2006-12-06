@@ -1324,10 +1324,10 @@ int batman()
 
 			} else {
 
+				orig_neigh_node = update_last_hop( &in, neigh );
+
 				is_duplicate = isDuplicate( in.orig, in.seqno );
 				is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
-
-				orig_neigh_node = update_last_hop( &in, neigh );
 
 				/* update ranking */
 				if ( ( is_bidirectional ) && ( !is_duplicate ) )
