@@ -567,10 +567,10 @@ static void debug() {
 			output( "------------------ DEBUG ------------------\n" );
 			output( "Forward list\n" );
 
-			list_for_each(forw_pos, &forw_list) {
-				forw_node = list_entry(forw_pos, struct forw_node, list);
-				addr_to_string(forw_node->pack.orig, str, sizeof (str));
-				output("    %s at %u\n", str, forw_node->when);
+			list_for_each( forw_pos, &forw_list ) {
+				forw_node = list_entry( forw_pos, struct forw_node, list );
+				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, str, sizeof (str) );
+				output( "    %s at %u\n", str, forw_node->when );
 			}
 
 			output( "Originator list\n" );
@@ -776,19 +776,44 @@ void update_originator( struct packet *in, unsigned int neigh, struct batman_if 
 
 }
 
-void schedule_forward_packet( struct packet *in, int unidirectional, int direct_link, struct orig_node *orig_node, unsigned int neigh, unsigned char *hna_recv_buff, int hna_buff_len, struct batman_if *if_outgoing ) {
+void schedule_forward_packet( struct packet *in, int unidirectional, int directlink, struct orig_node *orig_node, unsigned int neigh, unsigned char *hna_recv_buff, int hna_buff_len, struct batman_if *if_outgoing ) {
 
-	struct forw_node *forw_node = NULL, *forw_node_new;
-	struct list_head *forw_pos, *if_pos;
-	struct batman_if *batman_if;
+	struct forw_node *forw_node_new;
 
 	if ( debug_level == 4 )
 		output( "schedule_forward_packet():  \n" );
 
 	if ( in->ttl <= 1 ) {
+
 		if ( debug_level == 4 )
 			output( "ttl exceeded \n" );
+
 	} else {
+
+		forw_node_new = alloc_memory( sizeof(struct forw_node) );
+
+		INIT_LIST_HEAD(&forw_node_new->list);
+
+		if ( hna_buff_len > 0 ) {
+
+			forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) + hna_buff_len );
+			memcpy( forw_node_new->pack_buff, in, sizeof(struct packet) );
+			memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_buff, hna_buff_len );
+			forw_node_new->pack_buff_len = sizeof(struct packet) + hna_buff_len;
+
+		} else {
+
+			forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) );
+			memcpy( &forw_node_new->pack_buff, in, sizeof(struct packet) );
+			forw_node_new->pack_buff_len = sizeof(struct packet);
+
+		}
+
+
+		((struct packet *)forw_node_new->pack_buff)->ttl--;
+		forw_node_new->when = get_time();
+
+		forw_node_new->if_outgoing = if_outgoing;
 
 		/* list_for_each(forw_pos, &forw_list) {
 			forw_node = list_entry(forw_pos, struct forw_node, list);
@@ -798,88 +823,19 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int direct_
 
 		if ( unidirectional ) {
 
-			forw_node_new = alloc_memory(sizeof (struct forw_node));
-			INIT_LIST_HEAD(&forw_node_new->list);
+			((struct packet *)forw_node_new->pack_buff)->flags = ( UNIDIRECTIONAL | DIRECTLINK );
 
-			memcpy(&forw_node_new->pack, in, sizeof (struct packet));
+		} else if ( directlink ) {
 
-			forw_node_new->pack.ttl--;
-			forw_node_new->when = get_time();
-
-			if ( hna_buff_len > 0 ) {
-
-				forw_node_new->hna_buff = alloc_memory( hna_buff_len );
-				forw_node_new->hna_buff_len = hna_buff_len;
-
-				memcpy( forw_node_new->hna_buff, hna_recv_buff, hna_buff_len );
-
-			} else {
-
-				forw_node_new->hna_buff = NULL;
-				forw_node_new->hna_buff_len = 0;
-
-			}
-
-			forw_node_new->pack.flags = ( UNIDIRECTIONAL | DIRECTLINK );
-
-			if ( if_outgoing != NULL ) {
-
-				forw_node_new->if_outgoing = if_outgoing;
-				list_add( &forw_node_new->list, /* ( forw_node == NULL ? &forw_list : forw_pos )*/ &forw_list );
-
-			} else {
-
-				do_log( "Error - can't forward packet with UDF: outgoing iface not specified \n", "" );
-
-			}
+			((struct packet *)forw_node_new->pack_buff)->flags = DIRECTLINK;
 
 		} else {
 
-			if ( ( direct_link ) && ( if_outgoing == NULL  ) ) {
-
-				do_log( "Error - can't forward packet with IDF: outgoing iface not specified \n", "" );
-
-			} else {
-
-				list_for_each(if_pos, &if_list) {
-
-					batman_if = list_entry(if_pos, struct batman_if, list);
-
-					forw_node_new = alloc_memory(sizeof (struct forw_node));
-					INIT_LIST_HEAD(&forw_node_new->list);
-
-					memcpy(&forw_node_new->pack, in, sizeof (struct packet));
-
-					forw_node_new->pack.ttl--;
-					forw_node_new->when = get_time();
-
-					if ( hna_buff_len > 0 ) {
-
-						forw_node_new->hna_buff = alloc_memory( hna_buff_len );
-						forw_node_new->hna_buff_len = hna_buff_len;
-
-						memcpy( forw_node_new->hna_buff, hna_recv_buff, hna_buff_len );
-
-					} else {
-
-						forw_node_new->hna_buff = NULL;
-						forw_node_new->hna_buff_len = 0;
-
-					}
-
-					if ( ( direct_link ) && ( if_outgoing == batman_if ) )
-						forw_node_new->pack.flags = DIRECTLINK;
-					else
-						forw_node_new->pack.flags = 0x00;
-
-					forw_node_new->if_outgoing = batman_if;
-					list_add( &forw_node_new->list, &forw_list );
-
-				}
-
-			}
+			((struct packet *)forw_node_new->pack_buff)->flags = 0x00;
 
 		}
+
+		list_add( &forw_node_new->list, &forw_list );
 
 	}
 
@@ -888,9 +844,10 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int direct_
 void send_outstanding_packets() {
 
 	struct forw_node *forw_node;
-	struct list_head *forw_pos, *temp;
+	struct list_head *forw_pos, *if_pos, *temp;
+	struct batman_if *batman_if;
 	static char orig_str[ADDR_STR_LEN];
-	unsigned char *send_buff;
+	int directlink;
 
 	if ( list_empty( &forw_list ) )
 		return;
@@ -900,34 +857,62 @@ void send_outstanding_packets() {
 
 		if ( forw_node->when <= get_time() ) {
 
-			if ( forw_node->hna_buff_len > 0 ) {
+			if ( debug_level == 4 )
+				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, orig_str, ADDR_STR_LEN );
 
-				send_buff = alloc_memory(sizeof (struct packet) + forw_node->hna_buff_len);
-				memcpy(send_buff, (unsigned char *)&forw_node->pack, sizeof (struct packet));
-				memcpy(send_buff + sizeof (struct packet), forw_node->hna_buff, forw_node->hna_buff_len);
+
+			if ( ((struct packet *)forw_node->pack_buff)->flags & UNIDIRECTIONAL ) {
+
+				if ( forw_node->if_outgoing != NULL ) {
+
+					if ( debug_level == 4 )
+						output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev );
+
+					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
+						exit( -1 );
+					}
+
+				} else {
+
+					do_log( "Error - can't forward packet with UDF: outgoing iface not specified \n", "" );
+
+				}
 
 			} else {
 
-				send_buff = alloc_memory(sizeof (struct packet));
-				memcpy( send_buff, (unsigned char *)&forw_node->pack, sizeof (struct packet) );
+				directlink = ( ( ((struct packet *)forw_node->pack_buff)->flags & DIRECTLINK ) ? 1 : 0 );
+
+				if ( ( directlink ) && ( forw_node->if_outgoing == NULL  ) ) {
+
+					do_log( "Error - can't forward packet with IDF: outgoing iface not specified \n", "" );
+
+				} else {
+
+					list_for_each(if_pos, &if_list) {
+
+						batman_if = list_entry(if_pos, struct batman_if, list);
+
+						if ( ( directlink ) && ( forw_node->if_outgoing == batman_if ) )
+							((struct packet *)forw_node->pack_buff)->flags = DIRECTLINK;
+						else
+							((struct packet *)forw_node->pack_buff)->flags = 0x00;
+
+						if ( debug_level == 4 )
+							output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, batman_if->dev );
+
+						if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
+							exit( -1 );
+						}
+
+					}
+
+				}
 
 			}
 
-			if ( debug_level == 4 ) {
-				addr_to_string( forw_node->pack.orig, orig_str, ADDR_STR_LEN );
-				output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, forw_node->pack.seqno, forw_node->pack.ttl, forw_node->if_outgoing->dev );
-			}
-
-			if ( send_packet( send_buff, sizeof (struct packet) + forw_node->hna_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
-				exit( -1 );
-			}
-
-			free_memory( send_buff );
 			list_del( forw_pos );
 
-			if ( forw_node->hna_buff_len > 0 )
-				free_memory( forw_node->hna_buff );
-
+			free_memory( forw_node->pack_buff );
 			free_memory( forw_node );
 
 		}
@@ -939,8 +924,8 @@ void send_outstanding_packets() {
 void schedule_own_packet() {
 
 	struct forw_node *forw_node_new;
-	struct list_head *if_pos, *if_pos_out;
-	struct batman_if *batman_if, *if_outgoing;
+	struct list_head *if_pos;
+	struct batman_if *batman_if;
 	int curr_time;
 
 
@@ -952,36 +937,29 @@ void schedule_own_packet() {
 
 			batman_if = list_entry(if_pos, struct batman_if, list);
 
-			list_for_each(if_pos_out, &if_list) {
+			forw_node_new = alloc_memory( sizeof(struct forw_node) );
 
-				if_outgoing = list_entry(if_pos_out, struct batman_if, list);
+			INIT_LIST_HEAD(&forw_node_new->list);
 
-				forw_node_new = alloc_memory(sizeof (struct forw_node));
+			forw_node_new->when = curr_time + rand_num( JITTER );
+			forw_node_new->if_outgoing = NULL;
 
-				INIT_LIST_HEAD(&forw_node_new->list);
+			if ( num_hna > 0 ) {
 
-				memcpy(&forw_node_new->pack, &batman_if->out, sizeof (struct packet));
+				forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char) );
+				memcpy( forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct packet) );
+				memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_buff, num_hna * 5 * sizeof(unsigned char) );
+				forw_node_new->pack_buff_len = sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char);
 
-				if ( num_hna > 0 ) {
+			} else {
 
-					forw_node_new->hna_buff = alloc_memory( num_hna * 5 * sizeof( unsigned char ) );
-					forw_node_new->hna_buff_len = num_hna * 5 * sizeof( unsigned char );
-
-					memcpy( forw_node_new->hna_buff, hna_buff, num_hna * 5 * sizeof( unsigned char ) );
-
-				} else {
-
-					forw_node_new->hna_buff = NULL;
-					forw_node_new->hna_buff_len = 0;
-
-				}
-
-				forw_node_new->when = curr_time + rand_num( JITTER );
-				forw_node_new->if_outgoing = if_outgoing;
-
-				list_add( &forw_node_new->list, &forw_list );
+				forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) );
+				memcpy( forw_node_new->pack_buff, &batman_if->out, sizeof(struct packet) );
+				forw_node_new->pack_buff_len = sizeof(struct packet);
 
 			}
+
+			list_add( &forw_node_new->list, &forw_list );
 
 			batman_if->out.seqno++;
 
@@ -1275,11 +1253,11 @@ int batman()
 					output("neighbour thinks connection is bidirectional - I disagree \n");*/
 
 				if ( in.gwflags != 0 )
-					output("Is an internet gateway (class %i) \n", in.gwflags);
+					output( "Is an internet gateway (class %i) \n", in.gwflags );
 
 				if ( hna_buff_len > 4 ) {
 
-					printf( "HNA information received (%i HNA network%s):\n", hna_buff_len / 5, ( hna_buff_len / 5 > 1 ? "s": "" ) );
+					output( "HNA information received (%i HNA network%s):\n", hna_buff_len / 5, ( hna_buff_len / 5 > 1 ? "s": "" ) );
 					hna_buff_count = 0;
 
 					while ( ( hna_buff_count + 1 ) * 5 <= hna_buff_len ) {
@@ -1290,9 +1268,9 @@ int batman()
 						addr_to_string(hna, orig_str, sizeof (orig_str));
 
 						if ( ( netmask > 0 ) && ( netmask < 33 ) )
-							printf( "hna: %s/%i\n", orig_str, netmask );
+							output( "hna: %s/%i\n", orig_str, netmask );
 						else
-							printf( "hna: %s/%i -> ignoring (invalid netmask)\n", orig_str, netmask );
+							output( "hna: %s/%i -> ignoring (invalid netmask)\n", orig_str, netmask );
 
 						hna_buff_count++;
 

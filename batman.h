@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define VERSION "0.1 rc 6a"
+#define VERSION "0.1 rc 6b"
 #define BATMAN_VERSION 1
 #define PORT 1966
 #define UNIDIRECTIONAL 0xF0
@@ -119,9 +119,8 @@ struct forw_node                 /* structure for forw_list maintaining packets 
 {
 	struct list_head list;
 	unsigned int when;
-	struct packet pack;
-	unsigned char *hna_buff;
-	int hna_buff_len;
+	unsigned char *pack_buff;
+	int pack_buff_len;
 	struct batman_if *if_outgoing;
 };
 
