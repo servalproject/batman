@@ -790,42 +790,42 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int direct_
 			output( "ttl exceeded \n" );
 	} else {
 
-		forw_node_new = alloc_memory(sizeof (struct forw_node));
-		INIT_LIST_HEAD(&forw_node_new->list);
-
-		memcpy(&forw_node_new->pack, in, sizeof (struct packet));
-
-		forw_node_new->pack.ttl--;
-		forw_node_new->when = get_time();
-
-		if ( hna_buff_len > 0 ) {
-
-			forw_node_new->hna_buff = alloc_memory( hna_buff_len );
-			forw_node_new->hna_buff_len = hna_buff_len;
-
-			memcpy( forw_node_new->hna_buff, hna_recv_buff, hna_buff_len );
-
-		} else {
-
-			forw_node_new->hna_buff = NULL;
-			forw_node_new->hna_buff_len = 0;
-
-		}
-
-		list_for_each(forw_pos, &forw_list) {
+		/* list_for_each(forw_pos, &forw_list) {
 			forw_node = list_entry(forw_pos, struct forw_node, list);
 			if ((int)(forw_node->when - forw_node_new->when) > 0)
 				break;
-		}
+		} */
 
 		if ( unidirectional ) {
+
+			forw_node_new = alloc_memory(sizeof (struct forw_node));
+			INIT_LIST_HEAD(&forw_node_new->list);
+
+			memcpy(&forw_node_new->pack, in, sizeof (struct packet));
+
+			forw_node_new->pack.ttl--;
+			forw_node_new->when = get_time();
+
+			if ( hna_buff_len > 0 ) {
+
+				forw_node_new->hna_buff = alloc_memory( hna_buff_len );
+				forw_node_new->hna_buff_len = hna_buff_len;
+
+				memcpy( forw_node_new->hna_buff, hna_recv_buff, hna_buff_len );
+
+			} else {
+
+				forw_node_new->hna_buff = NULL;
+				forw_node_new->hna_buff_len = 0;
+
+			}
 
 			forw_node_new->pack.flags = ( UNIDIRECTIONAL | DIRECTLINK );
 
 			if ( if_outgoing != NULL ) {
 
 				forw_node_new->if_outgoing = if_outgoing;
-				list_add( &forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos) );
+				list_add( &forw_node_new->list, /* ( forw_node == NULL ? &forw_list : forw_pos )*/ &forw_list );
 
 			} else {
 
@@ -845,13 +845,35 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int direct_
 
 					batman_if = list_entry(if_pos, struct batman_if, list);
 
+					forw_node_new = alloc_memory(sizeof (struct forw_node));
+					INIT_LIST_HEAD(&forw_node_new->list);
+
+					memcpy(&forw_node_new->pack, in, sizeof (struct packet));
+
+					forw_node_new->pack.ttl--;
+					forw_node_new->when = get_time();
+
+					if ( hna_buff_len > 0 ) {
+
+						forw_node_new->hna_buff = alloc_memory( hna_buff_len );
+						forw_node_new->hna_buff_len = hna_buff_len;
+
+						memcpy( forw_node_new->hna_buff, hna_recv_buff, hna_buff_len );
+
+					} else {
+
+						forw_node_new->hna_buff = NULL;
+						forw_node_new->hna_buff_len = 0;
+
+					}
+
 					if ( ( direct_link ) && ( if_outgoing == batman_if ) )
 						forw_node_new->pack.flags = DIRECTLINK;
 					else
 						forw_node_new->pack.flags = 0x00;
 
 					forw_node_new->if_outgoing = batman_if;
-					list_add( &forw_node_new->list, (forw_node == NULL ? &forw_list : forw_pos) );
+					list_add( &forw_node_new->list, &forw_list );
 
 				}
 
@@ -892,8 +914,8 @@ void send_outstanding_packets() {
 			}
 
 			if ( debug_level == 4 ) {
-				addr_to_string(forw_node->pack.orig, orig_str, ADDR_STR_LEN);
-				output("Forwarding packet (originator %s, seqno %d, TTL %d)\n", orig_str, forw_node->pack.seqno, forw_node->pack.ttl);
+				addr_to_string( forw_node->pack.orig, orig_str, ADDR_STR_LEN );
+				output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, forw_node->pack.seqno, forw_node->pack.ttl, forw_node->if_outgoing->dev );
 			}
 
 			if ( send_packet( send_buff, sizeof (struct packet) + forw_node->hna_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
