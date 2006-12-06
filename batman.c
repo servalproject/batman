@@ -804,7 +804,7 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int directl
 		} else {
 
 			forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) );
-			memcpy( &forw_node_new->pack_buff, in, sizeof(struct packet) );
+			memcpy( forw_node_new->pack_buff, in, sizeof(struct packet) );
 			forw_node_new->pack_buff_len = sizeof(struct packet);
 
 		}
