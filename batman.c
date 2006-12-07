@@ -812,6 +812,7 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int directl
 
 		((struct packet *)forw_node_new->pack_buff)->ttl--;
 		forw_node_new->when = get_time();
+		forw_node_new->own = 0;
 
 		forw_node_new->if_outgoing = if_outgoing;
 
@@ -901,7 +902,7 @@ void send_outstanding_packets() {
 							output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, batman_if->dev );
 
 						/* non-primary interfaces do not send hna information */
-						if ( ( batman_if->if_num > 1 ) && ( forw_node->own ) ) {
+						if ( ( forw_node->own ) && ( ((struct packet *)forw_node->pack_buff)->orig != ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr ) ) {
 
 							if ( send_packet( forw_node->pack_buff, sizeof(struct packet), &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
 								exit( -1 );
@@ -954,7 +955,7 @@ void schedule_own_packet() {
 
 			forw_node_new->when = curr_time + rand_num( JITTER );
 			forw_node_new->if_outgoing = NULL;
-			forw_node_new->own++;
+			forw_node_new->own = 1;
 
 			if ( num_hna > 0 ) {
 
