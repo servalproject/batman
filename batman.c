@@ -900,8 +900,19 @@ void send_outstanding_packets() {
 						if ( debug_level == 4 )
 							output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, batman_if->dev );
 
-						if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
-							exit( -1 );
+						/* non-primary interfaces do not send hna information */
+						if ( ( batman_if->if_num > 1 ) && ( forw_node->own ) ) {
+
+							if ( send_packet( forw_node->pack_buff, sizeof(struct packet), &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
+								exit( -1 );
+							}
+
+						} else {
+
+							if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
+								exit( -1 );
+							}
+
 						}
 
 					}
@@ -943,6 +954,7 @@ void schedule_own_packet() {
 
 			forw_node_new->when = curr_time + rand_num( JITTER );
 			forw_node_new->if_outgoing = NULL;
+			forw_node_new->own++;
 
 			if ( num_hna > 0 ) {
 
@@ -1205,7 +1217,7 @@ int batman()
 			if ( debug_level == 4 )  {
 				addr_to_string(in.orig, orig_str, sizeof (orig_str));
 				addr_to_string(neigh, neigh_str, sizeof (neigh_str));
-				output("Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, in.seqno, in.ttl);
+				output( "Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, in.seqno, in.ttl );
 			}
 
 			is_my_addr = is_my_orig = is_broadcast = is_duplicate = is_bidirectional = forward_duplicate_packet = 0;
@@ -1286,17 +1298,17 @@ int batman()
 				if ( debug_level == 4 )
 					output( "Drop packet: incompatible batman version (%i) \n", in.version );
 
-			} else if ( is_my_addr == 1 ) {
+			} else if ( is_my_addr ) {
 
 				if ( debug_level == 4 ) {
-					addr_to_string(neigh, neigh_str, sizeof (neigh_str));
+					addr_to_string( neigh, neigh_str, sizeof (neigh_str) );
 					output( "Drop packet: received my own broadcast (sender: %s)\n", neigh_str );
 				}
 
-			} else if ( is_broadcast == 1 ) {
+			} else if ( is_broadcast ) {
 
 				if ( debug_level == 4 ) {
-					addr_to_string(neigh, neigh_str, sizeof (neigh));
+					addr_to_string( neigh, neigh_str, sizeof (neigh) );
 					output( "Drop packet: ignoring all packets with broadcast source IP (sender: %s)\n", neigh_str );
 				}
 
@@ -1363,7 +1375,7 @@ int batman()
 
 						if ( !is_duplicate ) {
 
-							schedule_forward_packet( &in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, NULL );
+							schedule_forward_packet( &in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
 
 							if ( debug_level == 4 )
 								output( "Forward packet: rebroadcast orginator packet \n" );
@@ -1388,7 +1400,7 @@ int batman()
 							/* we are forwarding duplicate o-packets if they come via our best neighbour and ttl is valid */
 							if ( forward_duplicate_packet ) {
 
-								schedule_forward_packet( &in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, NULL );
+								schedule_forward_packet( &in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
 
 								if ( debug_level == 4 )
 									output( "Forward packet: duplicate packet received via best neighbour with best ttl \n" );

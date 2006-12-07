@@ -119,6 +119,7 @@ struct forw_node                 /* structure for forw_list maintaining packets 
 {
 	struct list_head list;
 	unsigned int when;
+	int own;
 	unsigned char *pack_buff;
 	int pack_buff_len;
 	struct batman_if *if_outgoing;
