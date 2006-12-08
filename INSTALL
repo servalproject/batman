@@ -29,9 +29,9 @@ Use - like always - at your own risk!
 Features
 --------
 
-Improved B.A.T.M.A.N-III algorithm 
-IP-Tunnels via UDP 
-Gateway classes 
+Improved B.A.T.M.A.N-III algorithm
+IP-Tunnels via UDP
+Gateway classes
 Multiple Interfaces support
 Support for a server that collects link-state information from each node to generate two
 dimensional or three dimensional topology graphs.
@@ -44,7 +44,7 @@ Roadmap
 Testing, improvements in the documentation.
 
 Support for Free-BSD and Mac OS-X is broken at the moment since we
-introduced UDP-Tunnels - we hope this will be fixed in the near future. 
+introduced UDP-Tunnels - we hope this will be fixed in the near future.
 
 Develop B.A.T.M.A.N-Advanced that routes on Layer 2 and creates a Link-Local-Illusion for higher
 OSI-Layers
@@ -73,7 +73,7 @@ executable is quite big because it is not stripped.
 
 Strip it by performing:
 
-strip batman <press enter>
+strip batmand <press enter>
 
 Note there is no installation script at the moment. If you want to install
 it, copy the deamon to a location somewhere in your path, for example
@@ -89,12 +89,12 @@ executing:
 
 ipkg update
 
-ipkg install batman-iii 
+ipkg install batman-iii
 
 If you use Freifunk-Firmware you can use the web user-interface for
 b.a.t.m.a.n:
 
-ipkg install batman-iii  
+ipkg install freifunk-batman-de
 
 
 
@@ -102,19 +102,19 @@ ipkg install batman-iii
 Use
 ---
 
-Make sure you have no firewall running that is blocking UDP port 1966. 
+Make sure you have no firewall running that is blocking UDP port 1966.
 
 I like examples - so let's start with them. I'll assume you perform the
 following steps in the batman source directory after compilation.
 
 Typical client usage example:
 
-./batman -p <ip of preferred gateway> -r 2  -o 2000 -s <visualisation-server ip> wlan0 eth1 ath0
+batmand -p <ip of preferred gateway> -r 2  -o 2000 -s <visualisation-server ip> wlan0 eth1 ath0
 
 
 Typical gateway usage example:
 
-./batman -g 7 -o 2000 -s <visualisation-server ip> ath0 
+batmand -g 7 -o 2000 -s <visualisation-server ip> ath0
 
 NOTE:
 
@@ -123,11 +123,11 @@ class will be used to look for a fallback gateway if the preferred gateway
 is unavailable. Level 2 or 3 is recommended. Level 1 is not really useable
 yet.
 
-Originator interval must be the same on all nodes in the mesh. 
-  
+Originator interval must be the same on all nodes in the mesh.
+
 Here's what you see if you start long help (with some extra comments)
 
-./batman -H
+batmand -H
 
 Usage: batman [options] interface [interface interface]
 
@@ -172,7 +172,7 @@ Usage: batman [options] interface [interface interface]
 	therefore weaker routes will find their way into the routing table.
 	And vice versa.
 
-	
+
        -p preferred gateway
 
 	  This will set up an IP-Tunnel to the destination IP
@@ -220,9 +220,9 @@ ifconfig wlan0:0 103.30.30.30 netmask 255.0.0.0 broadcast 103.255.255.255
 The ifconfig command may not be available on your system. To perform the
 same operation using the command provided by iproute2:
 
-ip addr add 103.30.30.30/8 dev wlan0 label wlan0:0
+ip addr add 103.30.30.30/8 broadcast 103.255.255.255 dev wlan0 label wlan0:0
 
-./batman -o 2000 wlan0:0
+batmand -o 2000 wlan0:0
 
 Now you can check out which protocol works better.
 
