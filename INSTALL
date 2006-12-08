@@ -8,6 +8,7 @@ Axel Neumann (neumann-at-notmail.org)
 Corinna 'Elektra' Aichele (onelektra-at-gmx.net)
 Thomas Lopatic  (thomas-at-lopatic.de)
 Felix Fietkau (nbd-at-nbd.name)
+Ludger Schmudde (lui-at-schmudde.com)
 
 
 -------
@@ -18,8 +19,8 @@ This is still a experimental piece of code to test the viability of the
 B.A.T.M.A.N routing algorithm based on initial ideas of Thomas Lopatic
 and Corinna 'Elektra' Aichele.
 
-This is implementation 0.1-rc0 of the improved B.A.T.M.A.N-III algorithm. It
-is not unlikely that we have to fix some bugs.
+This is implementation 0.1-rc6b of the improved B.A.T.M.A.N-III algorithm. It
+is not unlikely that we still have to fix some bugs.
 
 Use - like always - at your own risk!
 
@@ -29,8 +30,6 @@ Features
 --------
 
 Improved B.A.T.M.A.N-III algorithm 
-Free-BSD support 
-Mac OS-X support
 IP-Tunnels via UDP 
 Gateway classes 
 Multiple Interfaces support
@@ -42,7 +41,10 @@ dimensional or three dimensional topology graphs.
 Roadmap
 -------
 
-Testing, improvements in the documentation. 
+Testing, improvements in the documentation.
+
+Support for Free-BSD and Mac OS-X is broken at the moment since we
+introduced UDP-Tunnels - we hope this will be fixed in the near future. 
 
 Develop B.A.T.M.A.N-Advanced that routes on Layer 2 and creates a Link-Local-Illusion for higher
 OSI-Layers
@@ -56,8 +58,6 @@ Requirements
 ------------
 
 Linux with kernel-module 'tun' loaded if you want to use/be a gateway
-FreeBSD
-MacOS-X
 
 ------------
 Installation
@@ -78,6 +78,23 @@ strip batman <press enter>
 Note there is no installation script at the moment. If you want to install
 it, copy the deamon to a location somewhere in your path, for example
 /usr/sbin or /usr/local/bin.
+
+If you use a wireless router based on Freifunk-Firmware or OpenWRT you can
+use the ipkg-package management system. Add the line:
+
+src lui http://freifunk.schmudde.com/ipkg
+
+to your package sources and update the list of available packages by
+executing:
+
+ipkg update
+
+ipkg install batman-iii 
+
+If you use Freifunk-Firmware you can use the web user-interface for
+b.a.t.m.a.n:
+
+ipkg install batman-iii  
 
 
 
@@ -142,6 +159,20 @@ Usage: batman [options] interface [interface interface]
        -o orginator interval in ms
           default: 1000, allowed values: >0
 
+	Note: By default B.A.T.M.A.N keeps track of packets received in the
+	last 60 seconds (this is called sliding window size). B.A.T.M.A.N
+	will perform it's routing decisions based on statistics about 60
+	packages for a node with an orginator interval of one second. If a
+	node manages to send us at least 1 message in 60 seconds, it will be
+	in our routing table. If the orginator interval is increased to 3
+	seconds only 20 packets will be kept in the B.A.T.M.A.N statistic -
+	thus the node must manage to send us 1 out of 20 packets to be in
+	our routing table. If the sliding window size has more space for
+	orginator messages the range of multi-hop links will be longer and
+	therefore weaker routes will find their way into the routing table.
+	And vice versa.
+
+	
        -p preferred gateway
 
 	  This will set up an IP-Tunnel to the destination IP
@@ -185,6 +216,11 @@ If, for example, you have olsrd running on interface wlan0 with IP address
 IP-address within another network:
 
 ifconfig wlan0:0 103.30.30.30 netmask 255.0.0.0 broadcast 103.255.255.255
+
+The ifconfig command may not be available on your system. To perform the
+same operation using the command provided by iproute2:
+
+ip addr add 103.30.30.30/8 dev wlan0 label wlan0:0
 
 ./batman -o 2000 wlan0:0
 

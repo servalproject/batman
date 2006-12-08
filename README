@@ -6,18 +6,19 @@ BETTER APPROACH TO MOBILE AD-HOC NETWORKING
 # 1.) INTRODUCTION #
 ####################
 
-B.A.T.M.A.N is a new approach to Ad-Hoc-Routing, unlike other
-algorithms that we are aware of. Reactive MANET protocols search for
-routes when a node initiates communication to a remote node. Proactive
-protocols (link-state algorithms) calculate routes proactively from all
-nodes to all nodes in the mesh-cloud, whether they are necessary or
-not.  B.A.T.M.A.N doesn't calculate routes - it continuously detects
-the existence of routes by forwarding and receiving broadcast
-packets. The algorithm does not try to find out which path packets
-follow to a remote node. B.A.T.M.A.N merely checks which single hop
-neighbor it has to send a package to in order to push it on the best
-way to a node in the mesh. If you want to find out how B.A.T.M.A.N
-routes to a certain node, perform a
+B.A.T.M.A.N is a new approach to Ad-Hoc-Routing, unlike other algorithms
+that we are aware of. Reactive MANET protocols search for routes when a node
+initiates communication to a remote node. Proactive protocols (all
+link-state algorithms and some distance-vector algorithms) calculate routes
+proactively from all nodes to all nodes in the mesh-cloud, whether they are
+necessary or not - while reactive protocols search for routes on demand.
+B.A.T.M.A.N doesn't calculate or search for routes - it continuously detects
+the existence of routes by forwarding and receiving broadcast packets, and
+it proactively populates the routing-table with nodes in the mesh. The
+algorithm does not try to find out which path packets follow to a remote
+node. B.A.T.M.A.N merely checks which single hop neighbor it has to send a
+package to in order to push it on the best way to a node in the mesh. If you
+want to find out how B.A.T.M.A.N routes to a certain node, perform a
 
 ping -R <destination address> 
 
