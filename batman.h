@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define VERSION "0.1 rc6"
+#define VERSION "0.1 rc7"
 #define BATMAN_VERSION 1
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80

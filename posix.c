@@ -40,6 +40,11 @@
 #include "batman.h"
 #include "list.h"
 
+
+#define BAT_LOGO_PRINT(x,y,z) printf( "\x1B[%i;%iH%c", y + 1, x, z )                      /* write char 'z' into column 'x', row 'y' */
+#define BAT_LOGO_END(x,y) printf("\x1B[8;0H");fflush(NULL);bat_wait( x, y );     /* end of current picture */
+
+
 extern struct vis_if vis_if;
 
 static struct timeval start_time;
@@ -85,6 +90,8 @@ void output(char *format, ...)
 	va_end(args);
 }
 
+
+
 void do_log( char *description, char *error_msg ) {
 
 	if ( debug_level == 0 ) {
@@ -96,6 +103,137 @@ void do_log( char *description, char *error_msg ) {
 		printf( description, error_msg );
 
 	}
+
+}
+
+
+
+/* batman animation */
+void sym_print( char x, char y, char *z ) {
+
+	char i = 0, Z;
+
+	do{
+
+		BAT_LOGO_PRINT( 25 + (int)x + (int)i, (int)y, z[(int)i] );
+
+		switch ( z[(int)i] ) {
+
+			case 92:
+				Z = 47;   // "\" --> "/"
+				break;
+
+			case 47:
+				Z = 92;   // "/" --> "\"
+				break;
+
+			case 41:
+				Z = 40;   // ")" --> "("
+				break;
+
+			default:
+				Z = z[(int)i];
+				break;
+
+		}
+
+		BAT_LOGO_PRINT( 24 - (int)x - (int)i, (int)y, Z );
+		i++;
+
+	} while( z[(int)i - 1] );
+
+	return;
+
+}
+
+
+
+void bat_wait( int T, int t ) {
+
+	struct timeval time;
+
+	time.tv_sec = T;
+	time.tv_usec = ( t * 10000 );
+
+	select(0, NULL, NULL, NULL, &time);
+
+	return;
+
+}
+
+
+
+int print_animation( void ) {
+
+	system( "clear" );
+	BAT_LOGO_END( 0, 50 );
+
+	sym_print( 0, 3, "." );
+	BAT_LOGO_END( 1, 0 );
+
+	sym_print( 0, 4, "v" );
+	BAT_LOGO_END( 0, 20 );
+
+	sym_print( 1, 3, "^" );
+	BAT_LOGO_END( 0, 20 );
+
+	sym_print( 1, 4, "/" );
+	sym_print( 0, 5, "/" );
+	BAT_LOGO_END( 0, 10 );
+
+	sym_print( 2, 3, "\\" );
+	sym_print( 2, 5, "/" );
+	sym_print( 0, 6, ")/" );
+	BAT_LOGO_END( 0, 10 );
+
+	sym_print( 2, 3, "_\\" );
+	sym_print( 4, 4, ")" );
+	sym_print( 2, 5, " /" );
+	sym_print( 0, 6, " )/" );
+	BAT_LOGO_END( 0, 10 );
+
+	sym_print( 4, 2, "'\\" );
+	sym_print( 2, 3, "__/ \\" );
+	sym_print( 4, 4, "   )" );
+	sym_print( 1, 5, "   " );
+	sym_print( 2, 6, "   /" );
+	sym_print( 3, 7, "\\" );
+	BAT_LOGO_END( 0, 15 );
+
+	sym_print( 6, 3, " \\" );
+	sym_print( 3, 4, "_ \\   \\" );
+	sym_print( 10, 5, "\\" );
+	sym_print( 1, 6, "          \\" );
+	sym_print( 3, 7, " " );
+	BAT_LOGO_END( 0, 20 );
+
+	sym_print( 7, 1, "____________" );
+	sym_print( 7, 3, " _   \\" );
+	sym_print( 3, 4, "_      " );
+	sym_print( 10, 5, " " );
+	sym_print( 11, 6, " " );
+	BAT_LOGO_END( 0, 25 );
+
+	sym_print( 3, 1, "____________    " );
+	sym_print( 1, 2, "'|\\   \\" );
+	sym_print( 2, 3, " /         " );
+	sym_print( 3, 4, " " );
+	BAT_LOGO_END( 0, 25 );
+
+	sym_print( 3, 1, "    ____________" );
+	sym_print( 1, 2, "    '\\   " );
+	sym_print( 2, 3, "__/  _   \\" );
+	sym_print( 3, 4, "_" );
+	BAT_LOGO_END( 0, 35 );
+
+	sym_print( 7, 1, "            " );
+	sym_print( 7, 3, " \\   " );
+	sym_print( 5, 4, "\\    \\" );
+	sym_print( 11, 5, "\\" );
+	sym_print( 12, 6, "\\" );
+	BAT_LOGO_END( 0 ,35 );
+
+	return 0;
 
 }
 
@@ -788,7 +926,6 @@ int main(int argc, char *argv[])
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct ifreq int_req;
-	struct timespec sleep_time = { 0, 250 * 1000 * 1000 };   /* 500 mili seconds */
 	int on = 1, res, optchar, found_args = 1, netmask;
 	char str1[16], str2[16], *dev, *slash_ptr;
 	unsigned int vis_server = 0;
@@ -957,35 +1094,12 @@ int main(int argc, char *argv[])
 				break;
 
 			case 'V':
-				res = 3;
 
-				while( res > 0 ) {
+				print_animation();
 
-					system( "clear" );
-					printf(  "\n\n      ____________      ____________\n             /  /|\\`  ´/|\\   \\ \n                 \\ ^..^ / \n                   \\vv/ \n                    \\/ \n" );
-					nanosleep( &sleep_time, NULL );
+				printf( "\x1B[0;0HB.A.T.M.A.N-III v%s (internal version %i)", VERSION, BATMAN_VERSION );
+				printf( "\x1B[9;0HMay the bat guide your path ...\n" );
 
-					system( "clear" );
-					printf( "\n\n   ____________              ____________\n                /`       ´\\ \n         /   _  \\__^..^__/  _  \\ \n                  _\\vv/ _\n                    \\/ \n\n" );
-					nanosleep( &sleep_time, NULL );
-
-					system( "clear" );
-					printf( "\n\n\n              /\\`        ´\\ \n             /  \\__^..^__/ \\ \n            /   / _\\vv/ _\\  \\ \n           /        \\/       \\ \n          /                   \\ \n\n" );
-					nanosleep( &sleep_time, NULL );
-
-					system( "clear" );
-					printf( "\n\n   ____________              ____________\n                /`       ´\\ \n         /   _  \\__^..^__/  _  \\ \n                  _\\vv/ _\n                    \\/ \n\n" );
-					nanosleep( &sleep_time, NULL );
-
-					res--;
-
-				}
-
-				system( "clear" );
-
-				printf( "B.A.T.M.A.N-III v%s (internal version %i)\n\n", VERSION, BATMAN_VERSION );
-				printf( "   ____________              ____________\n                /`       ´\\ \n         /   _  \\__^..^__/  _  \\ \n                  _\\vv/ _\n                    \\/ \n\n" );
-				printf( "May the bat guide your path ...\n" );
 				return (0);
 
 			case 'h':

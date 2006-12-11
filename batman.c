@@ -861,6 +861,8 @@ void send_outstanding_packets() {
 			if ( debug_level == 4 )
 				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, orig_str, ADDR_STR_LEN );
 
+			directlink = ( ( ((struct packet *)forw_node->pack_buff)->flags & DIRECTLINK ) ? 1 : 0 );
+
 
 			if ( ((struct packet *)forw_node->pack_buff)->flags & UNIDIRECTIONAL ) {
 
@@ -879,11 +881,24 @@ void send_outstanding_packets() {
 
 				}
 
+			/* multihomed peer assumed */
+			} else if ( ( directlink ) && ( ((struct packet *)forw_node->pack_buff)->ttl == 1 ) ) {
+
+				if ( ( forw_node->if_outgoing != NULL ) ) {
+
+					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
+						exit( -1 );
+					}
+
+				} else {
+
+					do_log( "Error - can't forward packet with IDF: outgoing iface not specified (multihomed) \n", "" );
+
+				}
+
 			} else {
 
-				directlink = ( ( ((struct packet *)forw_node->pack_buff)->flags & DIRECTLINK ) ? 1 : 0 );
-
-				if ( ( directlink ) && ( forw_node->if_outgoing == NULL  ) ) {
+				if ( ( directlink ) && ( forw_node->if_outgoing == NULL ) ) {
 
 					do_log( "Error - can't forward packet with IDF: outgoing iface not specified \n", "" );
 
@@ -893,10 +908,11 @@ void send_outstanding_packets() {
 
 						batman_if = list_entry(if_pos, struct batman_if, list);
 
-						if ( ( directlink ) && ( forw_node->if_outgoing == batman_if ) )
+						if ( ( directlink ) && ( forw_node->if_outgoing == batman_if ) ) {
 							((struct packet *)forw_node->pack_buff)->flags = DIRECTLINK;
-						else
+						} else {
 							((struct packet *)forw_node->pack_buff)->flags = 0x00;
+						}
 
 						if ( debug_level == 4 )
 							output( "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, batman_if->dev );
