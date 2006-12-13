@@ -562,13 +562,12 @@ int rand_num(int limit)
 	return rand() % limit;
 }
 
-int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned char *hna_buff, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming)
-{
+int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming ) {
+
 	fd_set wait_set;
-	int res, bytes_read, max_sock = 0;
+	int res, max_sock = 0;
 	struct sockaddr_in addr;
 	unsigned int addr_len;
-	unsigned char *buff = NULL;
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
@@ -577,7 +576,6 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 	tv.tv_sec = timeout / 1000;
 	tv.tv_usec = (timeout % 1000) * 1000;
 
-	buff = alloc_memory( packet_buff_len + *hna_buff_len );
 
 	FD_ZERO(&wait_set);
 
@@ -586,6 +584,7 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 		batman_if = list_entry(if_pos, struct batman_if, list);
 
 		FD_SET(batman_if->udp_recv_sock, &wait_set);
+
 		if ( batman_if->udp_recv_sock > max_sock )
 			max_sock = batman_if->udp_recv_sock;
 
@@ -593,24 +592,19 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 
 	for (;;)
 	{
-		res = select(max_sock + 1, &wait_set, NULL, NULL, &tv);
+		res = select( max_sock + 1, &wait_set, NULL, NULL, &tv );
 
 		if (res >= 0)
 			break;
 
-		if (errno != EINTR)
-		{
+		if ( errno != EINTR ) {
 			do_log( "Error - can't select: %s\n", strerror(errno) );
 			return -1;
 		}
 	}
 
-	if ( res == 0 ) {
-
-		free_memory( buff );
+	if ( res == 0 )
 		return 0;
-
-	}
 
 	addr_len = sizeof (struct sockaddr_in);
 
@@ -619,29 +613,15 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 
 		if ( FD_ISSET( batman_if->udp_recv_sock, &wait_set) ) {
 
-			if ( ( bytes_read = recvfrom( batman_if->udp_recv_sock, buff, packet_buff_len + *hna_buff_len, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 )
-			{
+			if ( ( *hna_buff_len = recvfrom( batman_if->udp_recv_sock, packet_buff, packet_buff_len - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
 				do_log( "Error - can't receive packet: %s\n", strerror(errno) );
 				return -1;
 			}
 
-			if ( bytes_read == packet_buff_len ) {
-
-				memmove( packet_buff, buff, bytes_read );
-				*hna_buff_len = 0;
-
-			} else if ( bytes_read > packet_buff_len ) {
-
-				memmove( packet_buff, buff, packet_buff_len );
-				memmove( hna_buff, buff + packet_buff_len, bytes_read - packet_buff_len );
-				*hna_buff_len = bytes_read - packet_buff_len;
-
-			} else {
-
-				free_memory( buff );
+			if ( *hna_buff_len < sizeof(struct packet) )
 				return 0;
 
-			}
+			packet_buff[*hna_buff_len] = '\0';
 
 			(*if_incoming) = batman_if;
 			break;
@@ -649,8 +629,6 @@ int receive_packet(unsigned char *packet_buff, int packet_buff_len, unsigned cha
 		}
 
 	}
-
-	free_memory( buff );
 
 	*neigh = addr.sin_addr.s_addr;
 
@@ -934,7 +912,7 @@ int main(int argc, char *argv[])
 	dev = NULL;
 	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
 
-	while ( ( optchar = getopt ( argc, argv, "a:d:hHo:g:p:r:s:V" ) ) != -1 ) {
+	while ( ( optchar = getopt ( argc, argv, "a:d:hHo:g:p:r:s:vV" ) ) != -1 ) {
 
 		switch ( optchar ) {
 
@@ -1092,6 +1070,11 @@ int main(int argc, char *argv[])
 
 				found_args += 2;
 				break;
+
+			case 'v':
+
+				printf( "B.A.T.M.A.N-III v%s (internal version %i)", VERSION, BATMAN_VERSION );
+				return (0);
 
 			case 'V':
 

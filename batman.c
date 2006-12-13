@@ -116,6 +116,7 @@ void usage(void)
 	fprintf(stderr, "       -p preferred gateway\n" );
 	fprintf(stderr, "       -r routing class\n" );
 	fprintf(stderr, "       -s visualisation server\n" );
+	fprintf(stderr, "       -v print version\n" );
 }
 
 void verbose_usage(void)
@@ -155,6 +156,7 @@ void verbose_usage(void)
 	fprintf(stderr, "                           3 -> use best statistic internet connection (olsr style)\n\n" );
 	fprintf(stderr, "       -s visualisation server\n" );
 	fprintf(stderr, "          default: none, allowed values: IP\n\n" );
+	fprintf(stderr, "       -v print version\n" );
 
 }
 
@@ -1163,9 +1165,8 @@ int batman()
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
-	struct packet in;
 	unsigned int neigh, hna, netmask, debug_timeout, select_timeout;
-	unsigned char hna_recv_buff[1500 - sizeof (struct packet)];
+	unsigned char in[1501], *hna_recv_buff;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	int forward_old, res, hna_buff_len, hna_buff_count;
 	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
@@ -1218,13 +1219,11 @@ int batman()
 			send_vis_packet();
 		}
 
-		hna_buff_len = 1500 - sizeof (struct packet);
-
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time();
 		select_timeout = ( curr_time >= last_own_packet + orginator_interval - 10 ? orginator_interval : last_own_packet + orginator_interval - curr_time );
 
-		res = receive_packet((unsigned char *)&in, sizeof (struct packet), hna_recv_buff, &hna_buff_len, &neigh, select_timeout, &if_incoming);
+		res = receive_packet( ( unsigned char *)&in, 1501, &hna_buff_len, &neigh, select_timeout, &if_incoming );
 
 		if (res < 0)
 			return -1;
@@ -1232,12 +1231,15 @@ int batman()
 		if (res > 0)
 		{
 			if ( debug_level == 4 )  {
-				addr_to_string(in.orig, orig_str, sizeof (orig_str));
-				addr_to_string(neigh, neigh_str, sizeof (neigh_str));
-				output( "Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, in.seqno, in.ttl );
+				addr_to_string( ((struct packet *)&in)->orig, orig_str, sizeof(orig_str) );
+				addr_to_string( neigh, neigh_str, sizeof(neigh_str) );
+				output( "Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, ((struct packet *)&in)->seqno, ((struct packet *)&in)->ttl );
 			}
 
 			is_my_addr = is_my_orig = is_broadcast = is_duplicate = is_bidirectional = forward_duplicate_packet = 0;
+
+			hna_buff_len -= sizeof(struct packet);
+			hna_recv_buff = ( hna_buff_len > 4 ? in + sizeof(struct packet) : NULL );
 
 			list_for_each(if_pos, &if_list) {
 
@@ -1246,7 +1248,7 @@ int batman()
 				if ( neigh == batman_if->addr.sin_addr.s_addr )
 					is_my_addr = 1;
 
-				if ( in.orig == batman_if->addr.sin_addr.s_addr )
+				if ( ((struct packet *)&in)->orig == batman_if->addr.sin_addr.s_addr )
 					is_my_orig = 1;
 
 				if ( neigh == batman_if->broad.sin_addr.s_addr )
@@ -1255,13 +1257,11 @@ int batman()
 			}
 
 
-			/* orig_neigh_node = update_last_hop( &in, neigh ); */
-
 			if ( debug_level == 4 ) {
 
-				addr_to_string(in.orig, orig_str, sizeof (orig_str));
-				addr_to_string(neigh, neigh_str, sizeof (neigh_str));
-				output("new packet - orig: %s, sender: %s\n",orig_str , neigh_str);
+				addr_to_string( ((struct packet *)&in)->orig, orig_str, sizeof (orig_str) );
+				addr_to_string( neigh, neigh_str, sizeof (neigh_str) );
+				output( "new packet - orig: %s, sender: %s\n",orig_str , neigh_str );
 
 				/*if ( is_duplicate )
 					output("Duplicate packet \n");
@@ -1281,8 +1281,8 @@ int batman()
 				if ( !( in.flags & UNIDIRECTIONAL ) && ( !is_bidirectional ) )
 					output("neighbour thinks connection is bidirectional - I disagree \n");*/
 
-				if ( in.gwflags != 0 )
-					output( "Is an internet gateway (class %i) \n", in.gwflags );
+				if ( ((struct packet *)&in)->gwflags != 0 )
+					output( "Is an internet gateway (class %i) \n", ((struct packet *)&in)->gwflags );
 
 				if ( hna_buff_len > 4 ) {
 
@@ -1294,7 +1294,7 @@ int batman()
 						memmove( &hna, ( unsigned int *)&hna_recv_buff[ hna_buff_count * 5 ], 4 );
 						netmask = ( unsigned int )hna_recv_buff[ ( hna_buff_count * 5 ) + 4 ];
 
-						addr_to_string(hna, orig_str, sizeof (orig_str));
+						addr_to_string( hna, orig_str, sizeof (orig_str) );
 
 						if ( ( netmask > 0 ) && ( netmask < 33 ) )
 							output( "hna: %s/%i\n", orig_str, netmask );
@@ -1310,10 +1310,10 @@ int batman()
 			}
 
 
-			if ( in.version != BATMAN_VERSION ) {
+			if ( ((struct packet *)&in)->version != BATMAN_VERSION ) {
 
 				if ( debug_level == 4 )
-					output( "Drop packet: incompatible batman version (%i) \n", in.version );
+					output( "Drop packet: incompatible batman version (%i) \n", ((struct packet *)&in)->version );
 
 			} else if ( is_my_addr ) {
 
@@ -1331,10 +1331,10 @@ int batman()
 
 			} else if ( is_my_orig ) {
 
-				orig_neigh_node = update_last_hop( &in, neigh );
+				orig_neigh_node = update_last_hop( (struct packet *)&in, neigh );
 
 				/* neighbour has to indicating direct link and it has to come via the corresponding interface */
-				if ( ( in.flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == in.orig ) ) {
+				if ( ( ((struct packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct packet *)&in)->orig ) ) {
 
 					orig_neigh_node->last_reply[if_incoming->if_num] = get_time();
 
@@ -1344,32 +1344,32 @@ int batman()
 				}
 
 				if ( debug_level == 4 )
-					output( "Drop packet: originator packet from myself (via neighbour) \n", in.version );
+					output( "Drop packet: originator packet from myself (via neighbour) \n" );
 
-			} else if ( in.flags & UNIDIRECTIONAL ) {
+			} else if ( ((struct packet *)&in)->flags & UNIDIRECTIONAL ) {
 
 				if ( debug_level == 4 )
 					output( "Drop packet: originator packet with unidirectional flag \n" );
 
 			} else {
 
-				orig_neigh_node = update_last_hop( &in, neigh );
+				orig_neigh_node = update_last_hop( (struct packet *)&in, neigh );
 
-				is_duplicate = isDuplicate( in.orig, in.seqno );
+				is_duplicate = isDuplicate( ((struct packet *)&in)->orig, ((struct packet *)&in)->seqno );
 				is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
 
 				/* update ranking */
 				if ( ( is_bidirectional ) && ( !is_duplicate ) )
-					update_originator( &in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
+					update_originator( (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
 
 				/* is single hop (direct) neighbour */
-				if ( in.orig == neigh ) {
+				if ( ((struct packet *)&in)->orig == neigh ) {
 
 					/* it is our best route towards him */
 					if ( ( is_bidirectional ) && ( orig_neigh_node->router == neigh ) ) {
 
 						/* mark direct link on incoming interface */
-						schedule_forward_packet( &in, 0, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+						schedule_forward_packet( (struct packet *)&in, 0, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
 
 						if ( debug_level == 4 )
 							output( "Forward packet: rebroadcast neighbour packet with direct link flag \n" );
@@ -1378,7 +1378,7 @@ int batman()
 					/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag if it is not our best link to it in order to prevent routing problems */
 					} else if ( ( ( is_bidirectional ) && ( orig_neigh_node->router != neigh ) ) || ( !is_bidirectional ) ) {
 
-						schedule_forward_packet( &in, 1, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+						schedule_forward_packet( (struct packet *)&in, 1, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
 
 						if ( debug_level == 4 )
 							output( "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
@@ -1392,7 +1392,7 @@ int batman()
 
 						if ( !is_duplicate ) {
 
-							schedule_forward_packet( &in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+							schedule_forward_packet( (struct packet *)&in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
 
 							if ( debug_level == 4 )
 								output( "Forward packet: rebroadcast orginator packet \n" );
@@ -1405,7 +1405,7 @@ int batman()
 
 								if ( neigh_node->addr == neigh ) {
 
-									if ( neigh_node->best_ttl == in.ttl )
+									if ( neigh_node->best_ttl == ((struct packet *)&in)->ttl )
 										forward_duplicate_packet = 1;
 
 									break;
@@ -1417,7 +1417,7 @@ int batman()
 							/* we are forwarding duplicate o-packets if they come via our best neighbour and ttl is valid */
 							if ( forward_duplicate_packet ) {
 
-								schedule_forward_packet( &in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+								schedule_forward_packet( (struct packet *)&in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
 
 								if ( debug_level == 4 )
 									output( "Forward packet: duplicate packet received via best neighbour with best ttl \n" );
