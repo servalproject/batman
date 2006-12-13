@@ -19,8 +19,8 @@ This is still a experimental piece of code to test the viability of the
 B.A.T.M.A.N routing algorithm based on initial ideas of Thomas Lopatic
 and Corinna 'Elektra' Aichele.
 
-This is implementation 0.1-rc6b of the improved B.A.T.M.A.N-III algorithm. It
-is not unlikely that we still have to fix some bugs.
+This is implementation 0.1-final of the improved B.A.T.M.A.N-III algorithm. It
+is not unlikely that we still have to fix some bugs, though.
 
 Use - like always - at your own risk!
 
@@ -130,7 +130,13 @@ Here's what you see if you start long help (with some extra comments)
 batmand -H
 
 Usage: batman [options] interface [interface interface]
+	
+       -a announce network(s)
+          network/netmask is expected
+	  Announce that this node is a gateway to this
+	  network
 
+	
        -d debug level
           default: 0, allowed values: 0 - 3
 
