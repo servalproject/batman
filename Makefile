@@ -25,7 +25,7 @@ LDFLAGS =	-lpthread
 UNAME=$(shell uname)
 
 ifeq ($(UNAME),Linux)
-OS_OBJ=	posix.o linux.o
+OS_OBJ=	posix.o linux.o allocate.o
 endif
 
 ifeq ($(UNAME),Darwin)

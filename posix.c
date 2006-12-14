@@ -39,7 +39,7 @@
 #include "os.h"
 #include "batman.h"
 #include "list.h"
-
+#include "allocate.h"
 
 #define BAT_LOGO_PRINT(x,y,z) printf( "\x1B[%i;%iH%c", y + 1, x, z )                      /* write char 'z' into column 'x', row 'y' */
 #define BAT_LOGO_END(x,y) printf("\x1B[8;0H");fflush(NULL);bat_wait( x, y );     /* end of current picture */
@@ -519,39 +519,6 @@ int is_aborted()
 	return stop != 0;
 }
 
-void *alloc_memory(int len)
-{
-
-	void *res = malloc(len);
-
-	if (res == NULL)
-	{
-		do_log( "Error - out of memory: %s\n", strerror(errno) );
-		exit(EXIT_FAILURE);
-	}
-
-	return res;
-
-}
-
-void *realloc_memory(void *ptr, int len)
-{
-	void *res = realloc(ptr,len);
-
-	if (res == NULL)
-	{
-		do_log( "Error - out of memory: %s\n", strerror(errno) );
-		exit(EXIT_FAILURE);
-	}
-
-	return res;
-}
-
-void free_memory(void *mem)
-{
-	free(mem);
-}
-
 void addr_to_string(unsigned int addr, char *str, int len)
 {
 	inet_ntop(AF_INET, &addr, str, len);
@@ -725,7 +692,7 @@ void *gw_listen( void *arg ) {
 			/* new client */
 			if ( FD_ISSET( batman_if->tcp_gw_sock, &tmp_wait_sockets ) ) {
 
-				gw_client = alloc_memory( sizeof(struct gw_client) );
+				gw_client = debugMalloc( sizeof(struct gw_client), 18 );
 				memset( gw_client, 0, sizeof(struct gw_client) );
 
 				if ( ( gw_client->sock = accept(batman_if->tcp_gw_sock, (struct sockaddr *)&gw_client->addr, &sin_size) ) == -1 ) {
@@ -829,7 +796,7 @@ void *gw_listen( void *arg ) {
 							close( gw_client->sock );
 
 							list_del(client_pos);
-							free_memory(client_pos);
+							debugFree(client_pos);
 
 						}
 
@@ -874,7 +841,7 @@ void *gw_listen( void *arg ) {
 					}
 
 					list_del(client_pos);
-					free_memory(client_pos);
+					debugFree(client_pos);
 
 				} else {
 
@@ -951,7 +918,7 @@ int main(int argc, char *argv[])
 
 				}
 
-				hna_node = alloc_memory(sizeof(struct hna_node));
+				hna_node = debugMalloc(sizeof(struct hna_node), 16);
 				memset(hna_node, 0, sizeof(struct hna_node));
 				INIT_LIST_HEAD(&hna_node->list);
 
@@ -1149,7 +1116,7 @@ int main(int argc, char *argv[])
 
 	while ( argc > found_args ) {
 
-		batman_if = alloc_memory(sizeof(struct batman_if));
+		batman_if = debugMalloc(sizeof(struct batman_if), 17);
 		memset(batman_if, 0, sizeof(struct batman_if));
 		INIT_LIST_HEAD(&batman_if->list);
 		INIT_LIST_HEAD(&batman_if->client_list);

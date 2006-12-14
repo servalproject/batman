@@ -25,6 +25,7 @@
 #include "os.h"
 #include "list.h"
 #include "batman.h"
+#include "allocate.h"
 
 /* "-d" is the command line switch for the debug level,
  * specify it multiple times to increase verbosity
@@ -175,7 +176,7 @@ struct orig_node *get_orig_node( unsigned int addr )
 	if (debug_level == 4)
 		output("Creating new originator\n");
 
-	orig_node = alloc_memory(sizeof(struct orig_node));
+	orig_node = debugMalloc(sizeof(struct orig_node), 1);
 	memset(orig_node, 0, sizeof(struct orig_node));
 	INIT_LIST_HEAD(&orig_node->list);
 	INIT_LIST_HEAD(&orig_node->neigh_list);
@@ -185,7 +186,7 @@ struct orig_node *get_orig_node( unsigned int addr )
 	orig_node->packet_count = 0;
 	orig_node->hna_buff_len = 0;
 
-	orig_node->last_reply = alloc_memory( found_ifs * sizeof(int) );
+	orig_node->last_reply = debugMalloc( found_ifs * sizeof(int), 2 );
 	memset( orig_node->last_reply, 0, found_ifs * sizeof(int) );
 
 	list_add_tail(&orig_node->list, &orig_list);
@@ -214,7 +215,7 @@ void add_del_hna( struct orig_node *orig_node, int del ) {
 
 	if ( del ) {
 
-		free_memory( orig_node->hna_buff );
+		debugFree( orig_node->hna_buff );
 		orig_node->hna_buff_len = 0;
 
 	}
@@ -379,6 +380,8 @@ static void update_routes( struct orig_node *orig_node, unsigned char *hna_recv_
 			max_pack = neigh_pkts[max_if->if_num];
 			max_ttl = neigh_ttl[max_if->if_num];
 
+			orig_node->packet_count = neigh_pkts[max_if->if_num];
+
 			next_hop = neigh_node;
 			if ( debug_level == 4 )
 				output( "%d living received packets via selected router \n", neigh_pkts[max_if->if_num] );
@@ -427,7 +430,7 @@ static void update_routes( struct orig_node *orig_node, unsigned char *hna_recv_
 			/* add new announced network(s) */
 			if ( hna_buff_len > 0 ) {
 
-				orig_node->hna_buff = alloc_memory( hna_buff_len );
+				orig_node->hna_buff = debugMalloc( hna_buff_len, 3 );
 				orig_node->hna_buff_len = hna_buff_len;
 
 				memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
@@ -443,7 +446,7 @@ static void update_routes( struct orig_node *orig_node, unsigned char *hna_recv_
 
 			if ( hna_buff_len > 0 ) {
 
-				orig_node->hna_buff = alloc_memory( hna_buff_len );
+				orig_node->hna_buff = debugMalloc( hna_buff_len, 4 );
 				orig_node->hna_buff_len = hna_buff_len;
 
 				memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
@@ -481,7 +484,7 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 			if ( new_gwflags == 0 ) {
 
 				list_del(gw_pos);
-				free_memory(gw_pos);
+				debugFree(gw_pos);
 
 				if (debug_level == 3)
 					printf( "Gateway %s removed from gateway list\n", orig_str );
@@ -504,7 +507,7 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 		printf( "Found new gateway %s -> class: %i - %s\n", orig_str, new_gwflags, gw2string[new_gwflags] );
 	}
 
-	gw_node = alloc_memory(sizeof(struct gw_node));
+	gw_node = debugMalloc(sizeof(struct gw_node), 5);
 	memset(gw_node, 0, sizeof(struct gw_node));
 	INIT_LIST_HEAD(&gw_node->list);
 
@@ -731,15 +734,17 @@ void update_originator( struct packet *in, unsigned int neigh, struct batman_if 
 	list_for_each(neigh_pos, &orig_node->neigh_list) {
 		neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
-		if (neigh_node->addr != neigh)
-			neigh_node = NULL;
+		if (neigh_node->addr == neigh)
+			break;
+
+		neigh_node = NULL;
 	}
 
 	if (neigh_node == NULL)  {
 		if (debug_level == 4)
 			output("Creating new last-hop neighbour of originator\n");
 
-		neigh_node = alloc_memory(sizeof (struct neigh_node));
+		neigh_node = debugMalloc(sizeof (struct neigh_node), 6);
 		INIT_LIST_HEAD(&neigh_node->list);
 		INIT_LIST_HEAD(&neigh_node->pack_list);
 
@@ -752,15 +757,17 @@ void update_originator( struct packet *in, unsigned int neigh, struct batman_if 
 	list_for_each(pack_pos, &neigh_node->pack_list) {
 		pack_node = list_entry(pack_pos, struct pack_node, list);
 
-		if (pack_node->seqno != in->seqno)
-			pack_node = NULL;
+		if (pack_node->seqno == in->seqno)
+			break;
+
+		pack_node = NULL;
 	}
 
 	if (pack_node == NULL)  {
 		if (debug_level == 4)
 			output("Creating new packet entry for last-hop neighbour of originator \n");
 
-		pack_node = alloc_memory(sizeof (struct pack_node));
+		pack_node = debugMalloc(sizeof (struct pack_node), 7);
 		INIT_LIST_HEAD(&pack_node->list);
 
 		pack_node->seqno = in->seqno;
@@ -792,20 +799,20 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int directl
 
 	} else {
 
-		forw_node_new = alloc_memory( sizeof(struct forw_node) );
+		forw_node_new = debugMalloc( sizeof(struct forw_node), 8 );
 
 		INIT_LIST_HEAD(&forw_node_new->list);
 
 		if ( hna_buff_len > 0 ) {
 
-			forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) + hna_buff_len );
+			forw_node_new->pack_buff = debugMalloc( sizeof(struct packet) + hna_buff_len, 9 );
 			memcpy( forw_node_new->pack_buff, in, sizeof(struct packet) );
 			memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_recv_buff, hna_buff_len );
 			forw_node_new->pack_buff_len = sizeof(struct packet) + hna_buff_len;
 
 		} else {
 
-			forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) );
+			forw_node_new->pack_buff = debugMalloc( sizeof(struct packet), 10 );
 			memcpy( forw_node_new->pack_buff, in, sizeof(struct packet) );
 			forw_node_new->pack_buff_len = sizeof(struct packet);
 
@@ -942,8 +949,8 @@ void send_outstanding_packets() {
 
 			list_del( forw_pos );
 
-			free_memory( forw_node->pack_buff );
-			free_memory( forw_node );
+			debugFree( forw_node->pack_buff );
+			debugFree( forw_node );
 
 		}
 
@@ -967,7 +974,7 @@ void schedule_own_packet() {
 
 			batman_if = list_entry(if_pos, struct batman_if, list);
 
-			forw_node_new = alloc_memory( sizeof(struct forw_node) );
+			forw_node_new = debugMalloc( sizeof(struct forw_node), 11 );
 
 			INIT_LIST_HEAD(&forw_node_new->list);
 
@@ -977,14 +984,14 @@ void schedule_own_packet() {
 
 			if ( num_hna > 0 ) {
 
-				forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char) );
+				forw_node_new->pack_buff = debugMalloc( sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char), 12 );
 				memcpy( forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct packet) );
 				memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_buff, num_hna * 5 * sizeof(unsigned char) );
 				forw_node_new->pack_buff_len = sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char);
 
 			} else {
 
-				forw_node_new->pack_buff = alloc_memory( sizeof(struct packet) );
+				forw_node_new->pack_buff = debugMalloc( sizeof(struct packet), 13 );
 				memcpy( forw_node_new->pack_buff, &batman_if->out, sizeof(struct packet) );
 				forw_node_new->pack_buff_len = sizeof(struct packet);
 
@@ -1041,7 +1048,7 @@ void purge()
 
 					purged_packets++;
 					list_del(pack_pos);
-					free_memory(pack_node);
+					debugFree(pack_node);
 
 				} else {
 
@@ -1060,7 +1067,7 @@ void purge()
 					output("Removing orphaned neighbour %s for originator %s\n", neigh_str, orig_str);
 				}
 				list_del(neigh_pos);
-				free_memory(neigh_node);
+				debugFree(neigh_node);
 			}
 		}
 
@@ -1083,7 +1090,7 @@ void purge()
 						printf( "Removing gateway %s from gateway list\n", orig_str );
 
 					list_del(gw_pos);
-					free_memory(gw_pos);
+					debugFree(gw_pos);
 
 					gw_purged = 1;
 
@@ -1099,7 +1106,7 @@ void purge()
 			if ( orig_node->hna_buff_len > 0 ) {
 
 				add_del_hna( orig_node, 1 );
-				free_memory( orig_node->hna_buff );
+				debugFree( orig_node->hna_buff );
 
 			}
 
@@ -1112,8 +1119,8 @@ void purge()
 
 			}
 
-			free_memory( orig_node->last_reply );
-			free_memory( orig_node );
+			debugFree( orig_node->last_reply );
+			debugFree( orig_node );
 
 		} else if ( purged_packets > 0 ) {
 
@@ -1144,7 +1151,7 @@ void send_vis_packet()
 			if(cnt >= size)
 			{
 				size += step;
-				packet = realloc_memory(packet, size * sizeof(unsigned char));
+				packet = debugRealloc(packet, size * sizeof(unsigned char), 14);
 			}
 			memmove(&packet[cnt], (unsigned char*)&orig_node->orig,4);
 			 *(packet + cnt + 4) = (unsigned char) orig_node->packet_count;
@@ -1154,7 +1161,7 @@ void send_vis_packet()
 	if(packet != NULL)
 	{
 		send_packet(packet, size * sizeof(unsigned char), &vis_if.addr, vis_if.sock);
-	 	free_memory(packet);
+	 	debugFree(packet);
 	}
 }
 
@@ -1181,7 +1188,7 @@ int batman()
 
 			hna_node = list_entry(hna_pos, struct hna_node, list);
 
-			hna_buff = realloc_memory( hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ) );
+			hna_buff = debugRealloc( hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 15 );
 
 			memmove( &hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4 );
 			hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char ) hna_node->netmask;
@@ -1462,6 +1469,7 @@ int batman()
 
 			debug_timeout = get_time();
 			debug();
+			checkIntegrity();
 
 		}
 
@@ -1486,6 +1494,8 @@ int batman()
 	}
 
 	set_forwarding( forward_old );
+
+	checkLeak();
 
 	return 0;
 
