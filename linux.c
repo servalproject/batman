@@ -45,22 +45,34 @@
 void set_rp_filter(int state, char* dev)
 {
 	FILE *f;
-  char filename[100];
-	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+	char filename[100], *colon_ptr;
 
+	/* if given interface is an alias use parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
+
+	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
 
 	if((f = fopen(filename, "w")) == NULL)
 		return;
 
 	fprintf(f, "%d", state);
 	fclose(f);
+
+	if ( colon_ptr != NULL )
+		*colon_ptr = ':';
 }
 
 int get_rp_filter(char *dev)
 {
 	FILE *f;
 	int state = 0;
-  char filename[100];
+	char filename[100], *colon_ptr;
+
+	/* if given interface is an alias use parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
+
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
 
 	if((f = fopen(filename, "r")) == NULL)
@@ -68,6 +80,9 @@ int get_rp_filter(char *dev)
 
 	fscanf(f, "%d", &state);
 	fclose(f);
+
+	if ( colon_ptr != NULL )
+		*colon_ptr = ':';
 
 	return state;
 }

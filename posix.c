@@ -1148,44 +1148,6 @@ int main(int argc, char *argv[])
 
 		}
 
-
-		/* FIXME: does that help ?
-		socklen_t get_len;
-		int get_value;
-		get_len = sizeof (get_value);
-		if ( getsockopt( batman_if->udp_recv_sock, SOL_SOCKET, SO_RCVBUF, &get_value, &get_len ) < 0 ) {
-
-			do_log( "Error - can't get socket option: %s\n", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
-
-		}
-
-		printf( "receive buffer (%s): %i (before)\n", batman_if->dev, get_value );
-
-		get_value = get_value * 2;
-
-		if ( setsockopt( batman_if->udp_recv_sock, SOL_SOCKET, SO_RCVBUF, &get_value, sizeof (int) ) < 0 ) {
-
-			do_log( "Error - can't set recv buffer size: %s\n", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
-
-		}
-
-		if ( getsockopt( batman_if->udp_recv_sock, SOL_SOCKET, SO_RCVBUF, &get_value, &get_len ) < 0 ) {
-
-			do_log( "Error - can't get socket option: %s\n", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
-
-		}
-
-		printf( "receive buffer (%s): %i (now)\n", batman_if->dev, get_value );
-
-		*/
-
-
 		memset(&int_req, 0, sizeof (struct ifreq));
 		strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
 
