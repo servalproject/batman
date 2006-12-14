@@ -42,6 +42,36 @@
 #include "os.h"
 #include "batman.h"
 
+void set_rp_filter(int state, char* dev)
+{
+	FILE *f;
+  char filename[100];
+	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+
+
+	if((f = fopen(filename, "w")) == NULL)
+		return;
+
+	fprintf(f, "%d", state);
+	fclose(f);
+}
+
+int get_rp_filter(char *dev)
+{
+	FILE *f;
+	int state = 0;
+  char filename[100];
+	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+
+	if((f = fopen(filename, "r")) == NULL)
+		return 0;
+
+	fscanf(f, "%d", &state);
+	fclose(f);
+
+	return state;
+}
+
 void set_forwarding(int state)
 {
 	FILE *f;

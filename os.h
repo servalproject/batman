@@ -25,6 +25,11 @@
 unsigned int get_time(void);
 void set_forwarding(int);
 int get_forwarding(void);
+void set_rp_filter(int state, char* dev);
+int get_rp_filter(char *dev);
+
+
+
 void output(char *format, ...);
 void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router, int del, char *dev, int sock );
 int is_aborted();

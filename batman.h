@@ -142,6 +142,7 @@ struct batman_if
 	int tcp_gw_sock;
 	int tunnel_sock;
 	int if_num;
+  int if_rp_filter_old;
 	pthread_t listen_thread_id;
 	struct sockaddr_in addr;
 	struct sockaddr_in broad;

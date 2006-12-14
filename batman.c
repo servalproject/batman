@@ -1176,6 +1176,7 @@ int batman()
 	unsigned char in[1501], *hna_recv_buff;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	int forward_old, res, hna_buff_len, hna_buff_count;
+	int if_rp_filter_all_old, if_rp_filter_default_old;
 	int is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
 	int time_count = 0, curr_time;
 
@@ -1209,8 +1210,15 @@ int batman()
 		batman_if->out.seqno = 0;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = BATMAN_VERSION;
-
+		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
+		set_rp_filter( 0 , batman_if->dev );
 	}
+
+	if_rp_filter_all_old = get_rp_filter( "all" );
+	if_rp_filter_default_old = get_rp_filter( "default" );
+
+	set_rp_filter( 0, "all" );
+	set_rp_filter( 0, "default" );
 
 	forward_old = get_forwarding();
 	set_forwarding(1);
@@ -1494,6 +1502,15 @@ int batman()
 	}
 
 	set_forwarding( forward_old );
+
+	list_for_each(if_pos, &if_list) {
+		batman_if = list_entry(if_pos, struct batman_if, list);
+		set_rp_filter( batman_if->if_rp_filter_old , batman_if->dev );
+	}
+
+	set_rp_filter( if_rp_filter_all_old, "all" );
+	set_rp_filter( if_rp_filter_default_old, "default" );
+
 
 	checkLeak();
 
