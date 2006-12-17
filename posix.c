@@ -1047,8 +1047,8 @@ int main(int argc, char *argv[])
 
 				print_animation();
 
-				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s", VERSION);
-				printf( "\x1B[9;0HMay the bat guide your path ...\n" );
+				printf( "\x1B[0;0H\t     B.A.T.M.A.N.-III v%s", VERSION);
+				printf( "\x1B[9;0H \t May the bat guide your path ...\n\n\n" );
 
 				return (0);
 
