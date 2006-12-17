@@ -41,7 +41,7 @@ void checkIntegrity(void)
 
 		memory = (unsigned char *)walker;
 
-		chunkTrailer = (struct chunkTrailer *)(memory + 16 + walker->length);
+		chunkTrailer = (struct chunkTrailer *)(memory + sizeof(struct chunkHeader) + walker->length);
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
@@ -68,17 +68,17 @@ void *debugMalloc(unsigned int length, int tag)
 
 // 	printf("sizeof(struct chunkHeader) = %u, sizeof (struct chunkTrailer) = %u\n", sizeof (struct chunkHeader), sizeof (struct chunkTrailer));
 
-	memory = malloc(length + 20);
+	memory = malloc(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer));
 
 	if (memory == NULL)
 	{
-		fprintf(stderr, "Cannot allocate %u bytes, tag = %d\n", length + 20, tag);
+		fprintf(stderr, "Cannot allocate %u bytes, tag = %d\n", length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer), tag);
 		exit(1);
 	}
 
 	chunkHeader = (struct chunkHeader *)memory;
-	chunk = memory + 16;
-	chunkTrailer = (struct chunkTrailer *)(memory + 16 + length);
+	chunk = memory + sizeof(struct chunkHeader);
+	chunkTrailer = (struct chunkTrailer *)(memory + sizeof(struct chunkHeader) + length);
 
 	chunkHeader->length = length;
 	chunkHeader->tag = tag;
@@ -100,33 +100,37 @@ void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
 	unsigned char *result;
 	unsigned int copyLength;
 
-	memory = memoryParameter;
-	chunkHeader = (struct chunkHeader *)(memory - 16);
-
-	if (chunkHeader->magicNumber != MAGIC_NUMBER)
-	{
-		fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
-		exit(1);
+	if (memoryParameter) { /* if memoryParameter==NULL, realloc() should work like malloc() !! */
+		memory = memoryParameter;
+		chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader));
+	
+		if (chunkHeader->magicNumber != MAGIC_NUMBER)
+		{
+			fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
+			exit(1);
+		}
+	
+		chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length);
+	
+		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
+		{
+			fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
+			exit(1);
+		}
 	}
-
-	chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length);
-
-	if (chunkTrailer->magicNumber != MAGIC_NUMBER)
-	{
-		fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
-		exit(1);
-	}
+	
 
 	result = debugMalloc(length, tag);
+	if (memoryParameter) {
+		copyLength = length;
 
-	copyLength = length;
+		if (copyLength > chunkHeader->length)
+			copyLength = chunkHeader->length;
+	
+		memcpy(result, memoryParameter, length);
+		debugFree(memoryParameter);
+	}
 
-	if (copyLength > chunkHeader->length)
-		copyLength = chunkHeader->length;
-
-	memcpy(result, memoryParameter, length);
-
-	debugFree(memoryParameter);
 
 	return result;
 }
@@ -140,7 +144,7 @@ void debugFree(void *memoryParameter)
 	struct chunkHeader *previous;
 
 	memory = memoryParameter;
-	chunkHeader = (struct chunkHeader *)(memory - 16);
+	chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader));
 
 	if (chunkHeader->magicNumber != MAGIC_NUMBER)
 	{
