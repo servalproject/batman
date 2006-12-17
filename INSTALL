@@ -1,5 +1,5 @@
 #################################
-B.A.T.M.A.N Installation and Use
+B.A.T.M.A.N. Installation and Use
 #################################
 
 Marek Lindner (lindner_marek-at-yahoo.de)
@@ -16,10 +16,10 @@ Preface
 -------
 
 This is still a experimental piece of code to test the viability of the
-B.A.T.M.A.N routing algorithm based on initial ideas of Thomas Lopatic
+B.A.T.M.A.N. routing algorithm based on initial ideas of Thomas Lopatic
 and Corinna 'Elektra' Aichele.
 
-This is implementation 0.1-final of the improved B.A.T.M.A.N-III algorithm. It
+This is implementation 0.11 of the improved B.A.T.M.A.N.-III algorithm. It
 is not unlikely that we still have to fix some bugs, though.
 
 Use - like always - at your own risk!
@@ -29,7 +29,7 @@ Use - like always - at your own risk!
 Features
 --------
 
-Improved B.A.T.M.A.N-III algorithm
+Improved B.A.T.M.A.N.-III algorithm
 IP-Tunnels via UDP
 Gateway classes
 Multiple Interfaces support
@@ -46,11 +46,11 @@ Testing, improvements in the documentation.
 Support for Free-BSD and Mac OS-X is broken at the moment since we
 introduced UDP-Tunnels - we hope this will be fixed in the near future.
 
-Develop B.A.T.M.A.N-Advanced that routes on Layer 2 and creates a Link-Local-Illusion for higher
+Develop B.A.T.M.A.N.-Advanced that routes on Layer 2 and creates a Link-Local-Illusion for higher
 OSI-Layers
 
 Read speed tables from WiFi-Cards to calculate the transfer speed of routes
-in B.A.T.M.A.N-Advanced
+in B.A.T.M.A.N.-Advanced
 
 
 ------------
@@ -64,7 +64,7 @@ Installation
 ------------
 
 You need the usual working environment to compile software. In the
-B.A.T.M.A.N directory type
+B.A.T.M.A.N. directory type
 
 make <press enter>
 
@@ -92,7 +92,7 @@ ipkg update
 ipkg install batman-iii
 
 If you use Freifunk-Firmware you can use the web user-interface for
-b.a.t.m.a.n:
+B.A.T.M.A.N.:
 
 ipkg install freifunk-batman-de
 
@@ -165,13 +165,13 @@ Usage: batman [options] interface [interface interface]
        -o orginator interval in ms
           default: 1000, allowed values: >0
 
-	Note: By default B.A.T.M.A.N keeps track of packets received in the
+	Note: By default B.A.T.M.A.N. keeps track of packets received in the
 	last 60 seconds (this is called sliding window size). B.A.T.M.A.N
 	will perform it's routing decisions based on statistics about 60
 	packages for a node with an orginator interval of one second. If a
 	node manages to send us at least 1 message in 60 seconds, it will be
 	in our routing table. If the orginator interval is increased to 3
-	seconds only 20 packets will be kept in the B.A.T.M.A.N statistic -
+	seconds only 20 packets will be kept in the B.A.T.M.A.N. statistic -
 	thus the node must manage to send us 1 out of 20 packets to be in
 	our routing table. If the sliding window size has more space for
 	orginator messages the range of multi-hop links will be longer and
@@ -213,7 +213,7 @@ Usage: batman [options] interface [interface interface]
 Switch the output of runtime debugging messages to a low level if you want
 to test the software on a slow - embedded - system.
 
-We would love to see B.A.T.M.A.N in a match against other routing protocols
+We would love to see B.A.T.M.A.N. in a match against other routing protocols
 in existing mesh networks. You can set up a virtual interface on an
 interface that you run another mesh routing protocol on.
 
@@ -234,7 +234,7 @@ Now you can check out which protocol works better.
 
 Happy routing!
 
-The B.A.T.M.A.N contributors
+The B.A.T.M.A.N. contributors
 
 
 

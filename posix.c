@@ -1040,14 +1040,14 @@ int main(int argc, char *argv[])
 
 			case 'v':
 
-				printf( "B.A.T.M.A.N-III v%s (internal version %i)", VERSION, BATMAN_VERSION );
+				printf( "B.A.T.M.A.N.-III v%s \n", VERSION);
 				return (0);
 
 			case 'V':
 
 				print_animation();
 
-				printf( "\x1B[0;0HB.A.T.M.A.N-III v%s (internal version %i)", VERSION, BATMAN_VERSION );
+				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s", VERSION);
 				printf( "\x1B[9;0HMay the bat guide your path ...\n" );
 
 				return (0);
@@ -1110,7 +1110,7 @@ int main(int argc, char *argv[])
 
 	} else {
 
-		printf( "B.A.T.M.A.N-III v%s (internal version %i)\n", VERSION, BATMAN_VERSION );
+		printf( "B.A.T.M.A.N.-III v%s \n", VERSION );
 
 	}
 

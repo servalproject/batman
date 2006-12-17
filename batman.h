@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 BATMAN contributors:
+ * Copyright (C) 2006 B.A.T.M.A.N. contributors:
  * Thomas Lopatic, Corinna 'Elektra' Aichele, Axel Neumann, Marek Lindner
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define VERSION "0.1"
+#define VERSION "0.11"
 #define BATMAN_VERSION 1
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
@@ -33,7 +33,7 @@
 
 /*
  * No configuration files or fancy command line switches yet
- * To experiment with B.A.T.M.A.N settings change them here
+ * To experiment with B.A.T.M.A.N. settings change them here
  * and recompile the code
  * Here is the stuff you may want to play with: */
 

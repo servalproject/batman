@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 BATMAN contributors:
+ * Copyright (C) 2006 B.A.T.M.A.N. contributors:
  * Thomas Lopatic, Corinna 'Elektra' Aichele, Axel Neumann,
  * Felix Fietkau, Marek Lindner
  *

@@ -10,24 +10,24 @@ Die deutschsprachige Doku (dieser Text) ist veraltet. Die englische Version
 HINWEIS HINWEIS HINWEIS HINWEIS HINWEIS HINWEIS HINWEIS HINWEIS HINWEIS
 ----------------------------------------------------------------------------
 
-B.A.T.M.A.N-II
+B.A.T.M.A.N.-II
 
 BETTER APPROACH TO MOBILE AD-HOC NETWORKING
 
 
 
 
-B.A.T.M.A.N ist eine völlig neue Herangehensweise an Ad-Hoc-Routing, deren
+B.A.T.M.A.N. ist eine völlig neue Herangehensweise an Ad-Hoc-Routing, deren
 Durchführbarkeit wir mit diesem Code testen wollen. Alle bisherigen uns
 bekannten Routingalgorithmen für MANETs (Mobile Ad-Hoc Networks) versuchen
-Routen zu berechnen. B.A.T.M.A.N tut etwas völlig anderes. Es berechnet keine
+Routen zu berechnen. B.A.T.M.A.N. tut etwas völlig anderes. Es berechnet keine
 Routen - es spürt das Vorhandensein von Routen auf, und benutzt sie bei
 Bedarf. 
 
-B.A.T.M.A.N interessiert sich nicht dafür wie eine Route verläuft die es
+B.A.T.M.A.N. interessiert sich nicht dafür wie eine Route verläuft die es
 benutzt um mit einem anderen Knoten im Mesh-Netzwerk zu kommunizieren.
-B.A.T.M.A.N prüft lediglich über welchen direkten Nachbarn ein bestimmter
-Netzwerkknoten am besten zu erreichen ist. Wer wissen möchte wie B.A.T.M.A.N
+B.A.T.M.A.N. prüft lediglich über welchen direkten Nachbarn ein bestimmter
+Netzwerkknoten am besten zu erreichen ist. Wer wissen möchte wie B.A.T.M.A.N.
 zu einem bestimmten Knoten routet, kann das mit
 
 ping -R <Zieladresse> 
@@ -41,10 +41,10 @@ traceroute -n <Zieladresse>
 herhalten.
 
 
-Ein Knoten in einem B.A.T.M.A.N-MANET interessiert sich nur dafür, von der
+Ein Knoten in einem B.A.T.M.A.N.-MANET interessiert sich nur dafür, von der
 Existenz aller anderer Knoten zu wissen die er direkt oder über eine
 Multi-Hop-Verbindung erreichen kann. Um mit einem indirekten Nachbarn zu
-kommunizieren muss B.A.T.M.A.N einen Nachbarn in direkter Funkreichweite
+kommunizieren muss B.A.T.M.A.N. einen Nachbarn in direkter Funkreichweite
 bestimmen dem ein Datenpaket überreicht werden kann, damit dieser es auf dem
 günstigsten Weg zu dem Nachbarn in der Ferne routet. Am besten wird der
 Vorteil dieser Herangehensweise vielleicht deutlich wenn wir ältere Ansätze
@@ -105,7 +105,7 @@ ein paar Bugfixes.
 Schlussendlich stört aber der hohe Rechenaufwand von OLSRD in den CPUs der
 kleinen Meshrouter im Berliner Freifunk-Netz. Das Freifunk-MANET hat die
 Grenzen des Wachstums mit dem proaktiven OLSR erreicht. Zeit also für etwas
-einfacheres und besseres: B.A.T.M.A.N
+einfacheres und besseres: B.A.T.M.A.N.
 
 Von Antoine Saint Exupery (Autor des 'Kleinen Prinz') stammt dieser Satz:
 
@@ -113,21 +113,21 @@ Alles menschliche Tun geht den Weg vom Primitiven über das Komplizierte zum
 Einfachen. 
 
 
-B.A.T.M.A.N ist eine Gruppe von Regeln an die sich ein Router halten muss.
+B.A.T.M.A.N. ist eine Gruppe von Regeln an die sich ein Router halten muss.
 
-#####################################
-# Einfachstes B.A.T.M.A.N-Verfahren #
-#	     		      	    #
-# 	   B.A.T.M.A.N-I	    #
-#####################################
+######################################
+# Einfachstes B.A.T.M.A.N.-Verfahren #
+#	     		      	     #
+# 	   B.A.T.M.A.N.-I	     #
+######################################
 
 
-B.A.T.M.A.N verwendet Port 1966 UDP. Dieser Port muss für eingehende und ausgehende
-Nachrichten offen sein, also darf eine Firewall B.A.T.M.A.N nicht blockieren.
+B.A.T.M.A.N. verwendet Port 1966 UDP. Dieser Port muss für eingehende und ausgehende
+Nachrichten offen sein, also darf eine Firewall B.A.T.M.A.N. nicht blockieren.
 
 1.) Broadcasts
 
-B.A.T.M.A.N findet seine Nachbarn und entfernte Netzwerkknoten im Mesh (im
+B.A.T.M.A.N. findet seine Nachbarn und entfernte Netzwerkknoten im Mesh (im
 folgenden Nodes genannt) durch Broadcasts die weitergereicht werden. In
 einem Broadcast steht die Adresse des Erzeugers drin (im folgenden Orginator
 genannt). Weiterhin enthält der Broadcast einen TTL-Wert und eine
@@ -136,7 +136,7 @@ jedesmal um den Wert 1 reduziert wird, wenn ein Datenpaket weitergereicht
 wird. Wird der TTL-Wert 0 ist das Paket zu lange (üblicherweise auf
 Irrwegen) unterwegs und wird verworfen. Anhand der TTL kann man daher auch
 sehen wie oft ein Paket schon weitergereicht wurde. Besonders wichtig für
-B.A.T.M.A.N ist die Sequenznummer. Das sind die laufenden Nummern der
+B.A.T.M.A.N. ist die Sequenznummer. Das sind die laufenden Nummern der
 Orginator-Nachrichten die ein Orginator aussendet.
 
 Broadcasts werden in einem festgelegten Intervall von jedem Node als
@@ -204,22 +204,22 @@ bei der TTL entscheidet wer das letzte eingegangene Orginator-Paket zum
 Zielknoten gebroadcastet hat.
 
 
-######################################
-# Verbessertes B.A.T.M.A.N-Verfahren #
-#				     #
-#	   B.A.T.M.A.N-II	     #
-######################################
+#######################################
+# Verbessertes B.A.T.M.A.N.-Verfahren #
+#				      #
+#	   B.A.T.M.A.N.-II	      #
+#######################################
 
 
 
-Das einfachste B.A.T.M.A.N-Verfahren hat einen Haken: Es berücksichtigt nicht,
+Das einfachste B.A.T.M.A.N.-Verfahren hat einen Haken: Es berücksichtigt nicht,
 dass Verbindungen unsymmetrisch sein können. Die Annahme ist, dass auf dem
 Pfad auf dem die Pakete von Node A den Node F erreichen auch die beste
 Übertragung in die Gegenrichtung möglich ist. Das ist im Fall von
 unsymmetrischen Links ein Trugschluss. Unsymmetrische Links treten auf wenn
 ein Router zwar einen anderen hört, aber umgekehrt nicht. Es kann sein, dass
 eine perfekte Übertragung möglich ist - aber nur in eine Richtung. Das
-einfache B.A.T.M.A.N-Verfahren würde hier komplett scheitern. Es muss also
+einfache B.A.T.M.A.N.-Verfahren würde hier komplett scheitern. Es muss also
 geprüft werden ob Links symmetrisch sind und nur Informationen die von
 diesen kommen dürfen ausgewertet und verwendet werden.
 
@@ -255,7 +255,7 @@ Ansonsten würden wir die Orginatornachrichten unserer direkten Nachbarn
 stets ignorieren - weil sie unsymmetrisch sind und bleiben. Und sie würden
 uns ignorieren... Andere Nodes dürfen indirekt empfangene Orginatormeldungen
 mit TTLMAX -1 nicht wiederholen wenn der Unsymmetrieflag gesetzt wird -
-sonst fällt B.A.T.M.A.N doch noch auf Broadcasts rein, die von
+sonst fällt B.A.T.M.A.N. doch noch auf Broadcasts rein, die von
 unsymmetrischen Links stammen.
 
 

@@ -1,4 +1,4 @@
-B.A.T.M.A.N-III
+B.A.T.M.A.N.-III
 
 BETTER APPROACH TO MOBILE AD-HOC NETWORKING
 
@@ -6,19 +6,19 @@ BETTER APPROACH TO MOBILE AD-HOC NETWORKING
 # 1.) INTRODUCTION #
 ####################
 
-B.A.T.M.A.N is a new approach to Ad-Hoc-Routing, unlike other algorithms
+B.A.T.M.A.N. is a new approach to Ad-Hoc-Routing, unlike other algorithms
 that we are aware of. Reactive MANET protocols search for routes when a node
 initiates communication to a remote node. Proactive protocols (all
 link-state algorithms and some distance-vector algorithms) calculate routes
 proactively from all nodes to all nodes in the mesh-cloud, whether they are
 necessary or not - while reactive protocols search for routes on demand.
-B.A.T.M.A.N doesn't calculate or search for routes - it continuously detects
+B.A.T.M.A.N. doesn't calculate or search for routes - it continuously detects
 the existence of routes by forwarding and receiving broadcast packets, and
 it proactively populates the routing-table with nodes in the mesh. The
 algorithm does not try to find out which path packets follow to a remote
-node. B.A.T.M.A.N merely checks which single hop neighbor it has to send a
+node. B.A.T.M.A.N. merely checks which single hop neighbor it has to send a
 package to in order to push it on the best way to a node in the mesh. If you
-want to find out how B.A.T.M.A.N routes to a certain node, perform a
+want to find out how B.A.T.M.A.N. routes to a certain node, perform a
 
 ping -R <destination address> 
 
@@ -35,27 +35,27 @@ instead.
 # 2.) EVOLUTION #
 #################
 
-B.A.T.M.A.N-III is the third stage in the evolution of the
-B.A.T.M.A.N.  algorithm - hence the numbering scheme. B.A.T.M.A.N-I
+B.A.T.M.A.N.-III is the third stage in the evolution of the
+B.A.T.M.A.N.  algorithm - hence the numbering scheme. B.A.T.M.A.N.-I
 didn't check for bidirectional link conditions when forwarding
 packets. This was an obvious design flaw. We didn't bother to add
 bidirectional link checks in the first experimental implementation
 that was meant to merely test the algorithm. The results of
-B.A.T.M.A.N-I were however promising, so B.A.T.M.A.N-II was
+B.A.T.M.A.N.-I were however promising, so B.A.T.M.A.N.-II was
 implemented introducing a simple mechanism to check for bidirectional
 links to perform further tests in real-live scenarios.
 
-B.A.T.M.A.N-II implemented the bare algorithm with bi-directional link
+B.A.T.M.A.N.-II implemented the bare algorithm with bi-directional link
 checks for meshnodes with one interface only and was tested in the
 Freifunk meshclouds of Berlin and Weimar. Thank you very much, you are
 really brave guys! It was working quite nice on PCs, but the quick and
 dirty implementation was causing high CPU-Loads on embedded systems
 and even broadcast packet storms!
 
-We found out that the algorithm of B.A.T.M.A.N-II still had its
-flaws. We identified conditions where B.A.T.M.A.N-II would choose
+We found out that the algorithm of B.A.T.M.A.N.-II still had its
+flaws. We identified conditions where B.A.T.M.A.N.-II would choose
 routes far from optimal and even could cause routing loops. Hence
-B.A.T.M.A.N-III implements changes in the algorithm to cope with these
+B.A.T.M.A.N.-III implements changes in the algorithm to cope with these
 scenarios.
 
 Some new features, namely Internet gateway detection and
@@ -66,12 +66,12 @@ server so people can download data from this server to display those
 fancy three-dimensional meshclouds with s3d or two-dimensional with
 dot-draw.
 
-Now B.A.T.M.A.N-III has - in theory - everything to replace other MANET
+Now B.A.T.M.A.N.-III has - in theory - everything to replace other MANET
 routing daemons. As this is a young and experimental development it needs
 further testing to improve maturity, of course. 
 
-We are having a party today - December 13th 2006 at c-base in Berlin, to celebrate
-the release of this milestone as B.A.T.M.A.N-III-0.1!
+On December 13th 2006 we had a party at c-base in Berlin, to celebrate
+the release of this milestone as B.A.T.M.A.N.-III-0.1!
 
 B.A.T.M.A.N. will have a hard time to gain the same popularity like olsrd
 from olsr.org. OLSR is now the same for community mesh networks in Europe
@@ -90,14 +90,14 @@ the way that B.A.T.M.A.N. goes :)
 
 
 #####################################
-# 3.) MANET THEORY AND B.A.T.M.A.N  #
+# 3.) MANET THEORY AND B.A.T.M.A.N.  #
 #####################################
 
-A node in a B.A.T.M.A.N-MANET is only interested to learn about the
+A node in a B.A.T.M.A.N.-MANET is only interested to learn about the
 existence of all nodes that it can communicate with, either in single or
 multi-hop range, and which single hop neighbor it has to choose as a router
 to a certain destination. To communicate with a node in multi-hop range a
-B.A.T.M.A.N node only needs to know which single hop neighbor is the best
+B.A.T.M.A.N. node only needs to know which single hop neighbor is the best
 to send its packets to, so that the packets takes the best way to the node
 in the distance. To explain the advantage of this approach it may be best to
 compare it with other ideas about mesh routing - namely source routing and
@@ -182,12 +182,12 @@ B.A.T.M.A.N. is a simple set of rules a node has to comply with.
 
 
 NOTE:
-A firewall must not block B.A.T.M.A.N traffic. B.A.T.M.A.N sends its
+A firewall must not block B.A.T.M.A.N. traffic. B.A.T.M.A.N. sends its
 packets on Port 1966 UDP. This port must be open for incoming and outgoing
 UDP traffic.
 
 
-B.A.T.M.A.N detects neighbors and distant nodes by transmitting, receiving
+B.A.T.M.A.N. detects neighbors and distant nodes by transmitting, receiving
 and repeating broadcasts according to the rules of the B.A.T.M.A.N.
 algorithm. These broadcasts travel through the mesh-cloud until they are
 lost or nobody has to rebroadcast them any more. Once a node receives a
@@ -243,7 +243,7 @@ looks like this:
        |                            |
        *-------------- E -----------*
 
-What does B.A.T.M.A.N do now?
+What does B.A.T.M.A.N. do now?
 
 Node A broadcasts an originator-message with sequence number 0. B, C, D and E
 all forward this message.
@@ -255,7 +255,7 @@ receives from node C because it receives the same message again. The message
 forwarded by node E may get lost or come too late to be the first, too.
 
 Using the best path between node A and F the packets travel more
-reliable and/or quicker. B.A.T.M.A.N. nodes consider the best path to
+reliable and/or quicker. B.A.T.M.A.N.. nodes consider the best path to
 a destination only as far as to the best next hop (or neighbor)
 towards the destination. The best next hop is simply identified by
 gathering statistics about how often and via which neighbor a certain
