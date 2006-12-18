@@ -1209,7 +1209,7 @@ int batman()
 		batman_if->out.ttl = ( batman_if->if_num == 0 ? TTL : 2 );
 		batman_if->out.seqno = 0;
 		batman_if->out.gwflags = gateway_class;
-		batman_if->out.version = BATMAN_VERSION;
+		batman_if->out.version = COMPAT_VERSION;
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
 		set_rp_filter( 0 , batman_if->dev );
 	}
@@ -1325,7 +1325,7 @@ int batman()
 			}
 
 
-			if ( ((struct packet *)&in)->version != BATMAN_VERSION ) {
+			if ( ((struct packet *)&in)->version != COMPAT_VERSION ) {
 
 				if ( debug_level == 4 )
 					output( "Drop packet: incompatible batman version (%i) \n", ((struct packet *)&in)->version );

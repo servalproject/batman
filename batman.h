@@ -24,8 +24,8 @@
 #include <pthread.h>
 #include "list.h"
 
-#define VERSION "0.11"
-#define BATMAN_VERSION 1
+#define SOURCE_VERSION "0.1.1"
+#define COMPAT_VERSION 2
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
