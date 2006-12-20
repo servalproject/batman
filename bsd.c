@@ -26,8 +26,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/route.h>
-#include <net/if.h>
-#include <net/if_tun.h>
+/*	FIXME breaks Mac OS X tun-support
+	#include <net/if.h>
+	#include <net/if_tun.h> */
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -107,8 +108,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 	static unsigned int seq = 0;
 	struct rt_msg msg;
 	struct sockaddr_in *so_dest, *so_gateway;
+/*	FIXME unused ??
 	struct sockaddr_in ifname;
-	socklen_t ifname_len;
+	socklen_t ifname_len; */
 	ssize_t len;
 	pid_t pid;
 
@@ -252,12 +254,16 @@ int open_tun_any(char *dev_name, size_t dev_name_size)
 /* Probe for tun interface availability */
 int probe_tun()
 {
+/*	FIXME tun-supprt broken
 	int fd;
 	fd = open_tun_any(NULL, 0);
 	if (fd == -1)
 		return 0;
 	close(fd);
 	return 1;
+*/
+	do_log ("tun-support is broken on this platform...\n", "foo");
+	return 0;
 }
 
 int del_dev_tun(int fd)
@@ -267,17 +273,18 @@ int del_dev_tun(int fd)
 
 int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, size_t tun_dev_size, int *fd)
 {
+/*	FIXME tun-support broken
 	int so;
 	struct ifreq ifr_tun, ifr_if;
 	struct tuninfo ti;
 	struct sockaddr_in addr;
 
-	/* set up tunnel device */
+	/ * set up tunnel device * /
 	memset(&ifr_tun, 0, sizeof(ifr_tun));
 	memset(&ifr_if, 0, sizeof(ifr_if));
 	memset(&ti, 0, sizeof(ti));
 
-	/* Open tun device. */
+	/ * Open tun device. * /
 	if ((*fd = open_tun_any(tun_dev, tun_dev_size)) < 0) {
 		perror("Could not open tun device");
 		return -1;
@@ -285,41 +292,41 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 
 	printf("Using %s\n", tun_dev);
 
-	/* Initialise tuninfo to defaults. */
+	/ * Initialise tuninfo to defaults. * /
 	if (ioctl(*fd, TUNGIFINFO, &ti) < 0) {
 		perror("TUNGIFINFO");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
-	/* Prepare to set IP of this end point of tunnel */
+	/ * Prepare to set IP of this end point of tunnel * /
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_addr.s_addr = tun_addr;
 	addr.sin_family = AF_INET;
 	memcpy(&ifr_tun.ifr_addr, &addr, sizeof(struct sockaddr));
 
-	/* Set name of interface to configure */
+	/ * Set name of interface to configure * /
 	strlcpy(ifr_tun.ifr_name, tun_dev, IFNAMSIZ);
 
-	/* Open temporary socket to configure tun interface. */
+	/ * Open temporary socket to configure tun interface. * /
 	so = socket(AF_INET, SOCK_DGRAM, 0);
 
-	/* Set IP of this end point of tunnel */
-	/* XXX FAILS XXX */
+	/ * Set IP of this end point of tunnel * /
+	/ * XXX FAILS XXX * /
 	if (ioctl(so, SIOCSIFADDR, &ifr_tun, sizeof(ifr_tun)) < 0) {
 		perror("SIOCSIFADDR");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
-	/* Get interface flags for tun device */
+	/ * Get interface flags for tun device * /
 	if (ioctl(so, SIOCGIFFLAGS, &ifr_tun) < 0) {
 		perror("SIOCGIFFLAGS");
 		del_dev_tun(*fd);
 		return -1;
 	}
 
-	/* Set up and running interface flags on tun device. */
+	/ * Set up and running interface flags on tun device. * /
 	ifr_tun.ifr_flags |= IFF_UP;
 	ifr_tun.ifr_flags |= IFF_RUNNING;
 	if (ioctl(so, SIOCSIFFLAGS, &ifr_tun) < 0) {
@@ -328,7 +335,7 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 		return -1;
 	}
 
-	/* get MTU from real interface */
+	/ * get MTU from real interface * /
 	strlcpy(ifr_if.ifr_name, batman_if->dev, IFNAMSIZ);
 	if (ioctl(*fd, SIOCGIFMTU, &ifr_if) < 0) {
 		perror("SIOCGIFMTU");
@@ -336,7 +343,7 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 		return -1;
 	}
 
-	/* set MTU of tun interface: real MTU - 28 */
+	/ * set MTU of tun interface: real MTU - 28 * /
 	if (ifr_if.ifr_mtu < 100) {
 		fprintf(stderr, "Warning: MTU smaller than 100 - cannot reduce MTU anymore\n" );
 	} else {
@@ -349,5 +356,15 @@ int add_dev_tun(struct batman_if *batman_if, unsigned int tun_addr, char *tun_de
 	}
 
 	strlcpy(tun_dev, ifr_tun.ifr_name, tun_dev_size);
+*/
+	return 1;
+}
+
+void set_rp_filter(int state, char* dev)
+{
+}
+
+int get_rp_filter(char *dev)
+{
 	return 1;
 }
