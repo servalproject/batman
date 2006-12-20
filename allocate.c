@@ -72,7 +72,7 @@ void *debugMalloc(unsigned int length, int tag)
 
 	if (memory == NULL)
 	{
-		fprintf(stderr, "Cannot allocate %u bytes, tag = %d\n", length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer), tag);
+		fprintf(stderr, "Cannot allocate %u bytes, tag = %d\n", (unsigned int)(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer)), tag);
 		exit(1);
 	}
 
