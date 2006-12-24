@@ -127,7 +127,7 @@ void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
 		if (copyLength > chunkHeader->length)
 			copyLength = chunkHeader->length;
 	
-		memcpy(result, memoryParameter, length);
+		memcpy(result, memoryParameter, copyLength);
 		debugFree(memoryParameter);
 	}
 
