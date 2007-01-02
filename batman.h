@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define SOURCE_VERSION "0.1.1"
+#define SOURCE_VERSION "0.1.1 beta"
 #define COMPAT_VERSION 2
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
@@ -35,7 +35,8 @@
  * No configuration files or fancy command line switches yet
  * To experiment with B.A.T.M.A.N. settings change them here
  * and recompile the code
- * Here is the stuff you may want to play with: */
+ * Here is the stuff you may want to play with:
+ */
 
 #define TTL 50            /* Time To Live of broadcast messages */
 #define TIMEOUT 60000     /* sliding window size of received orginator messages in ms */

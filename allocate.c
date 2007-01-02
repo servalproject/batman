@@ -35,7 +35,7 @@ void checkIntegrity(void)
 	{
 		if (walker->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", walker->magicNumber, walker->tag);
+			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", walker->magicNumber, walker->tag);
 			exit(1);
 		}
 
@@ -45,7 +45,7 @@ void checkIntegrity(void)
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkTrailer->magicNumber, walker->tag);
+			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, walker->tag);
 			exit(1);
 		}
 	}
@@ -56,7 +56,7 @@ void checkLeak(void)
 	struct chunkHeader *walker;
 
 	for (walker = chunkList; walker != NULL; walker = walker->next)
-		fprintf(stderr, "Memory leak detected, tag = %d\n", walker->tag);
+		fprintf(stderr, "Memory leak detected, malloc tag = %d\n", walker->tag);
 }
 
 void *debugMalloc(unsigned int length, int tag)
@@ -72,7 +72,7 @@ void *debugMalloc(unsigned int length, int tag)
 
 	if (memory == NULL)
 	{
-		fprintf(stderr, "Cannot allocate %u bytes, tag = %d\n", (unsigned int)(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer)), tag);
+		fprintf(stderr, "Cannot allocate %u bytes, malloc tag = %d\n", (unsigned int)(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer)), tag);
 		exit(1);
 	}
 
@@ -103,22 +103,22 @@ void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
 	if (memoryParameter) { /* if memoryParameter==NULL, realloc() should work like malloc() !! */
 		memory = memoryParameter;
 		chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader));
-	
+
 		if (chunkHeader->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
+			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
 			exit(1);
 		}
-	
+
 		chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length);
-	
+
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
+			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
 			exit(1);
 		}
 	}
-	
+
 
 	result = debugMalloc(length, tag);
 	if (memoryParameter) {
@@ -126,16 +126,16 @@ void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
 
 		if (copyLength > chunkHeader->length)
 			copyLength = chunkHeader->length;
-	
+
 		memcpy(result, memoryParameter, copyLength);
-		debugFree(memoryParameter);
+		debugFree(memoryParameter, 9999);
 	}
 
 
 	return result;
 }
 
-void debugFree(void *memoryParameter)
+void debugFree(void *memoryParameter, int tag)
 {
 	unsigned char *memory;
 	struct chunkHeader *chunkHeader;
@@ -148,7 +148,7 @@ void debugFree(void *memoryParameter)
 
 	if (chunkHeader->magicNumber != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
+		fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag, tag);
 		exit(1);
 	}
 
@@ -164,7 +164,7 @@ void debugFree(void *memoryParameter)
 
 	if (walker == NULL)
 	{
-		fprintf(stderr, "Double free detected, tag = %d\n", chunkHeader->tag);
+		fprintf(stderr, "Double free detected, malloc tag = %d, free tag = %d\n", chunkHeader->tag, tag);
 		exit(1);
 	}
 
@@ -178,7 +178,7 @@ void debugFree(void *memoryParameter)
 
 	if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "Invalid magic number in header: %08x, tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
+		fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag, tag);
 		exit(1);
 	}
 
@@ -203,7 +203,7 @@ void *debugMalloc(unsigned int length, int tag)
 
 	if (result == NULL)
 	{
-		fprintf(stderr, "Cannot allocate %u bytes, tag = %d\n", length, tag);
+		fprintf(stderr, "Cannot allocate %u bytes, malloc tag = %d\n", length, tag);
 		exit(1);
 	}
 
@@ -218,14 +218,14 @@ void *debugRealloc(void *memory, unsigned int length, int tag)
 
 	if (result == NULL)
 	{
-		fprintf(stderr, "Cannot re-allocate %u bytes, tag = %d\n", length, tag);
+		fprintf(stderr, "Cannot re-allocate %u bytes, malloc tag = %d\n", length, tag);
 		exit(1);
 	}
 
 	return result;
 }
 
-void debugFree(void *memory)
+void debugFree(void *memory, int tag)
 {
 	free(memory);
 }

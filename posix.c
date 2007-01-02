@@ -795,8 +795,8 @@ void *gw_listen( void *arg ) {
 							FD_CLR(gw_client->sock, &wait_sockets);
 							close( gw_client->sock );
 
-							list_del(client_pos);
-							debugFree(client_pos);
+							list_del( client_pos );
+							debugFree( client_pos, 201 );
 
 						}
 
@@ -840,8 +840,8 @@ void *gw_listen( void *arg ) {
 						printf( "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
 					}
 
-					list_del(client_pos);
-					debugFree(client_pos);
+					list_del( client_pos );
+					debugFree( client_pos, 202 );
 
 				} else {
 
@@ -1047,7 +1047,7 @@ int main(int argc, char *argv[])
 
 				print_animation();
 
-				printf( "\x1B[0;0H\t     B.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
+				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
 				printf( "\x1B[9;0H \t May the bat guide your path ...\n\n\n" );
 
 				return (0);

@@ -215,7 +215,7 @@ void add_del_hna( struct orig_node *orig_node, int del ) {
 
 	if ( del ) {
 
-		debugFree( orig_node->hna_buff );
+		debugFree( orig_node->hna_buff, 101 );
 		orig_node->hna_buff_len = 0;
 
 	}
@@ -483,8 +483,8 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 			if ( new_gwflags == 0 ) {
 
-				list_del(gw_pos);
-				debugFree(gw_pos);
+				list_del( gw_pos );
+				debugFree( gw_pos, 102 );
 
 				if (debug_level == 3)
 					printf( "Gateway %s removed from gateway list\n", orig_str );
@@ -949,8 +949,8 @@ void send_outstanding_packets() {
 
 			list_del( forw_pos );
 
-			debugFree( forw_node->pack_buff );
-			debugFree( forw_node );
+			debugFree( forw_node->pack_buff, 103 );
+			debugFree( forw_node, 104 );
 
 		}
 
@@ -1047,8 +1047,8 @@ void purge()
 					}
 
 					purged_packets++;
-					list_del(pack_pos);
-					debugFree(pack_node);
+					list_del( pack_pos );
+					debugFree( pack_node, 105 );
 
 				} else {
 
@@ -1066,8 +1066,8 @@ void purge()
 					addr_to_string(orig_node->orig, orig_str, sizeof (orig_str));
 					output("Removing orphaned neighbour %s for originator %s\n", neigh_str, orig_str);
 				}
-				list_del(neigh_pos);
-				debugFree(neigh_node);
+				list_del( neigh_pos );
+				debugFree( neigh_node, 106 );
 			}
 		}
 
@@ -1089,8 +1089,8 @@ void purge()
 					if (debug_level == 3)
 						printf( "Removing gateway %s from gateway list\n", orig_str );
 
-					list_del(gw_pos);
-					debugFree(gw_pos);
+					list_del( gw_pos );
+					debugFree( gw_pos, 107 );
 
 					gw_purged = 1;
 
@@ -1106,7 +1106,7 @@ void purge()
 			if ( orig_node->hna_buff_len > 0 ) {
 
 				add_del_hna( orig_node, 1 );
-				debugFree( orig_node->hna_buff );
+				debugFree( orig_node->hna_buff, 108 );
 
 			}
 
@@ -1119,8 +1119,8 @@ void purge()
 
 			}
 
-			debugFree( orig_node->last_reply );
-			debugFree( orig_node );
+			debugFree( orig_node->last_reply, 109 );
+			debugFree( orig_node, 110 );
 
 		} else if ( purged_packets > 0 ) {
 
@@ -1161,7 +1161,7 @@ void send_vis_packet()
 	if(packet != NULL)
 	{
 		send_packet(packet, size * sizeof(unsigned char), &vis_if.addr, vis_if.sock);
-	 	debugFree(packet);
+	 	debugFree( packet, 111 );
 	}
 }
 
