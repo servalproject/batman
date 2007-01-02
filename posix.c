@@ -879,6 +879,8 @@ int main(int argc, char *argv[])
 	dev = NULL;
 	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
 
+	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
+
 	while ( ( optchar = getopt ( argc, argv, "a:d:hHo:g:p:r:s:vV" ) ) != -1 ) {
 
 		switch ( optchar ) {
