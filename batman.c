@@ -1167,7 +1167,7 @@ void send_vis_packet()
 
 int batman()
 {
-	struct list_head *if_pos, *neigh_pos, *hna_pos, *forw_pos, *forw_pos_tmp;
+	struct list_head *if_pos, *neigh_pos, *hna_pos, *hna_pos_tmp, *forw_pos, *forw_pos_tmp;
 	struct orig_node *orig_neigh_node;
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
@@ -1186,7 +1186,7 @@ int batman()
 
 	if ( !( list_empty(&hna_list) ) ) {
 
-		list_for_each(hna_pos, &hna_list) {
+		list_for_each( hna_pos, &hna_list ) {
 
 			hna_node = list_entry(hna_pos, struct hna_node, list);
 
@@ -1201,7 +1201,7 @@ int batman()
 
 	}
 
-	list_for_each(if_pos, &if_list) {
+	list_for_each( if_pos, &if_list ) {
 
 		batman_if = list_entry(if_pos, struct batman_if, list);
 
@@ -1490,6 +1490,18 @@ int batman()
 		printf( "Deleting all BATMAN routes\n" );
 
 	purge( get_time() + TIMEOUT + orginator_interval );
+
+
+	list_for_each_safe( hna_pos, hna_pos_tmp, &hna_list ) {
+
+		hna_node = list_entry(hna_pos, struct hna_node, list);
+
+		debugFree( hna_node, 114 );
+
+	}
+
+	debugFree( hna_buff, 115 );
+
 
 	list_for_each_safe( forw_pos, forw_pos_tmp, &forw_list ) {
 		forw_node = list_entry( forw_pos, struct forw_node, list );
