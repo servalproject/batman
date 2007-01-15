@@ -222,8 +222,8 @@ void add_del_hna( struct orig_node *orig_node, int del ) {
 
 
 
-// static void choose_gw()
-// {
+static void choose_gw()
+{
 // 	struct list_head *pos;
 // 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
 // 	int max_gw_class = 0, max_packets = 0, max_gw_factor = 0;
@@ -328,8 +328,8 @@ void add_del_hna( struct orig_node *orig_node, int del ) {
 // 		}
 //
 // 	}
-//
-// }
+
+}
 
 
 
@@ -464,7 +464,7 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 			}
 
-			/*choose_gw();*/
+			choose_gw();
 			return;
 
 		}
@@ -486,7 +486,7 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 	list_add_tail(&gw_node->list, &gw_list);
 
-	/*choose_gw();*/
+	choose_gw();
 
 }
 
@@ -683,7 +683,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 	orig_node->gwflags = in->gwflags;
 
 
-	list_for_each(neigh_pos, &orig_node->neigh_list) {
+	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 		tmp_neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
 		if ( tmp_neigh_node->addr == neigh ) {
@@ -698,7 +698,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 	if ( neigh_node == NULL ) {
 
 		if ( debug_level == 4 )
-			output("Creating new last-hop neighbour of originator\n");
+			output( "Creating new last-hop neighbour of originator\n" );
 
 		neigh_node = debugMalloc( sizeof (struct neigh_node), 6 );
 		INIT_LIST_HEAD(&neigh_node->list);
@@ -706,10 +706,13 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 		neigh_node->addr = neigh;
 
+		neigh_node->last_ttl = debugMalloc( found_ifs * sizeof(short), 22 );
+		memset( neigh_node->last_ttl, 0, found_ifs * sizeof(short) );
+
 		list_add_tail(&neigh_node->list, &orig_node->neigh_list);
 
 	} else if ( debug_level == 4 )
-		output("Updating existing last-hop neighbour of originator\n");
+		output( "Updating existing last-hop neighbour of originator\n" );
 
 	list_for_each(pack_pos, &neigh_node->pack_list) {
 		tmp_pack_node = list_entry(pack_pos, struct pack_node, list);
@@ -732,10 +735,10 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 	if ( pack_node == NULL ) {
 
-		if (debug_level == 4)
-			output("Creating new packet entry for last-hop neighbour of originator \n");
+		if ( debug_level == 4 )
+			output( "Creating new packet entry for last-hop neighbour of originator \n" );
 
-		pack_node = debugMalloc(sizeof (struct pack_node), 7);
+		pack_node = debugMalloc( sizeof (struct pack_node), 7 );
 		INIT_LIST_HEAD(&pack_node->list);
 
 		pack_node->seqno = in->seqno;
@@ -754,7 +757,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 	}
 
-	neigh_node->best_ttl = in->ttl;
+	neigh_node->last_ttl[if_incoming->if_num] = in->ttl;
 	neigh_node->packet_count = neigh_pkts[max_if->if_num];
 
 	/* update routing table */
@@ -1039,7 +1042,8 @@ void purge( unsigned int curr_time ) {
 				}
 
 				list_del( neigh_pos );
-				debugFree( neigh_node, 106 );
+				debugFree( neigh_node->last_ttl, 106 );
+				debugFree( neigh_node, 107 );
 
 			}
 
@@ -1159,6 +1163,7 @@ int batman()
 		batman_if->out.version = COMPAT_VERSION;
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
 		set_rp_filter( 0 , batman_if->dev );
+
 	}
 
 	if_rp_filter_all_old = get_rp_filter( "all" );
@@ -1371,7 +1376,7 @@ int batman()
 
 								if ( neigh_node->addr == neigh ) {
 
-									if ( neigh_node->best_ttl == ((struct packet *)&in)->ttl )
+									if ( neigh_node->last_ttl[if_incoming->if_num] == ((struct packet *)&in)->ttl )
 										forward_duplicate_packet = 1;
 
 									break;
@@ -1419,8 +1424,8 @@ int batman()
 
 		send_outstanding_packets();
 
-// 		if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
-// 			choose_gw();
+		if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
+			choose_gw();
 
 		purge( get_time() );
 

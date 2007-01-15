@@ -41,6 +41,7 @@
 
 #define TTL 50            /* Time To Live of broadcast messages */
 #define TIMEOUT 60000     /* sliding window size of received orginator messages in ms */
+#define SEQ_RANGE 60      /* sliding packet range of received orginator messages in squence numbers */
 #define JITTER 50
 
 
@@ -92,7 +93,7 @@ struct neigh_node
 	struct list_head list;
 	unsigned int addr;
 	unsigned short packet_count;
-	unsigned short best_ttl;   /* ttl of last packet */
+	unsigned short *last_ttl;       /* ttl of last packet on an interface */
 	struct list_head pack_list;
 };
 

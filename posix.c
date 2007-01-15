@@ -529,7 +529,7 @@ void addr_to_string(unsigned int addr, char *str, int len)
 
 int rand_num(int limit)
 {
-	return rand() % limit;
+	return ( limit == 0 ? 0 : rand() % limit );
 }
 
 int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming ) {
