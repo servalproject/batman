@@ -48,7 +48,7 @@
 extern struct vis_if vis_if;
 
 static struct timeval start_time;
-static int stop;
+static short stop;
 
 
 static void get_time_internal(struct timeval *tv)
@@ -874,7 +874,8 @@ int main(int argc, char *argv[])
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct ifreq int_req;
-	int on = 1, res, optchar, found_args = 1, netmask;
+	short on = 1, res, found_args = 1, netmask;
+	int optchar;
 	char str1[16], str2[16], *dev, *slash_ptr;
 	unsigned int vis_server = 0;
 
@@ -910,7 +911,7 @@ int main(int argc, char *argv[])
 				errno = 0;
 				netmask = strtol(slash_ptr + 1, NULL , 10);
 
-				if ( (errno == ERANGE && (netmask == LONG_MAX || netmask == LONG_MIN) ) || (errno != 0 && netmask == 0) ) {
+				if ( ( errno == ERANGE ) || ( errno != 0 && netmask == 0 ) ) {
 					perror("strtol");
      					exit(EXIT_FAILURE);
 				}
@@ -941,7 +942,7 @@ int main(int argc, char *argv[])
 				errno = 0;
 				debug_level = strtol (optarg, NULL , 10);
 
-				if ( (errno == ERANGE && (debug_level == LONG_MAX || debug_level == LONG_MIN) ) || (errno != 0 && debug_level == 0) ) {
+				if ( ( errno == ERANGE ) || ( errno != 0 && debug_level == 0 ) ) {
 					perror("strtol");
       					exit(EXIT_FAILURE);
 				}
@@ -959,7 +960,7 @@ int main(int argc, char *argv[])
 				errno = 0;
 				gateway_class = strtol(optarg, NULL , 10);
 
-				if ( (errno == ERANGE && (gateway_class == LONG_MAX || gateway_class == LONG_MIN) ) || (errno != 0 && gateway_class == 0) ) {
+				if ( ( errno == ERANGE ) || ( errno != 0 && gateway_class == 0 ) ) {
 					perror("strtol");
      					exit(EXIT_FAILURE);
 				}
@@ -1014,7 +1015,7 @@ int main(int argc, char *argv[])
 				errno = 0;
 				routing_class = strtol (optarg, NULL , 10);
 
-				if ( (errno == ERANGE && (routing_class == LONG_MAX || routing_class == LONG_MIN) ) || (errno != 0 && routing_class == 0) ) {
+				if ( ( errno == ERANGE ) || ( errno != 0 && routing_class == 0 ) ) {
 					perror("strtol");
      					exit(EXIT_FAILURE);
 				}

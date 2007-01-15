@@ -45,11 +45,11 @@
 
 
 
-extern int debug_level;
-extern int orginator_interval;
-extern int gateway_class;
-extern int routing_class;
-extern int num_hna;
+extern short debug_level;
+extern short gateway_class;
+extern short routing_class;
+extern short num_hna;
+extern unsigned int orginator_interval;
 extern unsigned int pref_gateway;
 
 extern unsigned char *hna_buff;
@@ -57,7 +57,7 @@ extern unsigned char *hna_buff;
 extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
 
-extern int found_ifs;
+extern short found_ifs;
 
 extern struct list_head if_list;
 extern struct list_head hna_list;
@@ -77,25 +77,21 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 {
 	struct list_head list;
 	unsigned int orig;
-	unsigned int router;
+	struct neigh_node *router;
 	struct batman_if *batman_if;
-	unsigned int packet_count;  /* packets gathered from its router */
-	unsigned int last_seen;     /* when last originator packet (with new seq-number) from this node was received */
-	unsigned int *last_reply;   /* if node is a neighbour, when my originator packet was last broadcasted (replied) by this node and received by me */
-	unsigned int last_aware;    /* if node is a neighbour, when last packet via this node was received */
-	unsigned char flags;
-	unsigned char gwflags;      /* flags related to gateway functions: gateway class */
+	unsigned int *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
+	unsigned int last_aware;        /* when last packet from this node was received */
+	unsigned char gwflags;          /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
 	int hna_buff_len;
 	struct list_head neigh_list;
-	struct list_head hna_list;
 };
 
 struct neigh_node
 {
 	struct list_head list;
 	unsigned int addr;
-	unsigned int packet_count; /* packets gathered from this neighbour */
+	unsigned short packet_count;
 	unsigned short best_ttl;   /* ttl of last packet */
 	struct list_head pack_list;
 };
@@ -111,9 +107,7 @@ struct hna_node
 struct pack_node
 {
 	struct list_head list;
-	unsigned int time;
 	unsigned short seqno;
-	unsigned char ttl;
 	struct batman_if *if_incoming;
 };
 
@@ -143,8 +137,8 @@ struct batman_if
 	int udp_recv_sock;
 	int tcp_gw_sock;
 	int tunnel_sock;
-	int if_num;
-	int if_rp_filter_old;
+	short if_num;
+	short if_rp_filter_old;
 	pthread_t listen_thread_id;
 	struct sockaddr_in addr;
 	struct sockaddr_in broad;
