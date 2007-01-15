@@ -484,10 +484,10 @@ int add_default_route() {
 
 void close_all_sockets() {
 
-	struct list_head *if_pos;
+	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
 
-	list_for_each(if_pos, &if_list) {
+	list_for_each_safe(if_pos, if_pos_tmp, &if_list) {
 
 		batman_if = list_entry(if_pos, struct batman_if, list);
 
@@ -500,6 +500,9 @@ void close_all_sockets() {
 
 		close(batman_if->udp_recv_sock);
 		close(batman_if->udp_send_sock);
+
+		list_del( if_pos );
+		debugFree( if_pos, 203 );
 
 	}
 
@@ -1324,6 +1327,8 @@ int main(int argc, char *argv[])
 	res = batman();
 
 	close_all_sockets();
+
+	checkLeak();
 
 	return res;
 
