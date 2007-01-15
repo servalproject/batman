@@ -25,7 +25,7 @@ LDFLAGS =	-lpthread
 UNAME=$(shell uname)
 
 ifeq ($(UNAME),Linux)
-OS_OBJ=	posix-specific.o posix.o linux.o allocate.o
+OS_OBJ=	posix-specific.o posix.o  linux-specific.o linux.o allocate.o
 endif
 
 ifeq ($(UNAME),Darwin)
@@ -39,6 +39,8 @@ endif
 ifeq ($(UNAME),OpenBSD)
 OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o
 endif
+
+all:	batmand
 
 batmand:	batman.o $(OS_OBJ)
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)

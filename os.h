@@ -17,8 +17,6 @@
  *
  */
 
-
-
 #ifndef _BATMAN_OS_H
 #define _BATMAN_OS_H
 
@@ -36,7 +34,9 @@ void output(char *format, ...);
 void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router, int del, char *dev, int sock );
 int is_aborted();
 void addr_to_string(unsigned int addr, char *str, int len);
+
 int receive_packet(unsigned char *packet_buff, int packet_buff_len, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming);
+
 int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock);
 int rand_num(int limit);
 int bind_to_iface( int udp_recv_sock, char *dev );
@@ -49,5 +49,13 @@ void apply_init_args( int argc, char *argv[] );
 int print_animation( void );
 void close_all_sockets();
 void *gw_listen( void *arg );
+
+void *client_to_gw_tun( void *arg );
+
+//int is_aborted();
+
+//static void handler(int sig);
+
+
 
 #endif
