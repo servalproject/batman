@@ -1455,7 +1455,8 @@ int batman()
 
 	}
 
-	debugFree( hna_buff, 115 );
+	if ( hna_buff != NULL )
+		debugFree( hna_buff, 115 );
 
 
 	list_for_each_safe( forw_pos, forw_pos_tmp, &forw_list ) {

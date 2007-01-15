@@ -45,4 +45,9 @@ int del_dev_tun( int fd );
 int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, size_t tun_dev_size, int *fd );
 void do_log( char *description, char *error_msg );
 
+void apply_init_args( int argc, char *argv[] );
+int print_animation( void );
+void close_all_sockets();
+void *gw_listen( void *arg );
+
 #endif
