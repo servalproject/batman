@@ -38,7 +38,7 @@
 #include <err.h>
 
 #include "os.h"
-#include "batman.h"
+#include "batman-specific.h"
 
 void set_forwarding(int state)
 {

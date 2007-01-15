@@ -40,7 +40,7 @@
 #include <fcntl.h>
 
 #include "os.h"
-#include "batman.h"
+#include "batman-specific.h"
 
 void set_rp_filter(int state, char* dev)
 {

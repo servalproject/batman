@@ -17,10 +17,12 @@
  *
  */
 
+
+
 #ifndef _BATMAN_OS_H
 #define _BATMAN_OS_H
 
-#include "batman.h"
+#include "batman-specific.h"
 
 unsigned int get_time(void);
 void set_forwarding(int);
