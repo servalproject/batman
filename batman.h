@@ -32,6 +32,7 @@
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
 
+
 /*
  * No configuration files or fancy command line switches yet
  * To experiment with B.A.T.M.A.N. settings change them here
@@ -39,10 +40,17 @@
  * Here is the stuff you may want to play with:
  */
 
-#define TTL 50            /* Time To Live of broadcast messages */
-#define TIMEOUT 60000     /* sliding window size of received orginator messages in ms */
-#define SEQ_RANGE 60      /* sliding packet range of received orginator messages in squence numbers */
 #define JITTER 50
+#define TTL 50             /* Time To Live of broadcast messages */
+#define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
+#define SEQ_RANGE 64       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
+
+
+
+#define TYPE_OF_WORD unsigned int /* you should choose something big, if you don't want to waste cpu */
+#define NUM_WORDS ( SEQ_RANGE / ( sizeof(TYPE_OF_WORD) * 8 ) )
+#define WORD_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
+
 
 
 
@@ -85,6 +93,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	unsigned char gwflags;          /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
 	int hna_buff_len;
+	unsigned short last_seqno;      /* last known squence number */
 	struct list_head neigh_list;
 };
 
@@ -93,8 +102,10 @@ struct neigh_node
 	struct list_head list;
 	unsigned int addr;
 	unsigned short packet_count;
-	unsigned short *last_ttl;       /* ttl of last packet on an interface */
-	struct list_head pack_list;
+	unsigned char last_ttl;         /* ttl of last received packet */
+	unsigned int last_aware;        /* when last packet via this neighbour was received */
+	TYPE_OF_WORD seq_bits[ NUM_WORDS ];
+	struct batman_if *if_incoming;
 };
 
 struct hna_node
@@ -102,14 +113,6 @@ struct hna_node
 	struct list_head list;
 	unsigned int addr;
 	unsigned int netmask;
-};
-
-
-struct pack_node
-{
-	struct list_head list;
-	unsigned short seqno;
-	struct batman_if *if_incoming;
 };
 
 struct forw_node                 /* structure for forw_list maintaining packets to be send/forwarded */
@@ -168,5 +171,12 @@ void usage(void);
 void verbose_usage(void);
 void del_default_route();
 int add_default_route();
+
+void bit_init( TYPE_OF_WORD *seq_bits );
+int  bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno );
+void bit_mark( TYPE_OF_WORD *seq_bits, int n );
+void bit_shift( TYPE_OF_WORD *seq_bits, int n );
+void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark );
+int  bit_packet_count( TYPE_OF_WORD *seq_bits );
 
 #endif
