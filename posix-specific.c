@@ -43,7 +43,6 @@
 
 
 
-
 void apply_init_args( int argc, char *argv[] ) {
 
 	struct in_addr tmp_ip_holder;
