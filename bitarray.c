@@ -134,7 +134,7 @@ void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 
 	int i;
 
-	if (seq_num_diff < 0) {                /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
+	if ( ( seq_num_diff < 0 ) && ( -seq_num_diff <= SEQ_RANGE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
 
 		if ( set_mark )
 			bit_mark( seq_bits, -seq_num_diff );
@@ -143,9 +143,13 @@ void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 
 	}
 
-	if (seq_num_diff > SEQ_RANGE) {        /* it seems we lost a lot of bits or got manipulated, report this. */
+	if ( ( seq_num_diff > SEQ_RANGE ) || ( -seq_num_diff > SEQ_RANGE ) ) {        /* it seems we missed a lot of packets or the other host restarted */
 
-// 		printf("d'oh, BIG loss (missed %d packets)!!\n", seq_num_diff-1);
+ 		/* if ( seq_num_diff > SEQ_RANGE )
+			printf("d'oh, BIG loss (missed %d packets)!!\n", seq_num_diff-1);
+
+		if ( -seq_num_diff > SEQ_RANGE )
+			printf( "restart: %i !!\n", seq_num_diff );*/
 
 		for (i=0; i<NUM_WORDS; i++)
 			seq_bits[i]= 0;
@@ -183,7 +187,7 @@ int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 
 	}
 
-// 	printf( "packets counted: %i\n", hamming );
+	/* printf( "packets counted: %i\n", hamming ); */
 	return(hamming);
 
 }
