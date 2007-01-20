@@ -19,6 +19,8 @@
  *
  */
 
+
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -87,6 +89,8 @@ unsigned int bidirectional_timeout = 0;   /* bidirectional neighbour reply timeo
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
 
+pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 unsigned int pref_gateway = 0;
 
 unsigned char *hna_buff = NULL;
@@ -104,11 +108,14 @@ LIST_HEAD(hna_list);
 static unsigned int last_own_packet;
 
 struct vis_if vis_if;
+struct unix_if unix_if;
 
 void usage(void)
 {
 	fprintf(stderr, "Usage: batman [options] interface [interface interface]\n" );
 	fprintf(stderr, "       -a announce network(s)\n" );
+	fprintf(stderr, "       -b run connection in batch mode\n" );
+	fprintf(stderr, "       -c connect via unix socket\n" );
 	fprintf(stderr, "       -d debug level\n" );
 	fprintf(stderr, "       -g gateway class\n" );
 	fprintf(stderr, "       -h this help\n" );
@@ -125,6 +132,8 @@ void verbose_usage(void)
 	fprintf(stderr, "Usage: batman [options] interface [interface interface]\n\n" );
 	fprintf(stderr, "       -a announce network(s)\n" );
 	fprintf(stderr, "          network/netmask is expected\n" );
+	fprintf(stderr, "       -b run connection in batch mode\n" );
+	fprintf(stderr, "       -c connect to running batmand via unix socket\n" );
 	fprintf(stderr, "       -d debug level\n" );
 	fprintf(stderr, "          default:         0 -> debug disabled\n" );
 	fprintf(stderr, "          allowed values:  1 -> list neighbours\n" );
@@ -494,7 +503,7 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 
 
 
-static void debug() {
+void debug( int fd, char send_clear, char max_output, char show_gw ) {
 
 	struct list_head *forw_pos, *orig_pos, *neigh_pos;
 	struct forw_node *forw_node;
@@ -505,17 +514,14 @@ static void debug() {
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN];
 
 
-	if ( ( debug_level == 0 ) || ( debug_level == 3 ) )
-		return;
-
-	if ( debug_level != 4 )
+	if ( send_clear )
 		system( "clear" );
 
-	if ( debug_level == 2 ) {
+	if ( show_gw ) {
 
 		if ( list_empty(&gw_list) ) {
 
-			printf( "No gateways in range ...\n" );
+			dprintf( fd, "No gateways in range ...\n" );
 
 		} else {
 
@@ -526,9 +532,9 @@ static void debug() {
 				addr_to_string( gw_node->orig_node->router->addr, str2, sizeof (str2) );
 
 				if ( curr_gateway == gw_node ) {
-					printf( "=> %s via: %s(%i), gw_class %i - %s, reliability: %i\n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					dprintf( fd, "=> %s via: %s(%i), gw_class %i - %s, reliability: %i\n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				} else {
-					printf( "%s via: %s(%i), gw_class %i - %s, reliability: %i\n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					dprintf( fd, "%s via: %s(%i), gw_class %i - %s, reliability: %i\n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				}
 
 			}
@@ -537,7 +543,7 @@ static void debug() {
 
 	} else {
 
-		if ( debug_level == 4 ) {
+		if ( max_output ) {
 
 			output( "------------------ DEBUG ------------------\n" );
 			output( "Forward list\n" );
@@ -563,10 +569,10 @@ static void debug() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			if ( debug_level != 4 ) {
-				printf( "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
-			} else {
+			if ( max_output ) {
 				output( "%s, GW: %s(%i), last_aware:%u via:\n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
+			} else {
+				dprintf( fd, "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
 			}
 
 			list_for_each(neigh_pos, &orig_node->neigh_list) {
@@ -574,30 +580,30 @@ static void debug() {
 
 				addr_to_string(neigh_node->addr, str, sizeof (str));
 
-				if ( debug_level != 4 ) {
-					printf( " %s(%i)", str, neigh_node->packet_count );
-				} else {
+				if ( max_output ) {
 					output( "\t\t%s (%d)\n", str, neigh_node->packet_count );
+				} else {
+					dprintf( fd, " %s(%i)", str, neigh_node->packet_count );
 				}
 
 			}
 
-			if ( debug_level != 4 )
-				printf( "\n" );
+			if ( ! max_output )
+				dprintf( fd, "\n" );
 
 		}
 
 		if ( batman_count == 0 ) {
 
-			if ( debug_level != 4 ) {
-				printf( "No batman nodes in range ...\n" );
-			} else {
+			if ( max_output ) {
 				output( "No batman nodes in range ...\n" );
+			} else {
+				dprintf( fd, "No batman nodes in range ...\n" );
 			}
 
 		}
 
-		if ( debug_level == 4 )
+		if ( max_output )
 			output( "---------------------------------------------- END DEBUG\n" );
 
 	}
@@ -1141,11 +1147,15 @@ int batman()
 			send_vis_packet();
 		}
 
+		pthread_mutex_unlock( &data_mutex );
+
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time();
 		select_timeout = ( curr_time >= last_own_packet + orginator_interval - 10 ? orginator_interval : last_own_packet + orginator_interval - curr_time );
 
 		res = receive_packet( ( unsigned char *)&in, 1501, &hna_buff_len, &neigh, select_timeout, &if_incoming );
+
+		pthread_mutex_lock( &data_mutex );
 
 		if (res < 0)
 			return -1;
@@ -1387,7 +1397,10 @@ int batman()
 		if ( debug_timeout + 1000 < get_time() ) {
 
 			debug_timeout = get_time();
-			debug();
+
+			if ( ( debug_level != 0 ) && ( debug_level != 3 ) )
+				debug( 1, ( debug_level == 4 ? 0 : 1 ), ( debug_level == 4 ? 1 : 0 ), ( debug_level == 2 ? 1 : 0 ) );
+
 			checkIntegrity();
 
 		}

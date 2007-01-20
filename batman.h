@@ -22,6 +22,7 @@
 
 #include <netinet/in.h>
 #include <pthread.h>
+#include <sys/un.h>
 #include "list.h"
 
 
@@ -31,6 +32,8 @@
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
+
+#define UNIX_PATH "/var/run/batmand.socket"
 
 
 /*
@@ -66,11 +69,14 @@ extern unsigned char *hna_buff;
 extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
 
+extern pthread_mutex_t data_mutex;
+
 extern short found_ifs;
 
 extern struct list_head if_list;
 extern struct list_head hna_list;
 extern struct vis_if vis_if;
+extern struct unix_if unix_if;
 
 struct packet
 {
@@ -162,6 +168,19 @@ struct gw_client
 struct vis_if {
 	int sock;
 	struct sockaddr_in addr;
+};
+
+struct unix_if {
+	int unix_sock;
+	pthread_t listen_thread_id;
+	struct sockaddr_un addr;
+	struct list_head client_list;
+};
+
+struct unix_client {
+	struct list_head list;
+	int sock;
+	struct sockaddr_un addr;
 };
 
 

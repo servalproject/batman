@@ -52,6 +52,8 @@ void *gw_listen( void *arg );
 
 void *client_to_gw_tun( void *arg );
 
+void debug( int fd, char send_clear, char max_output, char show_gw );
+
 //int is_aborted();
 
 //static void handler(int sig);
