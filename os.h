@@ -55,6 +55,7 @@ void *client_to_gw_tun( void *arg );
 
 void debug();
 void debug_output( short debug_prio, char *format, ... );
+void cleanup();
 
 
 

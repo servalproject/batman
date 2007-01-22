@@ -263,6 +263,7 @@ int main( int argc, char *argv[] ) {
 //  set_forwarding(forward_old);
 
 	close_all_sockets();
+	cleanup();
 	checkLeak();
 	return res;
 

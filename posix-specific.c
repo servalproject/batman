@@ -80,16 +80,13 @@ void debug_output( short debug_prio, char *format, ... ) {
 
 	}
 
-	if ( debug_clients.clients_num[ debug_prio_intern ] > 0 ) {
+	if ( debug_clients.clients_num[debug_prio_intern] > 0 ) {
 
 		va_start( args, format );
 
-		list_for_each( debug_pos, (struct list_head *)debug_clients.fd_list[ debug_prio_intern ] ) {
+		list_for_each( debug_pos, (struct list_head *)debug_clients.fd_list[debug_prio_intern] ) {
 
 			debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
-
-			if ( debug_level_info->fd == 0 )
-				continue;
 
 			if ( debug_prio_intern == 3 )
 				dprintf( debug_level_info->fd, "[%10u] ", get_time() );
@@ -188,14 +185,14 @@ void *unix_listen( void *arg ) {
 
 								if ( unix_client->debug_level != 0 ) {
 
-									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)&debug_clients.fd_list[ (int)unix_client->debug_level - '1' ] ) {
+									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
 										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 										if ( debug_level_info->fd == unix_client->sock ) {
 
 											list_del( debug_pos );
-											debug_clients.clients_num[ (int)unix_client->debug_level - '1' ]--;
+											debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
 											debugFree( debug_pos, 263 );
 
@@ -212,8 +209,8 @@ void *unix_listen( void *arg ) {
 									debug_level_info = debugMalloc( sizeof(struct debug_level_info), 57 );
 									INIT_LIST_HEAD( &debug_level_info->list );
 									debug_level_info->fd = unix_client->sock;
-									list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[ (int)buff[2] - '1' ] );
-									debug_clients.clients_num[ (int)buff[2] - '1' ]++;
+									list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[(int)buff[2] - '1'] );
+									debug_clients.clients_num[(int)buff[2] - '1']++;
 
 									unix_client->debug_level = (int)buff[2];
 
@@ -235,14 +232,14 @@ void *unix_listen( void *arg ) {
 
 								if ( unix_client->debug_level != 0 ) {
 
-									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)&debug_clients.fd_list[ (int)unix_client->debug_level - '1' ] ) {
+									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
 										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 										if ( debug_level_info->fd == unix_client->sock ) {
 
 											list_del( debug_pos );
-											debug_clients.clients_num[ (int)unix_client->debug_level - '1' ]--;
+											debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
 											debugFree( debug_pos, 264 );
 
@@ -292,14 +289,14 @@ void *unix_listen( void *arg ) {
 
 		if ( unix_client->debug_level != 0 ) {
 
-			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)&debug_clients.fd_list[ (int)unix_client->debug_level - '1' ] ) {
+			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
 				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 				if ( debug_level_info->fd == unix_client->sock ) {
 
 					list_del( debug_pos );
-					debug_clients.clients_num[ (int)unix_client->debug_level - '1' ]--;
+					debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
 					debugFree( debug_pos, 265 );
 
@@ -331,7 +328,7 @@ void apply_init_args( int argc, char *argv[] ) {
 // 	struct timeval tv;
 	short found_args = 1, unix_client = 0, batch_mode = 0, batch_counter = 0, netmask;
 
-	int optchar, res, recv_buff_len;
+	int optchar, res, recv_buff_len, bytes_written;
 	char str1[16], str2[16], *slash_ptr, unix_string[100], buff[1500], *buff_ptr, *cr_ptr;
 	unsigned int vis_server = 0;
 // 	fd_set wait_sockets, tmp_wait_sockets;
@@ -593,7 +590,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 39 );
 			INIT_LIST_HEAD( &debug_level_info->list );
 			debug_level_info->fd = 1;
-			list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[ debug_level - 1 ] );
+			list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[debug_level - 1] );
 
 		}
 
@@ -727,6 +724,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			while ( ( recv_buff_len = read( unix_if.unix_sock, buff, sizeof( buff ) ) ) > 0 ) {
 
 				buff_ptr = buff;
+				bytes_written = 0;
 
 				while ( ( cr_ptr = strchr( buff_ptr, '\n' ) ) != NULL ) {
 
@@ -757,9 +755,13 @@ void apply_init_args( int argc, char *argv[] ) {
 
 					}
 
+					bytes_written += strlen( buff_ptr ) + 1;
 					buff_ptr = cr_ptr + 1;
 
 				}
+
+				if ( bytes_written != recv_buff_len )
+					printf( "%s", buff_ptr );
 
 			}
 
@@ -1602,6 +1604,36 @@ void *gw_listen( void *arg ) {
 	}
 
 	return NULL;
+
+}
+
+
+
+void cleanup() {
+
+	short i;
+	struct debug_level_info *debug_level_info;
+	struct list_head *debug_pos, *debug_pos_tmp;
+
+
+	for ( i = 0; i < 4; i++ ) {
+
+		if ( debug_clients.clients_num[i] > 0 ) {
+
+			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[i] ) {
+
+				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+
+				list_del( debug_pos );
+				debugFree( debug_pos, 277 );
+
+			}
+
+		}
+
+		debugFree( debug_clients.fd_list[i], 258 );
+
+	}
 
 }
 
