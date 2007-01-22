@@ -42,7 +42,6 @@
 #include "allocate.h"
 
 
-
 void *unix_listen( void *arg ) {
 
 	struct unix_client *unix_client;
@@ -752,6 +751,157 @@ void apply_init_args( int argc, char *argv[] ) {
 
 
 
+void init_interface ( struct batman_if *batman_if ) 
+{
+	struct ifreq int_req;
+	short on = 1;
+
+		if ( strlen(batman_if->dev) > IFNAMSIZ - 1 ) {
+			do_log( "Error - interface name too long: %s\n", batman_if->dev );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+		}
+
+		batman_if->udp_send_sock = socket(PF_INET, SOCK_DGRAM, 0);
+		if (batman_if->udp_send_sock < 0) {
+			do_log( "Error - can't create send socket: %s", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+		}
+
+		batman_if->udp_recv_sock = socket(PF_INET, SOCK_DGRAM, 0);
+		if ( batman_if->udp_recv_sock < 0 ) {
+
+			do_log( "Error - can't create recieve socket: %s", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		memset(&int_req, 0, sizeof (struct ifreq));
+		strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
+
+		if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
+
+			do_log( "Error - can't get IP address of interface %s\n", batman_if->dev );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		batman_if->addr.sin_family = AF_INET;
+		batman_if->addr.sin_port = htons(PORT);
+		batman_if->addr.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr;
+
+		if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
+
+			do_log( "Error - can't get broadcast IP address of interface %s\n", batman_if->dev );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		batman_if->broad.sin_family = AF_INET;
+		batman_if->broad.sin_port = htons(PORT);
+		batman_if->broad.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_broadaddr)->sin_addr.s_addr;
+
+		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
+
+			do_log( "Error - can't enable broadcasts: %s\n", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
+
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
+
+			do_log( "Error - can't bind send socket: %s\n", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
+
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 ) {
+
+			do_log( "Error - can't bind receive socket: %s\n", strerror(errno) );
+			close_all_sockets();
+			exit(EXIT_FAILURE);
+
+		}
+
+}
+
+
+
+		
+void init_interface_gw ( struct batman_if *batman_if )
+{
+			short on = 1;
+
+			batman_if->addr.sin_port = htons(PORT + 1);
+
+			batman_if->tcp_gw_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+			if ( batman_if->tcp_gw_sock < 0 ) {
+				do_log( "Error - can't create socket: %s", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			if ( setsockopt(batman_if->tcp_gw_sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) < 0 ) {
+				do_log( "Error - can't enable reuse of address: %s\n", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			if ( bind( batman_if->tcp_gw_sock, (struct sockaddr*)&batman_if->addr, sizeof(struct sockaddr_in)) < 0 ) {
+				do_log( "Error - can't bind socket: %s\n", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			if ( listen( batman_if->tcp_gw_sock, 10 ) < 0 ) {
+				do_log( "Error - can't listen socket: %s\n", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			batman_if->tunnel_sock = socket(PF_INET, SOCK_DGRAM, 0);
+			if ( batman_if->tunnel_sock < 0 ) {
+				do_log( "Error - can't create tunnel socket: %s", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			if ( bind(batman_if->tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in)) < 0 ) {
+				do_log( "Error - can't bind tunnel socket: %s\n", strerror(errno) );
+				close_all_sockets();
+				exit(EXIT_FAILURE);
+			}
+
+			batman_if->addr.sin_port = htons(PORT);
+
+			pthread_create(&batman_if->listen_thread_id, NULL, &gw_listen, batman_if);
+
+}
+
+
+
+
 void do_log( char *description, char *error_msg ) {
 
 	if ( debug_level == 0 ) {
@@ -960,7 +1110,7 @@ void *client_to_gw_tun( void *arg ) {
 
 			}
 
-		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
+		} else if ( ( res < 0 ) && (errno != EINTR) ) {
 
 			do_log( "Error - can't select: %s\n", strerror(errno) );
 			break;
@@ -1087,7 +1237,7 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 	{
 		res = select( max_sock + 1, &wait_set, NULL, NULL, &tv );
 
-		if ( res >= 0 )
+		if (res >= 0)
 			break;
 
 		if ( errno != EINTR ) {
@@ -1334,7 +1484,7 @@ void *gw_listen( void *arg ) {
 
 			}
 
-		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
+		} else if ( ( res < 0 ) && (errno != EINTR) ) {
 
 			do_log( "Error - can't select: %s\n", strerror(errno) );
 			break;
@@ -1394,5 +1544,4 @@ void *gw_listen( void *arg ) {
 	return NULL;
 
 }
-
 

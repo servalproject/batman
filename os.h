@@ -46,6 +46,9 @@ int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_
 void do_log( char *description, char *error_msg );
 
 void apply_init_args( int argc, char *argv[] );
+void init_interface ( struct batman_if *batman_if );
+void init_interface_gw ( struct batman_if *batman_if );
+
 int print_animation( void );
 void close_all_sockets();
 void *gw_listen( void *arg );
