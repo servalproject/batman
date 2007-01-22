@@ -82,17 +82,6 @@ unsigned int get_time(void)
 	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
-void output(char *format, ...)
-{
-	va_list args;
-
-	printf("[%10u] ", get_time());
-
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-}
-
 
 
 /* batman animation */

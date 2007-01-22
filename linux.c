@@ -122,7 +122,7 @@ int bind_to_iface( int udp_recv_sock, char *dev ) {
 
 	if ( setsockopt( udp_recv_sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 ) {
 
-		fprintf( stderr, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
+		debug_output( 0, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
 		return -1;
 
 	}

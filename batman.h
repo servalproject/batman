@@ -69,14 +69,13 @@ extern unsigned char *hna_buff;
 extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
 
-extern pthread_mutex_t data_mutex;
-
 extern short found_ifs;
 
 extern struct list_head if_list;
 extern struct list_head hna_list;
 extern struct vis_if vis_if;
 extern struct unix_if unix_if;
+extern struct debug_clients debug_clients;
 
 struct packet
 {
@@ -180,9 +179,19 @@ struct unix_if {
 struct unix_client {
 	struct list_head list;
 	int sock;
+	char debug_level;
 	struct sockaddr_un addr;
 };
 
+struct debug_clients {
+	void *fd_list[4];
+	short clients_num[4];
+};
+
+struct debug_level_info {
+	struct list_head list;
+	int fd;
+};
 
 
 int batman();

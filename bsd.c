@@ -160,7 +160,7 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 #endif
 	}
 
-	output("%s route to %s via %s\n", del ? "Deleting" : "Adding", str1, str2);
+	debug_output( 4, "%s route to %s via %s\n", del ? "Deleting" : "Adding", str1, str2 );
 
 	rt_sock = socket(PF_ROUTE, SOCK_RAW, AF_INET);
 	if (rt_sock < 0)
@@ -262,7 +262,7 @@ int probe_tun()
 	close(fd);
 	return 1;
 */
-	do_log ("tun-support is broken on this platform...\n", "foo");
+	debug_output( 0, "tun-support is broken on this platform...\n" );
 	return 0;
 }
 

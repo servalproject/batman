@@ -30,7 +30,6 @@ int get_rp_filter(char *dev);
 
 
 
-void output(char *format, ...);
 void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router, int del, char *dev, int sock );
 int is_aborted();
 void addr_to_string(unsigned int addr, char *str, int len);
@@ -43,7 +42,6 @@ int bind_to_iface( int udp_recv_sock, char *dev );
 int probe_tun();
 int del_dev_tun( int fd );
 int add_dev_tun( struct batman_if *batman_if, unsigned int dest_addr, char *tun_dev, size_t tun_dev_size, int *fd );
-void do_log( char *description, char *error_msg );
 
 void apply_init_args( int argc, char *argv[] );
 void init_interface ( struct batman_if *batman_if );
@@ -55,11 +53,8 @@ void *gw_listen( void *arg );
 
 void *client_to_gw_tun( void *arg );
 
-void debug( int fd, char send_clear, char max_output, char show_gw );
-
-//int is_aborted();
-
-//static void handler(int sig);
+void debug();
+void debug_output( short debug_prio, char *format, ... );
 
 
 

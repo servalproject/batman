@@ -17,6 +17,9 @@
  *
  */
 
+
+
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -42,10 +45,80 @@
 #include "allocate.h"
 
 
+void debug_output( short debug_prio, char *format, ... ) {
+
+	struct list_head *debug_pos;
+	struct debug_level_info *debug_level_info;
+	short debug_prio_intern;
+	va_list args;
+
+
+	if ( debug_prio == 0 ) {
+
+		if ( debug_level == 0 ) {
+
+			va_start( args, format );
+			vsyslog( LOG_ERR, format, args );
+			va_end( args );
+
+		} else if ( ( debug_level == 3 ) || ( debug_level == 4 ) ) {
+
+			if ( debug_level == 4 )
+				printf( "[%10u] ", get_time() );
+
+			va_start( args, format );
+			vprintf( format, args );
+			va_end( args );
+
+		}
+
+		debug_prio_intern = 3;
+
+	} else {
+
+		debug_prio_intern = debug_prio - 1;
+
+	}
+
+	if ( debug_clients.clients_num[ debug_prio_intern ] > 0 ) {
+
+		va_start( args, format );
+
+		list_for_each( debug_pos, (struct list_head *)debug_clients.fd_list[ debug_prio_intern ] ) {
+
+			debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+
+			if ( debug_level_info->fd == 0 )
+				continue;
+
+			if ( debug_prio_intern == 3 )
+				dprintf( debug_level_info->fd, "[%10u] ", get_time() );
+
+			if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strcmp( format, "BOD\n" ) == 0 ) ) {
+
+				system( "clear" );
+
+			} else {
+
+				vdprintf( debug_level_info->fd, format, args );
+
+			}
+
+		}
+
+		va_end( args );
+
+	}
+
+}
+
+
+
 void *unix_listen( void *arg ) {
 
 	struct unix_client *unix_client;
-	struct list_head *unix_pos, *unix_pos_tmp;
+	struct debug_level_info *debug_level_info;
+	struct list_head *unix_pos, *unix_pos_tmp, *debug_pos, *debug_pos_tmp;
 	struct timeval tv;
 	int res, status, max_sock;
 	unsigned char buff[1500];
@@ -77,7 +150,7 @@ void *unix_listen( void *arg ) {
 				memset( unix_client, 0, sizeof(struct unix_client) );
 
 				if ( ( unix_client->sock = accept( unix_if.unix_sock, (struct sockaddr *)&unix_client->addr, &sun_size) ) == -1 ) {
-					do_log( "Error - can't accept unix client: %s\n", strerror(errno) );
+					debug_output( 0, "Error - can't accept unix client: %s\n", strerror(errno) );
 					continue;
 				}
 
@@ -89,8 +162,7 @@ void *unix_listen( void *arg ) {
 
 				list_add_tail(&unix_client->list, &unix_if.client_list);
 
-				if ( debug_level == 3 )
-					printf( "unix socket: got connection\n" );
+				debug_output( 3, "Unix socket: got connection\n" );
 
 			/* client sent data */
 			} else {
@@ -110,14 +182,46 @@ void *unix_listen( void *arg ) {
 							if ( unix_client->sock > max_sock )
 								max_sock = unix_client->sock;
 
-							/* if ( debug_level == 3 )
-								printf( "gateway: client sent data via unix socket: %s\n", buff ); */
+							/* debug_output( 3, "gateway: client sent data via unix socket: %s\n", buff ); */
 
-							if ( ( buff[2] == '1' ) || ( buff[2] == '2' ) ) {
+							if ( ( buff[2] == '1' ) || ( buff[2] == '2' ) || ( buff[2] == '3' ) || ( buff[2] == '4' ) ) {
 
-								pthread_mutex_lock( &data_mutex );
-								debug( unix_client->sock, 0, 0, ( buff[2] == '2' ? 1 : 0 ) );
-								pthread_mutex_unlock( &data_mutex );
+								if ( unix_client->debug_level != 0 ) {
+
+									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)&debug_clients.fd_list[ (int)unix_client->debug_level - '1' ] ) {
+
+										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+
+										if ( debug_level_info->fd == unix_client->sock ) {
+
+											list_del( debug_pos );
+											debug_clients.clients_num[ (int)unix_client->debug_level - '1' ]--;
+
+											debugFree( debug_pos, 263 );
+
+											break;
+
+										}
+
+									}
+
+								}
+
+								if ( unix_client->debug_level != buff[2] ) {
+
+									debug_level_info = debugMalloc( sizeof(struct debug_level_info), 57 );
+									INIT_LIST_HEAD( &debug_level_info->list );
+									debug_level_info->fd = unix_client->sock;
+									list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[ (int)buff[2] - '1' ] );
+									debug_clients.clients_num[ (int)buff[2] - '1' ]++;
+
+									unix_client->debug_level = (int)buff[2];
+
+								} else {
+
+									unix_client->debug_level = 0;
+
+								}
 
 							}
 
@@ -125,12 +229,32 @@ void *unix_listen( void *arg ) {
 
 							if ( status < 0 ) {
 
-								do_log( "Error - can't read unix message: %s\n", strerror(errno) );
+								debug_output( 0, "Error - can't read unix message: %s\n", strerror(errno) );
 
 							} else {
 
-								if ( debug_level == 3 )
-									printf( "Unix client closed connection ...\n" );
+								if ( unix_client->debug_level != 0 ) {
+
+									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)&debug_clients.fd_list[ (int)unix_client->debug_level - '1' ] ) {
+
+										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+
+										if ( debug_level_info->fd == unix_client->sock ) {
+
+											list_del( debug_pos );
+											debug_clients.clients_num[ (int)unix_client->debug_level - '1' ]--;
+
+											debugFree( debug_pos, 264 );
+
+											break;
+
+										}
+
+									}
+
+								}
+
+								debug_output( 3, "Unix client closed connection ...\n" );
 
 							}
 
@@ -155,7 +279,7 @@ void *unix_listen( void *arg ) {
 
 		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
 
-			do_log( "Error - can't select: %s\n", strerror(errno) );
+			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
 			break;
 
 		}
@@ -165,6 +289,27 @@ void *unix_listen( void *arg ) {
 	list_for_each_safe(unix_pos, unix_pos_tmp, &unix_if.client_list) {
 
 		unix_client = list_entry(unix_pos, struct unix_client, list);
+
+		if ( unix_client->debug_level != 0 ) {
+
+			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)&debug_clients.fd_list[ (int)unix_client->debug_level - '1' ] ) {
+
+				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+
+				if ( debug_level_info->fd == unix_client->sock ) {
+
+					list_del( debug_pos );
+					debug_clients.clients_num[ (int)unix_client->debug_level - '1' ]--;
+
+					debugFree( debug_pos, 265 );
+
+					break;
+
+				}
+
+			}
+
+		}
 
 		list_del( unix_pos );
 		debugFree( unix_pos, 241 );
@@ -182,12 +327,14 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct in_addr tmp_ip_holder;
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
-	struct timeval tv;
-	short found_args = 1, unix_client = 0, batch_mode = 0, netmask;
+	struct debug_level_info *debug_level_info;
+// 	struct timeval tv;
+	short found_args = 1, unix_client = 0, batch_mode = 0, batch_counter = 0, netmask;
+
 	int optchar, res, recv_buff_len;
-	char str1[16], str2[16], *slash_ptr, unix_string[100], buff[1500];
+	char str1[16], str2[16], *slash_ptr, unix_string[100], buff[1500], *buff_ptr, *cr_ptr;
 	unsigned int vis_server = 0;
-	fd_set wait_sockets, tmp_wait_sockets;
+// 	fd_set wait_sockets, tmp_wait_sockets;
 
 	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
 
@@ -416,6 +563,15 @@ void apply_init_args( int argc, char *argv[] ) {
 			exit(EXIT_FAILURE);
 		}
 
+		for ( res = 0; res < 4; res++ ) {
+
+			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head), 97 );
+			INIT_LIST_HEAD( (struct list_head *)debug_clients.fd_list[res] );
+
+		}
+
+		memset( &debug_clients.clients_num, 0, sizeof(debug_clients.clients_num) );
+
 		/* daemonize */
 		if ( debug_level == 0 ) {
 
@@ -433,14 +589,20 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			printf( "B.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
 
+			debug_clients.clients_num[ debug_level - 1 ]++;
+			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 39 );
+			INIT_LIST_HEAD( &debug_level_info->list );
+			debug_level_info->fd = 1;
+			list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[ debug_level - 1 ] );
+
 		}
 
 		while ( argc > found_args ) {
 
-			batman_if = debugMalloc(sizeof(struct batman_if), 17);
-			memset(batman_if, 0, sizeof(struct batman_if));
-			INIT_LIST_HEAD(&batman_if->list);
-			INIT_LIST_HEAD(&batman_if->client_list);
+			batman_if = debugMalloc( sizeof(struct batman_if), 17 );
+			memset( batman_if, 0, sizeof(struct batman_if) );
+			INIT_LIST_HEAD( &batman_if->list );
+			INIT_LIST_HEAD( &batman_if->client_list );
 
 			batman_if->dev = argv[found_args];
 			batman_if->if_num = found_ifs;
@@ -453,7 +615,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			addr_to_string(batman_if->broad.sin_addr.s_addr, str2, sizeof (str2));
 
 			if ( debug_level > 0 )
-				printf("Using interface %s with address %s and broadcast address %s\n", batman_if->dev, str1, str2);
+				printf( "Using interface %s with address %s and broadcast address %s\n", batman_if->dev, str1, str2 );
 
 			if ( gateway_class != 0 ) {
 
@@ -487,13 +649,13 @@ void apply_init_args( int argc, char *argv[] ) {
 		strcpy( unix_if.addr.sun_path, UNIX_PATH );
 
 		if ( bind ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof (struct sockaddr_un) ) < 0 ) {
-			do_log( "Error - can't bind unix socket: %s\n", strerror(errno) );
+			debug_output( 0, "Error - can't bind unix socket: %s\n", strerror(errno) );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
 		}
 
 		if ( listen( unix_if.unix_sock, 10 ) < 0 ) {
-			do_log( "Error - can't listen unix socket: %s\n", strerror(errno) );
+			debug_output( 0, "Error - can't listen unix socket: %s\n", strerror(errno) );
 			close_all_sockets();
 			exit(EXIT_FAILURE);
 		}
@@ -503,7 +665,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		if ( debug_level > 0 ) {
 
-			printf("debug level: %i\n", debug_level);
+			printf( "debug level: %i\n", debug_level );
 
 			if ( orginator_interval != 1000 )
 				printf( "orginator interval: %i\n", orginator_interval );
@@ -529,7 +691,10 @@ void apply_init_args( int argc, char *argv[] ) {
 	/* connect to running batmand via unix socket */
 	} else {
 
-		if ( ( debug_level == 1 ) || ( debug_level == 2 ) ) {
+		if ( ( debug_level == 1 ) || ( debug_level == 2 ) || ( debug_level == 3 ) || ( debug_level == 4 ) ) {
+
+			if ( ( ( debug_level == 3 ) || ( debug_level == 4 ) ) && ( batch_mode ) )
+				printf( "WARNING: Your chosen debug level (%i) does not support batch mode !\n", debug_level );
 
 			unix_if.unix_sock = socket(AF_LOCAL, SOCK_STREAM, 0);
 
@@ -548,65 +713,124 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			snprintf( unix_string, sizeof( unix_string ), "d:%i", debug_level );
 
-			FD_ZERO(&wait_sockets);
-			FD_SET(unix_if.unix_sock, &wait_sockets);
+// 			FD_ZERO(&wait_sockets);
+// 			FD_SET(unix_if.unix_sock, &wait_sockets);
 
-			while ( 1 ) {
+			if ( write( unix_if.unix_sock, unix_string, strlen( unix_string ) ) < 0 ) {
 
-				if ( write( unix_if.unix_sock, unix_string, strlen( unix_string ) ) < 0 ) {
+				printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
+				close( unix_if.unix_sock );
+				exit(EXIT_FAILURE);
 
-					printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
-					close( unix_if.unix_sock );
-					exit(EXIT_FAILURE);
+			}
 
-				}
+			while ( ( recv_buff_len = read( unix_if.unix_sock, buff, sizeof( buff ) ) ) > 0 ) {
 
-				if ( ! batch_mode )
-					system( "clear" );
+				buff_ptr = buff;
 
-				while ( 1 ) {
+				while ( ( cr_ptr = strchr( buff_ptr, '\n' ) ) != NULL ) {
 
-					tv.tv_sec = 1;
-					tv.tv_usec = 0;
-					tmp_wait_sockets = wait_sockets;
+					*cr_ptr = '\0';
 
-					res = select( unix_if.unix_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
+					if ( strcmp( buff_ptr, "BOD" ) == 0 ) {
 
-					if ( res > 0 ) {
+						if ( batch_mode ) {
 
-						if ( ( recv_buff_len = read( unix_if.unix_sock, buff, sizeof( buff ) ) ) < 0 ) {
+							if ( batch_counter ) {
 
-							printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
-							close( unix_if.unix_sock );
-							exit(EXIT_FAILURE);
+								close( unix_if.unix_sock );
+								exit(EXIT_SUCCESS);
 
-						} else if ( recv_buff_len > 0 ) {
+							}
 
-							printf( "%s", buff );
+							batch_counter++;
+
+						} else {
+
+							system( "clear" );
 
 						}
 
-					/* timeout reached */
-					} else if ( res == 0 ) {
+					} else {
 
-						break;
-
-					}  else if ( ( res < 0 ) && ( errno != EINTR ) ) {
-
-						printf( "Error - can't select: %s\n", strerror(errno) );
-						close( unix_if.unix_sock );
-						exit(EXIT_FAILURE);
+						printf( "%s\n", buff_ptr );
 
 					}
 
+					buff_ptr = cr_ptr + 1;
+
 				}
 
-				if ( batch_mode )
-					break;
+			}
 
-				sleep( 1 );
+			if ( recv_buff_len < 0 ) {
+
+				printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
+				close( unix_if.unix_sock );
+				exit(EXIT_FAILURE);
+
+			} else {
+
+				printf( "Connection terminated by remote host\n" );
 
 			}
+
+// 			while ( 1 ) {
+//
+// 				if ( write( unix_if.unix_sock, unix_string, strlen( unix_string ) ) < 0 ) {
+//
+// 					printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
+// 					close( unix_if.unix_sock );
+// 					exit(EXIT_FAILURE);
+//
+// 				}
+//
+// 				if ( ! batch_mode )
+// 					system( "clear" );
+//
+// 				while ( 1 ) {
+//
+// 					tv.tv_sec = 1;
+// 					tv.tv_usec = 0;
+// 					tmp_wait_sockets = wait_sockets;
+//
+// 					res = select( unix_if.unix_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
+//
+// 					if ( res > 0 ) {
+//
+// 						if ( ( recv_buff_len = read( unix_if.unix_sock, buff, sizeof( buff ) ) ) < 0 ) {
+//
+// 							printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
+// 							close( unix_if.unix_sock );
+// 							exit(EXIT_FAILURE);
+//
+// 						} else if ( recv_buff_len > 0 ) {
+//
+// 							printf( "%s", buff );
+//
+// 						}
+//
+// 					/* timeout reached */
+// 					} else if ( res == 0 ) {
+//
+// 						break;
+//
+// 					}  else if ( ( res < 0 ) && ( errno != EINTR ) ) {
+//
+// 						printf( "Error - can't select: %s\n", strerror(errno) );
+// 						close( unix_if.unix_sock );
+// 						exit(EXIT_FAILURE);
+//
+// 					}
+//
+// 				}
+//
+// 				if ( batch_mode )
+// 					break;
+//
+// 				sleep( 1 );
+//
+// 			}
 
 			close( unix_if.unix_sock );
 
@@ -620,171 +844,153 @@ void apply_init_args( int argc, char *argv[] ) {
 
 
 
-
-void init_interface ( struct batman_if *batman_if ) 
+void init_interface ( struct batman_if *batman_if )
 {
 	struct ifreq int_req;
 	short on = 1;
 
-		if ( strlen(batman_if->dev) > IFNAMSIZ - 1 ) {
-			do_log( "Error - interface name too long: %s\n", batman_if->dev );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
-		}
+	if ( strlen(batman_if->dev) > IFNAMSIZ - 1 ) {
+		debug_output( 0, "Error - interface name too long: %s\n", batman_if->dev );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
 
-		batman_if->udp_send_sock = socket(PF_INET, SOCK_DGRAM, 0);
-		if (batman_if->udp_send_sock < 0) {
-			do_log( "Error - can't create send socket: %s", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
-		}
+	batman_if->udp_send_sock = socket(PF_INET, SOCK_DGRAM, 0);
+	if (batman_if->udp_send_sock < 0) {
+		debug_output( 0, "Error - can't create send socket: %s", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
 
-		batman_if->udp_recv_sock = socket(PF_INET, SOCK_DGRAM, 0);
-		if ( batman_if->udp_recv_sock < 0 ) {
+	batman_if->udp_recv_sock = socket(PF_INET, SOCK_DGRAM, 0);
+	if ( batman_if->udp_recv_sock < 0 ) {
 
-			do_log( "Error - can't create recieve socket: %s", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		debug_output( 0, "Error - can't create recieve socket: %s", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		memset(&int_req, 0, sizeof (struct ifreq));
-		strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
+	memset(&int_req, 0, sizeof (struct ifreq));
+	strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
 
-		if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
+	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
 
-			do_log( "Error - can't get IP address of interface %s\n", batman_if->dev );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		debug_output( 0, "Error - can't get IP address of interface %s\n", batman_if->dev );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		batman_if->addr.sin_family = AF_INET;
-		batman_if->addr.sin_port = htons(PORT);
-		batman_if->addr.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr;
+	batman_if->addr.sin_family = AF_INET;
+	batman_if->addr.sin_port = htons(PORT);
+	batman_if->addr.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr;
 
-		if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
+	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
 
-			do_log( "Error - can't get broadcast IP address of interface %s\n", batman_if->dev );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		debug_output( 0, "Error - can't get broadcast IP address of interface %s\n", batman_if->dev );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		batman_if->broad.sin_family = AF_INET;
-		batman_if->broad.sin_port = htons(PORT);
-		batman_if->broad.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_broadaddr)->sin_addr.s_addr;
+	batman_if->broad.sin_family = AF_INET;
+	batman_if->broad.sin_port = htons(PORT);
+	batman_if->broad.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_broadaddr)->sin_addr.s_addr;
 
-		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
+	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
 
-			do_log( "Error - can't enable broadcasts: %s\n", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		debug_output( 0, "Error - can't enable broadcasts: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
+	if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
 
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
+	if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
 
-			do_log( "Error - can't bind send socket: %s\n", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		debug_output( 0, "Error - can't bind send socket: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
+	if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
 
-			close_all_sockets();
-			exit(EXIT_FAILURE);
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
-		}
+	}
 
-		if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 ) {
+	if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 ) {
 
-			do_log( "Error - can't bind receive socket: %s\n", strerror(errno) );
-			close_all_sockets();
-			exit(EXIT_FAILURE);
-
-		}
-
-}
-
-
-
-		
-void init_interface_gw ( struct batman_if *batman_if )
-{
-			short on = 1;
-
-			batman_if->addr.sin_port = htons(PORT + 1);
-
-			batman_if->tcp_gw_sock = socket(PF_INET, SOCK_STREAM, 0);
-
-			if ( batman_if->tcp_gw_sock < 0 ) {
-				do_log( "Error - can't create socket: %s", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-			}
-
-			if ( setsockopt(batman_if->tcp_gw_sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) < 0 ) {
-				do_log( "Error - can't enable reuse of address: %s\n", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-			}
-
-			if ( bind( batman_if->tcp_gw_sock, (struct sockaddr*)&batman_if->addr, sizeof(struct sockaddr_in)) < 0 ) {
-				do_log( "Error - can't bind socket: %s\n", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-			}
-
-			if ( listen( batman_if->tcp_gw_sock, 10 ) < 0 ) {
-				do_log( "Error - can't listen socket: %s\n", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-			}
-
-			batman_if->tunnel_sock = socket(PF_INET, SOCK_DGRAM, 0);
-			if ( batman_if->tunnel_sock < 0 ) {
-				do_log( "Error - can't create tunnel socket: %s", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-			}
-
-			if ( bind(batman_if->tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in)) < 0 ) {
-				do_log( "Error - can't bind tunnel socket: %s\n", strerror(errno) );
-				close_all_sockets();
-				exit(EXIT_FAILURE);
-			}
-
-			batman_if->addr.sin_port = htons(PORT);
-
-			pthread_create(&batman_if->listen_thread_id, NULL, &gw_listen, batman_if);
-
-}
-
-
-
-
-void do_log( char *description, char *error_msg ) {
-
-	if ( debug_level == 0 ) {
-
-		syslog( LOG_ERR, description, error_msg );
-
-	} else {
-
-		printf( description, error_msg );
+		debug_output( 0, "Error - can't bind receive socket: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
 
 	}
 
 }
+
+
+
+
+void init_interface_gw ( struct batman_if *batman_if )
+{
+	short on = 1;
+
+	batman_if->addr.sin_port = htons(PORT + 1);
+	batman_if->tcp_gw_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+	if ( batman_if->tcp_gw_sock < 0 ) {
+		debug_output( 0, "Error - can't create socket: %s", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
+
+	if ( setsockopt( batman_if->tcp_gw_sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int) ) < 0 ) {
+		debug_output( 0, "Error - can't enable reuse of address: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
+
+	if ( bind( batman_if->tcp_gw_sock, (struct sockaddr*)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
+		debug_output( 0, "Error - can't bind socket: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
+
+	if ( listen( batman_if->tcp_gw_sock, 10 ) < 0 ) {
+		debug_output( 0, "Error - can't listen socket: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
+
+	batman_if->tunnel_sock = socket(PF_INET, SOCK_DGRAM, 0);
+	if ( batman_if->tunnel_sock < 0 ) {
+		debug_output( 0, "Error - can't create tunnel socket: %s", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
+
+	if ( bind( batman_if->tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
+		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
+		close_all_sockets();
+		exit(EXIT_FAILURE);
+	}
+
+	batman_if->addr.sin_port = htons(PORT);
+
+	pthread_create( &batman_if->listen_thread_id, NULL, &gw_listen, batman_if );
+
+}
+
 
 
 void *client_to_gw_tun( void *arg ) {
@@ -819,7 +1025,7 @@ void *client_to_gw_tun( void *arg ) {
 	/* connect to server (ask permission) */
 	if ( ( curr_gateway_tcp_sock = socket(PF_INET, SOCK_STREAM, 0) ) < 0 ) {
 
-		do_log( "Error - can't create tcp socket: %s\n", strerror(errno) );
+		debug_output( 0, "Error - can't create tcp socket: %s\n", strerror(errno) );
 		curr_gateway = NULL;
 		return NULL;
 
@@ -827,7 +1033,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( connect ( curr_gateway_tcp_sock, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr) ) < 0 ) {
 
-		do_log( "Error - can't connect to gateway: %s\n", strerror(errno) );
+		debug_output( 0, "Error - can't connect to gateway: %s\n", strerror(errno) );
 		close( curr_gateway_tcp_sock );
 
 		gw_node->last_failure = get_time();
@@ -844,7 +1050,7 @@ void *client_to_gw_tun( void *arg ) {
 	/* connect to server (establish udp tunnel) */
 	if ( ( curr_gateway_tun_sock = socket(PF_INET, SOCK_DGRAM, 0) ) < 0 ) {
 
-		do_log( "Error - can't create udp socket: %s\n", strerror(errno) );
+		debug_output( 0, "Error - can't create udp socket: %s\n", strerror(errno) );
 		close( curr_gateway_tcp_sock );
 		curr_gateway = NULL;
 		return NULL;
@@ -853,7 +1059,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( bind( curr_gateway_tun_sock, (struct sockaddr *)&my_addr, sizeof (struct sockaddr_in) ) < 0) {
 
-		do_log( "Error - can't bind tunnel socket: %s\n", strerror(errno) );
+		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
 		close( curr_gateway_tcp_sock );
 		close( curr_gateway_tun_sock );
 		curr_gateway = NULL;
@@ -896,8 +1102,7 @@ void *client_to_gw_tun( void *arg ) {
 
 			if ( write( curr_gateway_tcp_sock, keep_alive_string, sizeof( keep_alive_string ) ) < 0 ) {
 
-				if ( debug_level == 3 )
-					printf( "server_keepalive failed: no connect to server\n" );
+				debug_output( 3, "server_keepalive failed: %s\n", strerror(errno) );
 
 				gw_node->last_failure = get_time();
 				gw_node->unavail_factor++;
@@ -925,20 +1130,17 @@ void *client_to_gw_tun( void *arg ) {
 
 				if ( status > 0 ) {
 
-					if ( debug_level == 3 )
-						printf( "server message ?\n" );
+					debug_output( 3, "server message ?\n" );
 
 				} else if ( status < 0 ) {
 
-					if ( debug_level == 3 )
-						printf( "Cannot read message from gateway: %s\n", strerror(errno) );
+					debug_output( 3, "Cannot read message from gateway: %s\n", strerror(errno) );
 
 					break;
 
 				} else if (status == 0) {
 
-					if ( debug_level == 3 )
-						printf( "Gateway closed connection - timeout ?\n" );
+					debug_output( 3, "Gateway closed connection - timeout ?\n" );
 
 					gw_node->last_failure = get_time();
 					gw_node->unavail_factor++;
@@ -952,13 +1154,13 @@ void *client_to_gw_tun( void *arg ) {
 
 				if ( ( buff_len = recvfrom( curr_gateway_tun_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&sender_addr, &addr_len ) ) < 0 ) {
 
-					do_log( "Error - can't receive packet: %s\n", strerror(errno) );
+					debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
 
 				} else {
 
 					if ( write( curr_gateway_tun_fd, buff, buff_len ) < 0 ) {
 
-						do_log( "Error - can't write packet: %s\n", strerror(errno) );
+						debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
 					}
 
@@ -968,12 +1170,12 @@ void *client_to_gw_tun( void *arg ) {
 
 				if ( ( buff_len = read( curr_gateway_tun_fd, buff, sizeof( buff ) ) ) < 0 ) {
 
-					do_log( "Error - couldn't read data: %s\n", strerror(errno) );
+					debug_output( 0, "Error - couldn't read data: %s\n", strerror(errno) );
 
 				} else {
 
 					if ( sendto(curr_gateway_tun_sock, buff, buff_len, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
-						do_log( "Error - can't send to gateway: %s\n", strerror(errno) );
+						debug_output( 0, "Error - can't send to gateway: %s\n", strerror(errno) );
 					}
 
 				}
@@ -982,7 +1184,7 @@ void *client_to_gw_tun( void *arg ) {
 
 		} else if ( ( res < 0 ) && (errno != EINTR) ) {
 
-			do_log( "Error - can't select: %s\n", strerror(errno) );
+			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
 			break;
 
 		}
@@ -1019,7 +1221,7 @@ int add_default_route() {
 
 	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gateway ) != 0 ) {
 
-		do_log( "Error - couldn't not spawn thread: %s\n", strerror(errno) );
+		debug_output( 0, "Error - couldn't spawn thread: %s\n", strerror(errno) );
 		curr_gateway = NULL;
 
 	}
@@ -1111,7 +1313,7 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 			break;
 
 		if ( errno != EINTR ) {
-			do_log( "Error - can't select: %s\n", strerror(errno) );
+			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
 			return -1;
 		}
 	}
@@ -1127,7 +1329,7 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 		if ( FD_ISSET( batman_if->udp_recv_sock, &wait_set) ) {
 
 			if ( ( *hna_buff_len = recvfrom( batman_if->udp_recv_sock, packet_buff, packet_buff_len - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
-				do_log( "Error - can't receive packet: %s\n", strerror(errno) );
+				debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
 				return -1;
 			}
 
@@ -1154,18 +1356,15 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock)
 {
 
-	char log_str[200];
-
 	if ( sendto( sock, buff, len, 0, (struct sockaddr *)broad, sizeof (struct sockaddr_in) ) < 0 ) {
 
 		if ( errno == 1 ) {
 
-			snprintf( log_str, sizeof( log_str ), "Error - can't send packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs(broad->sin_port ) );
-			do_log( log_str, strerror(errno) );
+			debug_output( 0, "Error - can't send packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs( broad->sin_port ) );
 
 		} else {
 
-			do_log( "Error - can't send packet: %s.\n", strerror(errno) );
+			debug_output( 0, "Error - can't send packet: %s.\n", strerror(errno) );
 
 		}
 
@@ -1199,7 +1398,7 @@ void *gw_listen( void *arg ) {
 
 	if ( inet_pton(AF_INET, tun_ip, &tmp_ip_holder) < 1 ) {
 
-		do_log( "Error - invalid tunnel IP specified: %s\n", tun_ip );
+		debug_output( 0, "Error - invalid tunnel IP specified: %s\n", tun_ip );
 		exit(EXIT_FAILURE);
 
 	}
@@ -1239,7 +1438,7 @@ void *gw_listen( void *arg ) {
 				memset( gw_client, 0, sizeof(struct gw_client) );
 
 				if ( ( gw_client->sock = accept(batman_if->tcp_gw_sock, (struct sockaddr *)&gw_client->addr, &sin_size) ) == -1 ) {
-					do_log( "Error - can't accept client packet: %s\n", strerror(errno) );
+					debug_output( 0, "Error - can't accept client packet: %s\n", strerror(errno) );
 					continue;
 				}
 
@@ -1253,23 +1452,21 @@ void *gw_listen( void *arg ) {
 
 				list_add_tail(&gw_client->list, &batman_if->client_list);
 
-				if ( debug_level == 3 ) {
-					addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
-					printf( "gateway: %s (%s) got connection from %s (internet via %s)\n", gw_addr, batman_if->dev, str2, tun_dev );
-				}
+				addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
+				debug_output( 3, "gateway: %s (%s) got connection from %s (internet via %s)\n", gw_addr, batman_if->dev, str2, tun_dev );
 
 			/* tunnel activity */
 			} else if ( FD_ISSET( batman_if->tunnel_sock, &tmp_wait_sockets ) ) {
 
 				if ( ( buff_len = recvfrom( batman_if->tunnel_sock, buff, sizeof( buff ), 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
 
-					do_log( "Error - can't receive packet: %s\n", strerror(errno) );
+					debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
 
 				} else {
 
 					if ( write( tun_fd, buff, buff_len ) < 0 ) {
 
-						do_log( "Error - can't write packet: %s\n", strerror(errno) );
+						debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
 					}
 
@@ -1280,7 +1477,7 @@ void *gw_listen( void *arg ) {
 
 				/* not needed - kernel knows client adress and routes traffic directly */
 
-				do_log( "Warning - data coming through tun device: %s\n", tun_dev );
+				debug_output( 0, "Warning - data coming through tun device: %s\n", tun_dev );
 
 				/*if ( ( buff_len = read( tun_fd, buff, sizeof( buff ) ) ) < 0 ) {
 
@@ -1305,8 +1502,7 @@ void *gw_listen( void *arg ) {
 
 					if ( FD_ISSET( gw_client->sock, &tmp_wait_sockets ) ) {
 
-						if ( debug_level >= 1 )
-							addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
+						addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
 
 						status = read( gw_client->sock, buff, sizeof( buff ) );
 
@@ -1317,21 +1513,17 @@ void *gw_listen( void *arg ) {
 							if ( gw_client->sock > max_sock )
 								max_sock = gw_client->sock;
 
-							if ( debug_level == 3 ) {
-								addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
-								printf( "gateway: client %s sent keep alive on interface %s\n", str2, batman_if->dev );
-							}
+							debug_output( 3, "gateway: client %s sent keep alive on interface %s\n", str2, batman_if->dev );
 
 						} else {
 
 							if ( status < 0 ) {
 
-								do_log( "Error - can't read message: %s\n", strerror(errno) );
+								debug_output( 0, "Error - can't read message: %s\n", strerror(errno) );
 
 							} else {
 
-								if ( debug_level == 3 )
-									printf( "Client %s closed connection ...\n", str2 );
+								debug_output( 3, "Client %s closed connection ...\n", str2 );
 
 							}
 
@@ -1356,7 +1548,7 @@ void *gw_listen( void *arg ) {
 
 		} else if ( ( res < 0 ) && (errno != EINTR) ) {
 
-			do_log( "Error - can't select: %s\n", strerror(errno) );
+			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
 			break;
 
 		}
@@ -1378,10 +1570,8 @@ void *gw_listen( void *arg ) {
 					FD_CLR(gw_client->sock, &wait_sockets);
 					close( gw_client->sock );
 
-					if ( debug_level == 3 ) {
-						addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
-						printf( "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
-					}
+					addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
+					debug_output( 3, "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
 
 					list_del( client_pos );
 					debugFree( client_pos, 202 );
