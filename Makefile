@@ -16,11 +16,17 @@
 # 02110-1301, USA
 #
 
-CC =		gcc
-# CC =		mipsel-linux-uclibc-gcc
-CFLAGS =	-Wall -O0 -g3
-LDFLAGS =	-lpthread
-#LDFLAGS =	-static -lpthread
+CC_MIPS_PATH =	/usr/src/openWrt/build/buildroot-ng/openwrt/staging_dir_mipsel/bin
+CC_MIPS =		$(CC_MIPS_PATH)/mipsel-linux-uclibc-gcc
+STRIP_MIPS =	$(CC_MIPS_PATH)/sstrip
+CFLAGS_MIPS =	-Wall -O0 -g3
+LDFLAGS_MIPS =	-lpthread
+
+CC =			gcc
+#CC =			mipsel-linux-uclibc-gcc
+CFLAGS =		-Wall -O0 -g3
+LDFLAGS =		-lpthread
+#LDFLAGS =		-static -lpthread
 
 UNAME=$(shell uname)
 
@@ -40,10 +46,23 @@ ifeq ($(UNAME),OpenBSD)
 OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o bitarray.o
 endif
 
+LINUX_SRC_C= batman.c posix-specific.c posix.c  linux-specific.c linux.c allocate.c bitarray.c
+
 all:	batmand
 
-batmand:	batman.o $(OS_OBJ)
+mips:	batmand-mips-static batmand-mips-dynamic
+
+batmand:	batman.o $(OS_OBJ) Makefile
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
+batmand-mips-static:	$(LINUX_SRC_C) Makefile
+	$(CC_MIPS) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+	$(STRIP_MIPS) $@
+
+batmand-mips-dynamic:	$(LINUX_SRC_C) Makefile
+	$(CC_MIPS) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+	$(STRIP_MIPS) $@
+
+
 clean:
-		rm -f batmand *.o *~
+		rm -f batmand batmand-mips* *.o *~
