@@ -50,9 +50,9 @@
 
 
 
-#define TYPE_OF_WORD unsigned int /* you should choose something big, if you don't want to waste cpu */
+#define TYPE_OF_WORD unsigned long /* you should choose something big, if you don't want to waste cpu */
 #define NUM_WORDS ( SEQ_RANGE / ( sizeof(TYPE_OF_WORD) * 8 ) )
-#define WORD_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
+#define WORD_BIT_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
 
 
 
@@ -204,7 +204,7 @@ void bit_init( TYPE_OF_WORD *seq_bits );
 int  bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno );
 void bit_mark( TYPE_OF_WORD *seq_bits, int n );
 void bit_shift( TYPE_OF_WORD *seq_bits, int n );
-void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark );
+char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark );
 int  bit_packet_count( TYPE_OF_WORD *seq_bits );
 
 #endif

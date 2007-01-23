@@ -47,6 +47,7 @@ OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o bitarray.o
 endif
 
 LINUX_SRC_C= batman.c posix-specific.c posix.c  linux-specific.c linux.c allocate.c bitarray.c
+LINUX_SRC_H= batman.h batman-specific.h list.h os.h allocate.h
 
 all:	batmand
 
@@ -55,11 +56,11 @@ mips:	batmand-mips-static batmand-mips-dynamic
 batmand:	batman.o $(OS_OBJ) Makefile
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
-batmand-mips-static:	$(LINUX_SRC_C) Makefile
+batmand-mips-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC_MIPS) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_MIPS) $@
 
-batmand-mips-dynamic:	$(LINUX_SRC_C) Makefile
+batmand-mips-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC_MIPS) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_MIPS) $@
 

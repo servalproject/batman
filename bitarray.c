@@ -22,6 +22,7 @@
 #include <stdio.h>              /* printf() */
 
 #include "batman-specific.h"
+#include "os.h"
 
 
 
@@ -46,8 +47,8 @@ int bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned shor
 
 	} else {
 
-		word_offset= ( last_seqno - curr_seqno ) % WORD_SIZE;	/* which position in the selected word */
-		word_num   = ( last_seqno - curr_seqno ) / WORD_SIZE;	/* which word */
+		word_offset= ( last_seqno - curr_seqno ) % WORD_BIT_SIZE;	/* which position in the selected word */
+		word_num   = ( last_seqno - curr_seqno ) / WORD_BIT_SIZE;	/* which word */
 
 		if ( seq_bits[word_num] & 1<<word_offset )   /* get position status */
 			return 1;
@@ -56,6 +57,20 @@ int bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned shor
 
 	}
 
+}
+
+/* print the packet array, for debugging purposes */
+void bit_print( TYPE_OF_WORD *seq_bits ) {
+	int i,j;
+
+// 	printf("the last %d packets, we got %d:\n", SEQ_RANGE, bit_packet_count(seq_bits));
+	for ( i=0; i<NUM_WORDS; i++ ) {
+		for ( j=0; j<WORD_BIT_SIZE; j++) {
+			printf("%ld", (seq_bits[i]>>j)%2 ); /* print the j position */
+		}
+		printf(" ");
+	}
+	printf("\n\n");
 }
 
 /* turn on bit on, so we can remember that we got the packet */
@@ -69,8 +84,8 @@ void bit_mark( TYPE_OF_WORD *seq_bits, int n ) {
 
 // 	printf("mark bit %d\n", n);
 
-	word_offset= n%WORD_SIZE;	/* which position in the selected word */
-	word_num   = n/WORD_SIZE;	/* which word */
+	word_offset= n%WORD_BIT_SIZE;	/* which position in the selected word */
+	word_num   = n/WORD_BIT_SIZE;	/* which word */
 
 	seq_bits[word_num]|= 1<<word_offset;	/* turn the position on */
 }
@@ -80,9 +95,12 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 	int word_offset, word_num;
 	int i;
 
+	printf("bit_shift(): to shift %d bits \n", n);
+	bit_print( seq_bits );
+	if( n<=0 ) return;
 
-	word_offset= n%WORD_SIZE;	/* shift how much inside each word */
-	word_num   = n/WORD_SIZE;	/* shift over how much (full) words */
+	word_offset= n%WORD_BIT_SIZE;	/* shift how much inside each word */
+	word_num   = n/WORD_BIT_SIZE;	/* shift over how much (full) words */
 
 	for ( i=NUM_WORDS-1; i>word_num; i-- ) {
 		/* going from old to new, so we can't overwrite the data we copy from. *
@@ -90,7 +108,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 		 *	                                  ^^ ^^
 		 *                             vvvv
 		 * ^^^^ = from, vvvvv =to, we'd have word_num==1 and
-		 * word_offset==WORD_SIZE/2 in this example.
+		 * word_offset==WORD_BIT_SIZE/2 ????? in this example. (=24 bits)
 		 *
 		 * our desired output would be: 9876 5432 1000 0000
 		 * */
@@ -98,7 +116,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 		seq_bits[i]=
 			(seq_bits[i - word_num] << word_offset) +
 					/* take the lower port from the left half, shift it left to its final position */
-			(seq_bits[i - word_num - 1] >>	(WORD_SIZE-word_offset));
+			(seq_bits[i - word_num - 1] >>	(WORD_BIT_SIZE-word_offset));
 					/* and the upper part of the right half and shift it left to it's position */
 		/* for our example that would be: word[0] = 9800 + 0076 = 9876 */
 	}
@@ -113,37 +131,28 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 	for (; i>=0; i--) {
 		seq_bits[i]= 0;
 	}
+	bit_print( seq_bits );
 }
 
-/* print the packet array, for debugging purposes */
-void bit_print( TYPE_OF_WORD *seq_bits ) {
-	int i,j;
 
-// 	printf("the last %d packets, we got %d:\n", SEQ_RANGE, bit_packet_count(seq_bits));
-	for ( i=0; i<NUM_WORDS; i++ ) {
-		for ( j=0; j<WORD_SIZE; j++) {
-			printf("%d", (seq_bits[i]>>j)%2 ); /* print the j position */
-		}
-		printf(" ");
-	}
-	printf("\n\n");
-}
-
-/* receive and process one packet */
-void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
+/* receive and process one packet, returns 1 if received seq_num is considered new, 0 if old  */
+char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 
 	int i;
+	debug_output(4, "bit_get_packet( seq_num_diff: %d, set_mark: %d ):", seq_num_diff, set_mark);
 
-	if ( ( seq_num_diff < 0 ) && ( -seq_num_diff <= SEQ_RANGE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
+	if ( ( seq_num_diff < 0 ) && ( seq_num_diff >= -SEQ_RANGE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
+		printf(" we already got a sequence number higher than this one, so we just mark it. \n");
 
 		if ( set_mark )
 			bit_mark( seq_bits, -seq_num_diff );
 
-		return;
+		return 0;
 
 	}
 
-	if ( ( seq_num_diff > SEQ_RANGE ) || ( -seq_num_diff > SEQ_RANGE ) ) {        /* it seems we missed a lot of packets or the other host restarted */
+	if ( ( seq_num_diff > SEQ_RANGE ) || ( seq_num_diff < -SEQ_RANGE ) ) {        /* it seems we missed a lot of packets or the other host restarted */
+		debug_output(4, " it seems we missed a lot of packets or the other host restarted \n");
 
  		/* if ( seq_num_diff > SEQ_RANGE )
 			printf("d'oh, BIG loss (missed %d packets)!!\n", seq_num_diff-1);
@@ -158,6 +167,7 @@ void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 			seq_bits[0] = 1;  /* we only have the latest packet */
 
 	} else {
+		debug_output(4," new seq_no \n");
 
 		bit_shift(seq_bits, seq_num_diff);
 
@@ -165,6 +175,8 @@ void bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 			bit_mark(seq_bits, 0);
 
 	}
+
+	return 1;
 
 }
 
@@ -186,8 +198,8 @@ int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 		}
 
 	}
-
-	/* printf( "packets counted: %i\n", hamming ); */
+//	bit_print( seq_bits );
+//	printf( "packets counted: %i\n", hamming );
 	return(hamming);
 
 }

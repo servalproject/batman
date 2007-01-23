@@ -526,7 +526,7 @@ void debug() {
 
 			debug_output( 4, "------------------ DEBUG ------------------\n" );
 			debug_output( 4, "Forward list\n" );
-
+ 
 			list_for_each( forw_pos, &forw_list ) {
 				forw_node = list_entry( forw_pos, struct forw_node, list );
 				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, str, sizeof (str) );
@@ -549,6 +549,7 @@ void debug() {
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
 			debug_output( 1, "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
+			//printf( "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
 			debug_output( 4, "%s, GW: %s(%i), last_aware:%u via:\n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
 
 			list_for_each(neigh_pos, &orig_node->neigh_list) {
@@ -557,11 +558,13 @@ void debug() {
 				addr_to_string(neigh_node->addr, str, sizeof (str));
 
 				debug_output( 1, " %s(%i)", str, neigh_node->packet_count );
+				//printf(" %s(%i)", str, neigh_node->packet_count );
 				debug_output( 4, "\t\t%s (%d)\n", str, neigh_node->packet_count );
 
 			}
 
 			debug_output( 1, "\n" );
+			//printf( "\n" );
 
 		}
 
@@ -627,7 +630,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 	struct list_head *neigh_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
 	int max_packet_count = 0;
-
+	char is_new_seqno = 0;
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
 
@@ -675,7 +678,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 	}
 
 
-	bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
+	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
 	neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
 
 	if ( neigh_node->packet_count > max_packet_count ) {
@@ -686,11 +689,13 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 	}
 
 
-	neigh_node->last_ttl = in->ttl;
+	neigh_node->last_ttl = in->ttl; //TBD: This may be applied only if new_seqno is true ??!!
 	neigh_node->last_aware = get_time();
 
-	orig_node->last_seqno = in->seqno;
-
+	if( is_new_seqno ) {
+		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno  );
+		orig_node->last_seqno = in->seqno;
+	}
 
 	/* update routing table and check for changed hna announcements */
 	update_routes( orig_node, best_neigh_node, hna_recv_buff, hna_buff_len );
@@ -939,6 +944,7 @@ void purge( unsigned int curr_time ) {
 	list_for_each_safe(orig_pos, orig_temp, &orig_list) {
 		orig_node = list_entry(orig_pos, struct orig_node, list);
 
+//TBD: (axel) during purge() the orig_node is purged after TIMEOUT while the neigh_nodes later on are purged after 2*TIMEOUT 
 		if ( (int)( ( orig_node->last_aware + TIMEOUT ) < curr_time ) ) {
 
 			addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
@@ -1231,9 +1237,11 @@ int batman()
 				is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
 
 				/* update ranking */
-				if ( ( is_bidirectional ) && ( !is_duplicate ) )
+				if ( ( is_bidirectional ) && ( !is_duplicate ) ) {
+//TBD: (axel) here the real originator should be updated but the orig_neigh_node ist provided to update_originator()
 					update_originator( orig_neigh_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
-
+				}
+	
 				/* is single hop (direct) neighbour */
 				if ( ((struct packet *)&in)->orig == neigh ) {
 
