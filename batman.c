@@ -667,6 +667,7 @@ void update_originator( struct packet *in, unsigned int neigh, struct batman_if 
 		debug_output( 4, "Creating new last-hop neighbour of originator\n" );
 
 		neigh_node = debugMalloc( sizeof (struct neigh_node), 6 );
+		memset( neigh_node, 0, sizeof(struct neigh_node) );
 		INIT_LIST_HEAD(&neigh_node->list);
 
 		neigh_node->addr = neigh;
@@ -1277,7 +1278,7 @@ int batman()
 
 							debug_output( 4, "Forward packet: rebroadcast orginator packet \n" );
 
-						} else if ( orig_neigh_node->router->addr == neigh ) {
+						} else if ( ( orig_neigh_node->router != NULL ) && ( orig_neigh_node->router->addr == neigh ) ) {
 
 							list_for_each(neigh_pos, &orig_neigh_node->neigh_list) {
 
