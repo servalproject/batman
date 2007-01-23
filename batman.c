@@ -526,7 +526,7 @@ void debug() {
 
 			debug_output( 4, "------------------ DEBUG ------------------\n" );
 			debug_output( 4, "Forward list\n" );
- 
+
 			list_for_each( forw_pos, &forw_list ) {
 				forw_node = list_entry( forw_pos, struct forw_node, list );
 				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, str, sizeof (str) );
@@ -625,15 +625,18 @@ int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *i
 
 
 
-void update_originator( struct orig_node *orig_node, struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
+void update_originator( struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
 
 	struct list_head *neigh_pos;
+	struct orig_node *orig_node;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
 	int max_packet_count = 0;
 	char is_new_seqno = 0;
 
+
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
 
+	orig_node = get_orig_node( in->orig );
 
 	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
@@ -707,7 +710,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 }
 
-void schedule_forward_packet( struct packet *in, int unidirectional, int directlink, struct orig_node *orig_node, unsigned int neigh, unsigned char *hna_recv_buff, int hna_buff_len, struct batman_if *if_outgoing ) {
+void schedule_forward_packet( struct packet *in, int unidirectional, int directlink, unsigned char *hna_recv_buff, int hna_buff_len, struct batman_if *if_outgoing ) {
 
 	struct forw_node *forw_node_new;
 
@@ -944,7 +947,7 @@ void purge( unsigned int curr_time ) {
 	list_for_each_safe(orig_pos, orig_temp, &orig_list) {
 		orig_node = list_entry(orig_pos, struct orig_node, list);
 
-//TBD: (axel) during purge() the orig_node is purged after TIMEOUT while the neigh_nodes later on are purged after 2*TIMEOUT 
+//TBD: (axel) during purge() the orig_node is purged after TIMEOUT while the neigh_nodes later on are purged after 2*TIMEOUT
 		if ( (int)( ( orig_node->last_aware + TIMEOUT ) < curr_time ) ) {
 
 			addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
@@ -1238,10 +1241,10 @@ int batman()
 
 				/* update ranking */
 				if ( ( is_bidirectional ) && ( !is_duplicate ) ) {
-//TBD: (axel) here the real originator should be updated but the orig_neigh_node ist provided to update_originator()
-					update_originator( orig_neigh_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
+
+					update_originator( (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
 				}
-	
+
 				/* is single hop (direct) neighbour */
 				if ( ((struct packet *)&in)->orig == neigh ) {
 
@@ -1249,7 +1252,7 @@ int batman()
 					if ( ( is_bidirectional ) && ( orig_neigh_node->router != NULL ) && ( orig_neigh_node->router->addr == neigh ) ) {
 
 						/* mark direct link on incoming interface */
-						schedule_forward_packet( (struct packet *)&in, 0, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+						schedule_forward_packet( (struct packet *)&in, 0, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 						debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link flag \n" );
 
@@ -1257,7 +1260,7 @@ int batman()
 					/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag if it is not our best link to it in order to prevent routing problems */
 					} else if ( ( ( is_bidirectional ) && ( ( orig_neigh_node->router == NULL ) || ( orig_neigh_node->router->addr != neigh ) ) ) || ( !is_bidirectional ) ) {
 
-						schedule_forward_packet( (struct packet *)&in, 1, 1, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+						schedule_forward_packet( (struct packet *)&in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 						debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
 
@@ -1270,7 +1273,7 @@ int batman()
 
 						if ( !is_duplicate ) {
 
-							schedule_forward_packet( (struct packet *)&in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+							schedule_forward_packet( (struct packet *)&in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
 
 							debug_output( 4, "Forward packet: rebroadcast orginator packet \n" );
 
@@ -1294,7 +1297,7 @@ int batman()
 							/* we are forwarding duplicate o-packets if they come via our best neighbour and ttl is valid */
 							if ( forward_duplicate_packet ) {
 
-								schedule_forward_packet( (struct packet *)&in, 0, 0, orig_neigh_node, neigh, hna_recv_buff, hna_buff_len, if_incoming );
+								schedule_forward_packet( (struct packet *)&in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
 
 								debug_output( 4, "Forward packet: duplicate packet received via best neighbour with best ttl \n" );
 
