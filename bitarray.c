@@ -36,11 +36,11 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 
 };
 
-/* turn on bit on, so we can remember that we got the packet */
-int bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno ) {
+/* returns true if corresponding bit in given seq_bits indicates so and curr_seqno is within range of last_seqno */
+int get_bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno ) {
 
 	int word_offset,word_num;
-
+//TBD: not shure for wrap arounds, what about: if ( curr_seqno - last_seqno > 0 || curr_seqno - last_seqno < 
 	if ( curr_seqno > last_seqno || curr_seqno < last_seqno - SEQ_RANGE ) {
 
 		return 0;
@@ -60,24 +60,31 @@ int bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned shor
 }
 
 /* print the packet array, for debugging purposes */
-void bit_print( TYPE_OF_WORD *seq_bits ) {
-	int i,j;
+static char bit_string[130];
+char* bit_print( TYPE_OF_WORD *seq_bits ) {
+	int i,j,k=0,b=0;
 
 // 	printf("the last %d packets, we got %d:\n", SEQ_RANGE, bit_packet_count(seq_bits));
 	for ( i=0; i<NUM_WORDS; i++ ) {
 		for ( j=0; j<WORD_BIT_SIZE; j++) {
-			printf("%ld", (seq_bits[i]>>j)%2 ); /* print the j position */
+			bit_string[k++] = ((seq_bits[i]>>j)%2 ? '1':'0'); /* print the j position */
+			if( ++b == SEQ_RANGE ) {
+				bit_string[k++]='|';
+			}
 		}
-		printf(" ");
+		bit_string[k++]=' ';
 	}
-	printf("\n\n");
+	bit_string[k++]='\0';
+//	debug_output( 4, "%s\n", bit_string);
+//	printf("\n\n");
+	return bit_string;
 }
 
-/* turn on bit on, so we can remember that we got the packet */
+/* turn corresponding bit on, so we can remember that we got the packet */
 void bit_mark( TYPE_OF_WORD *seq_bits, int n ) {
 	int word_offset,word_num;
 
-	if ( n >= SEQ_RANGE ) {			/* if too old, just drop it */
+	if ( n<0 || n >= SEQ_RANGE ) {			/* if too old, just drop it */
 // 		printf("got old packet, dropping\n");
 		return;
 	}
@@ -138,6 +145,9 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 
 	int i;
+
+//	if ( n<0 || n >= SEQ_RANGE) return 0;
+
 	debug_output(4, "bit_get_packet( seq_num_diff: %d, set_mark: %d ):", seq_num_diff, set_mark);
 
 	if ( ( seq_num_diff < 0 ) && ( seq_num_diff >= -SEQ_RANGE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
@@ -183,11 +193,15 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 
 	int i, hamming = 0;
-	TYPE_OF_WORD word;
+	TYPE_OF_WORD word, pattern=~0;
 
 	for (i=0; i<NUM_WORDS; i++) {
 
-		word= seq_bits[i];
+//		if( i == NUM_WORDS - 1 ) {
+//			pattern = pattern >> ( WORD_BIT_SIZE - RST_NUM_WORDS ); 
+//		}
+
+		word= seq_bits[i] & ( ( i < NUM_WORDS - 1 ) ? ~0 : pattern >> ( WORD_BIT_SIZE - RST_NUM_WORDS ) );
 
 		while (word) {
 
@@ -197,8 +211,7 @@ int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 		}
 
 	}
-//	bit_print( seq_bits );
-//	printf( "packets counted: %i\n", hamming );
+
 	return(hamming);
 
 }

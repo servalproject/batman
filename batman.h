@@ -46,12 +46,16 @@
 #define JITTER 50
 #define TTL 50             /* Time To Live of broadcast messages */
 #define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
-#define SEQ_RANGE 64       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
+#define SEQ_RANGE 60       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
 
 
 
 #define TYPE_OF_WORD unsigned long /* you should choose something big, if you don't want to waste cpu */
-#define NUM_WORDS ( SEQ_RANGE / ( sizeof(TYPE_OF_WORD) * 8 ) )
+
+//TBD: this shall be evaluated only once during initialization, macros are called tooo often, waste of processtime 
+#define MIN_NUM_WORDS ( SEQ_RANGE / ( sizeof(TYPE_OF_WORD) * 8 ) )
+#define RST_NUM_WORDS ( SEQ_RANGE % ( sizeof(TYPE_OF_WORD) * 8 ) )
+#define NUM_WORDS ( RST_NUM_WORDS ? ( MIN_NUM_WORDS + 1) : MIN_NUM_WORDS )
 #define WORD_BIT_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
 
 
@@ -201,7 +205,8 @@ void del_default_route();
 int add_default_route();
 
 void bit_init( TYPE_OF_WORD *seq_bits );
-int  bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno );
+int  get_bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno );
+char* bit_print( TYPE_OF_WORD *seq_bits );
 void bit_mark( TYPE_OF_WORD *seq_bits, int n );
 void bit_shift( TYPE_OF_WORD *seq_bits, int n );
 char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark );

@@ -549,7 +549,6 @@ void debug() {
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
 			debug_output( 1, "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
-			//printf( "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
 			debug_output( 4, "%s, GW: %s(%i), last_aware:%u via:\n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
 
 			list_for_each(neigh_pos, &orig_node->neigh_list) {
@@ -557,14 +556,12 @@ void debug() {
 
 				addr_to_string(neigh_node->addr, str, sizeof (str));
 
-				debug_output( 1, " %s(%i)", str, neigh_node->packet_count );
-				//printf(" %s(%i)", str, neigh_node->packet_count );
-				debug_output( 4, "\t\t%s (%d)\n", str, neigh_node->packet_count );
+				debug_output( 1, " %s(%i) %s", str, neigh_node->packet_count, bit_print( neigh_node->seq_bits ) );
+				debug_output( 4, "\t\t%s (%d) %s\n", str, neigh_node->packet_count , bit_print( neigh_node->seq_bits ) );
 
 			}
 
 			debug_output( 1, "\n" );
-			//printf( "\n" );
 
 		}
 
@@ -597,7 +594,7 @@ int isDuplicate( unsigned int orig, unsigned short seqno ) {
 			list_for_each(neigh_pos, &orig_node->neigh_list) {
 				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
-				if ( bit_status( neigh_node->seq_bits, orig_node->last_seqno, seqno ) )
+				if ( get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, seqno ) )
 					return 1;
 
 			}
@@ -703,6 +700,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 	/* update routing table and check for changed hna announcements */
 	update_routes( orig_node, best_neigh_node, hna_recv_buff, hna_buff_len );
+debug_output( 4, "update_routes complete \n" );
 
 	if ( orig_node->gwflags != in->gwflags )
 		update_gw_list( orig_node, in->gwflags );
