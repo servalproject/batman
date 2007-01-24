@@ -1232,11 +1232,12 @@ int batman()
 
 			} else {
 
-				orig_neigh_node = get_orig_node( neigh );
-
 				orig_node = get_orig_node( ((struct packet *)&in)->orig );
+				orig_node->last_aware = get_time();
 
-				orig_neigh_node->last_aware = get_time();
+				orig_neigh_node = get_orig_node( neigh );
+				orig_neigh_node->last_aware = get_time(); //TBD: depending on context of last_aware this may be removed
+
 
 				is_duplicate = isDuplicate( ((struct packet *)&in)->orig, ((struct packet *)&in)->seqno );
 				is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
