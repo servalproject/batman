@@ -95,8 +95,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 	int word_offset, word_num;
 	int i;
 
-	printf("bit_shift(): to shift %d bits \n", n);
-	bit_print( seq_bits );
+//	bit_print( seq_bits );
 	if( n<=0 ) return;
 
 	word_offset= n%WORD_BIT_SIZE;	/* shift how much inside each word */
@@ -131,7 +130,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 	for (; i>=0; i--) {
 		seq_bits[i]= 0;
 	}
-	bit_print( seq_bits );
+//	bit_print( seq_bits );
 }
 
 

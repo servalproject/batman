@@ -625,10 +625,10 @@ int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *i
 
 
 
-void update_originator( struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
+void update_originator( struct orig_node *orig_node, struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
 
 	struct list_head *neigh_pos;
-	struct orig_node *orig_node;
+//	struct orig_node *orig_node;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
 	int max_packet_count = 0;
 	char is_new_seqno = 0;
@@ -636,7 +636,7 @@ void update_originator( struct packet *in, unsigned int neigh, struct batman_if 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
 
-	orig_node = get_orig_node( in->orig );
+//	orig_node = get_orig_node( in->orig );
 
 	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
@@ -948,7 +948,6 @@ void purge( unsigned int curr_time ) {
 	list_for_each_safe(orig_pos, orig_temp, &orig_list) {
 		orig_node = list_entry(orig_pos, struct orig_node, list);
 
-//TBD: (axel) during purge() the orig_node is purged after TIMEOUT while the neigh_nodes later on are purged after 2*TIMEOUT
 		if ( (int)( ( orig_node->last_aware + TIMEOUT ) < curr_time ) ) {
 
 			addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
@@ -1046,7 +1045,7 @@ void send_vis_packet()
 int batman()
 {
 	struct list_head *if_pos, *neigh_pos, *hna_pos, *hna_pos_tmp, *forw_pos, *forw_pos_tmp;
-	struct orig_node *orig_neigh_node;
+	struct orig_node *orig_neigh_node, *orig_node;
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
@@ -1235,6 +1234,8 @@ int batman()
 
 				orig_neigh_node = get_orig_node( neigh );
 
+				orig_node = get_orig_node( ((struct packet *)&in)->orig );
+
 				orig_neigh_node->last_aware = get_time();
 
 				is_duplicate = isDuplicate( ((struct packet *)&in)->orig, ((struct packet *)&in)->seqno );
@@ -1243,14 +1244,14 @@ int batman()
 				/* update ranking */
 				if ( ( is_bidirectional ) && ( !is_duplicate ) ) {
 
-					update_originator( (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
+					update_originator( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
 				}
 
 				/* is single hop (direct) neighbour */
 				if ( ((struct packet *)&in)->orig == neigh ) {
 
 					/* it is our best route towards him */
-					if ( ( is_bidirectional ) && ( orig_neigh_node->router != NULL ) && ( orig_neigh_node->router->addr == neigh ) ) {
+					if ( ( is_bidirectional ) && ( orig_node->router != NULL ) && ( orig_node->router->addr == neigh ) ) {
 
 						/* mark direct link on incoming interface */
 						schedule_forward_packet( (struct packet *)&in, 0, 1, hna_recv_buff, hna_buff_len, if_incoming );
@@ -1259,7 +1260,7 @@ int batman()
 
 					/* if an unidirectional neighbour sends us a packet - retransmit it with unidirectional flag to tell him that we get its packets */
 					/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag if it is not our best link to it in order to prevent routing problems */
-					} else if ( ( ( is_bidirectional ) && ( ( orig_neigh_node->router == NULL ) || ( orig_neigh_node->router->addr != neigh ) ) ) || ( !is_bidirectional ) ) {
+					} else if ( ( ( is_bidirectional ) && ( ( orig_node->router == NULL ) || ( orig_node->router->addr != neigh ) ) ) || ( !is_bidirectional ) ) {
 
 						schedule_forward_packet( (struct packet *)&in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
@@ -1278,9 +1279,9 @@ int batman()
 
 							debug_output( 4, "Forward packet: rebroadcast orginator packet \n" );
 
-						} else if ( ( orig_neigh_node->router != NULL ) && ( orig_neigh_node->router->addr == neigh ) ) {
+						} else if ( ( orig_node->router != NULL ) && ( orig_node->router->addr == neigh ) ) {
 
-							list_for_each(neigh_pos, &orig_neigh_node->neigh_list) {
+							list_for_each(neigh_pos, &orig_node->neigh_list) {
 
 								neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
