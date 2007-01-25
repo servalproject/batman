@@ -1380,7 +1380,6 @@ int batman()
 	set_rp_filter( if_rp_filter_all_old, "all" );
 	set_rp_filter( if_rp_filter_default_old, "default" );
 
-
 	return 0;
 
 }
