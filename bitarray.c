@@ -40,7 +40,7 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 int get_bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno ) {
 
 	int word_offset,word_num;
-//TBD: not shure for wrap arounds, what about: if ( curr_seqno - last_seqno > 0 || curr_seqno - last_seqno < 
+//TBD: not shure for wrap arounds, what about: if ( curr_seqno - last_seqno > 0 || curr_seqno - last_seqno <
 	if ( curr_seqno > last_seqno || curr_seqno < last_seqno - SEQ_RANGE ) {
 
 		return 0;
@@ -146,12 +146,7 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 
 	int i;
 
-//	if ( n<0 || n >= SEQ_RANGE) return 0;
-
-	debug_output(4, "bit_get_packet( seq_num_diff: %d, set_mark: %d ):", seq_num_diff, set_mark);
-
 	if ( ( seq_num_diff < 0 ) && ( seq_num_diff >= -SEQ_RANGE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
-		printf(" we already got a sequence number higher than this one, so we just mark it. \n");
 
 		if ( set_mark )
 			bit_mark( seq_bits, -seq_num_diff );
@@ -161,13 +156,12 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 	}
 
 	if ( ( seq_num_diff > SEQ_RANGE ) || ( seq_num_diff < -SEQ_RANGE ) ) {        /* it seems we missed a lot of packets or the other host restarted */
-		debug_output(4, " it seems we missed a lot of packets or the other host restarted \n");
 
- 		/* if ( seq_num_diff > SEQ_RANGE )
-			printf("d'oh, BIG loss (missed %d packets)!!\n", seq_num_diff-1);
+		 if ( seq_num_diff > SEQ_RANGE )
+			debug_output( 4, "It seems we missed a lot of packets (%i) !\n",  seq_num_diff-1 );
 
 		if ( -seq_num_diff > SEQ_RANGE )
-			printf( "restart: %i !!\n", seq_num_diff );*/
+			debug_output( 4, "Other host probably restarted !\n" );
 
 		for (i=0; i<NUM_WORDS; i++)
 			seq_bits[i]= 0;
@@ -176,7 +170,6 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
 			seq_bits[0] = 1;  /* we only have the latest packet */
 
 	} else {
-		debug_output(4," new seq_no \n");
 
 		bit_shift(seq_bits, seq_num_diff);
 
@@ -197,11 +190,7 @@ int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 
 	for (i=0; i<NUM_WORDS; i++) {
 
-//		if( i == NUM_WORDS - 1 ) {
-//			pattern = pattern >> ( WORD_BIT_SIZE - RST_NUM_WORDS ); 
-//		}
-
-		word= seq_bits[i] & ( ( i < NUM_WORDS - 1 ) ? ~0 : pattern >> ( WORD_BIT_SIZE - RST_NUM_WORDS ) );
+		word= ( ( i < NUM_WORDS - 1 ) ? seq_bits[i] : seq_bits[i] & pattern >> ( WORD_BIT_SIZE - RST_NUM_WORDS ) );
 
 		while (word) {
 

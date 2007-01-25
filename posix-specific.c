@@ -701,9 +701,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			if ( connect ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof(struct sockaddr_un) ) < 0 ) {
 
-				printf( "Error - can't connect to unix socket: %s\n", strerror(errno) );
+				printf( "Error - can't connect to unix socket '%s': %s ! Is batmand running on this host ?\n", UNIX_PATH, strerror(errno) );
 				close( unix_if.unix_sock );
-
 				exit(EXIT_FAILURE);
 
 			}

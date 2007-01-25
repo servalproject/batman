@@ -625,7 +625,6 @@ int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *i
 void update_originator( struct orig_node *orig_node, struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
 
 	struct list_head *neigh_pos;
-//	struct orig_node *orig_node;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
 	int max_packet_count = 0;
 	char is_new_seqno = 0;
@@ -633,7 +632,6 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
 
-//	orig_node = get_orig_node( in->orig );
 
 	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
@@ -690,17 +688,16 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 	}
 
 
-	neigh_node->last_ttl = in->ttl; //TBD: This may be applied only if new_seqno is true ??!!
 	neigh_node->last_aware = get_time();
 
 	if( is_new_seqno ) {
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno  );
 		orig_node->last_seqno = in->seqno;
+		neigh_node->last_ttl = in->ttl;
 	}
 
 	/* update routing table and check for changed hna announcements */
 	update_routes( orig_node, best_neigh_node, hna_recv_buff, hna_buff_len );
-debug_output( 4, "update_routes complete \n" );
 
 	if ( orig_node->gwflags != in->gwflags )
 		update_gw_list( orig_node, in->gwflags );
@@ -946,7 +943,7 @@ void purge( unsigned int curr_time ) {
 	list_for_each_safe(orig_pos, orig_temp, &orig_list) {
 		orig_node = list_entry(orig_pos, struct orig_node, list);
 
-		if ( (int)( ( orig_node->last_aware + TIMEOUT ) < curr_time ) ) {
+		if ( (int)( ( orig_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
 
 			addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
 			debug_output( 4, "Orginator timeout: originator %s, last_aware %u)\n", orig_str, orig_node->last_aware );
@@ -1234,17 +1231,13 @@ int batman()
 				orig_node->last_aware = get_time();
 
 				orig_neigh_node = get_orig_node( neigh );
-				orig_neigh_node->last_aware = get_time(); //TBD: depending on context of last_aware this may be removed
-
 
 				is_duplicate = isDuplicate( ((struct packet *)&in)->orig, ((struct packet *)&in)->seqno );
 				is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
 
 				/* update ranking */
-				if ( ( is_bidirectional ) && ( !is_duplicate ) ) {
-
+				if ( ( is_bidirectional ) && ( !is_duplicate ) )
 					update_originator( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
-				}
 
 				/* is single hop (direct) neighbour */
 				if ( ((struct packet *)&in)->orig == neigh ) {

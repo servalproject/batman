@@ -52,7 +52,6 @@
 
 #define TYPE_OF_WORD unsigned long /* you should choose something big, if you don't want to waste cpu */
 
-//TBD: this shall be evaluated only once during initialization, macros are called tooo often, waste of processtime 
 #define MIN_NUM_WORDS ( SEQ_RANGE / ( sizeof(TYPE_OF_WORD) * 8 ) )
 #define RST_NUM_WORDS ( SEQ_RANGE % ( sizeof(TYPE_OF_WORD) * 8 ) )
 #define NUM_WORDS ( RST_NUM_WORDS ? ( MIN_NUM_WORDS + 1) : MIN_NUM_WORDS )
