@@ -53,7 +53,7 @@ all:	batmand
 
 mips:	batmand-mips-static batmand-mips-dynamic
 
-batmand:	batman.o $(OS_OBJ) Makefile
+batmand:	batman.o $(OS_OBJ) Makefile batman.h
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
 batmand-mips-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
