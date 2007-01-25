@@ -65,7 +65,7 @@ extern short debug_level;
 extern short gateway_class;
 extern short routing_class;
 extern short num_hna;
-extern unsigned int orginator_interval;
+extern unsigned long orginator_interval;
 extern unsigned int pref_gateway;
 
 extern unsigned char *hna_buff;

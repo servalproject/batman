@@ -443,7 +443,7 @@ void apply_init_args( int argc, char *argv[] ) {
 				errno = 0;
 				orginator_interval = strtol (optarg, NULL , 10);
 
-				if ( (errno == ERANGE && (orginator_interval == LONG_MAX || orginator_interval == LONG_MIN) ) || (errno != 0 && orginator_interval == 0) ) {
+				if ( (errno == ERANGE && ((orginator_interval == LONG_MAX) || (orginator_interval == LONG_MIN)) ) || (errno != 0 && orginator_interval == 0) ) {
 					perror("strtol");
 					exit(EXIT_FAILURE);
 				}
@@ -1287,6 +1287,7 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
+	struct packet *p;
 
 
 	tv.tv_sec = timeout / 1000;
@@ -1336,8 +1337,11 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 
 			if ( *hna_buff_len < sizeof(struct packet) )
 				return 0;
+			p = (struct packet *) packet_buff;
+			p->seqno = ntohs(p->seqno);		/* network to host order for our 16bit seqno. 
+											 * ip adress shall remain in network order, 
+											 * so we don't swap bytes for p->orig. */
 
-			packet_buff[*hna_buff_len] = '\0';
 
 			(*if_incoming) = batman_if;
 			break;
@@ -1356,6 +1360,9 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 
 int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock)
 {
+	struct packet *p;
+	p=(struct packet *)buff;
+	p->seqno = htons(p->seqno);		/* change sequence number to network order. ip address(es) remain in network order */
 
 	if ( sendto( sock, buff, len, 0, (struct sockaddr *)broad, sizeof (struct sockaddr_in) ) < 0 ) {
 

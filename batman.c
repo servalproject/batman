@@ -82,7 +82,7 @@ short gateway_class = 0;
 short routing_class = 0;
 
 
-unsigned int orginator_interval = 1000;   /* orginator message interval in miliseconds */
+unsigned long orginator_interval = 1000;   /* orginator message interval in miliseconds */
 
 unsigned int bidirectional_timeout = 0;   /* bidirectional neighbour reply timeout in ms */
 
