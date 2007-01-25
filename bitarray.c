@@ -37,7 +37,7 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 };
 
 /* returns true if corresponding bit in given seq_bits indicates so and curr_seqno is within range of last_seqno */
-int get_bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno ) {
+int get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno ) {
 
 	int word_offset,word_num;
 //TBD: not shure for wrap arounds, what about: if ( curr_seqno - last_seqno > 0 || curr_seqno - last_seqno <

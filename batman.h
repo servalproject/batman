@@ -102,7 +102,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	unsigned char gwflags;          /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
 	int hna_buff_len;
-	unsigned short last_seqno;      /* last known squence number */
+	uint16_t last_seqno;      /* last known squence number */
 	struct list_head neigh_list;
 };
 
@@ -205,7 +205,7 @@ void del_default_route();
 int add_default_route();
 
 void bit_init( TYPE_OF_WORD *seq_bits );
-int  get_bit_status( TYPE_OF_WORD *seq_bits, unsigned short last_seqno, unsigned short curr_seqno );
+int  get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno );
 char* bit_print( TYPE_OF_WORD *seq_bits );
 void bit_mark( TYPE_OF_WORD *seq_bits, int n );
 void bit_shift( TYPE_OF_WORD *seq_bits, int n );
