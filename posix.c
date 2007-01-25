@@ -245,6 +245,14 @@ int main( int argc, char *argv[] ) {
 //  memset( &device_node_array[0], 0, sizeof( device_node_array ) );
 //  printf("B.A.T.M.A.N-experimental %s\n", VERSION);
 
+	/* Check if user is root */
+	if ( ( getuid() ) || ( getgid() ) ) {
+
+		fprintf( stderr, "Error - you must be root to run batmand !\n" );
+		exit(EXIT_FAILURE);
+
+	}
+
 	apply_init_args( argc, argv );
 
 
