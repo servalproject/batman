@@ -74,6 +74,8 @@ extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
 
 extern short found_ifs;
+extern int receive_max_sock;
+extern fd_set receive_wait_set;
 
 extern struct list_head if_list;
 extern struct list_head hna_list;

@@ -36,7 +36,7 @@ void addr_to_string(unsigned int addr, char *str, int len);
 
 int receive_packet(unsigned char *packet_buff, int packet_buff_len, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming);
 
-int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock);
+int send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
 int rand_num(int limit);
 int bind_to_iface( int udp_recv_sock, char *dev );
 int probe_tun();

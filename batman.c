@@ -94,8 +94,10 @@ unsigned int pref_gateway = 0;
 unsigned char *hna_buff = NULL;
 
 short num_hna = 0;
-short found_ifs = 0;
 
+short found_ifs = 0;
+int receive_max_sock = 0;
+fd_set receive_wait_set;
 
 
 static LIST_HEAD(orig_list);
@@ -170,15 +172,18 @@ void verbose_usage(void)
 }
 
 /* this function finds or creates an originator entry for the given address if it does not exits */
-struct orig_node *get_orig_node( unsigned int addr )
-{
+struct orig_node *get_orig_node( unsigned int addr ) {
+
 	struct list_head *pos;
 	struct orig_node *orig_node;
 
-	list_for_each(pos, &orig_list) {
-		orig_node = list_entry(pos, struct orig_node, list);
-		if (orig_node->orig == addr)
+	list_for_each( pos, &orig_list ) {
+
+		orig_node = list_entry( pos, struct orig_node, list );
+
+		if ( orig_node->orig == addr )
 			return orig_node;
+
 	}
 
 	debug_output( 4, "Creating new originator\n" );
@@ -197,6 +202,7 @@ struct orig_node *get_orig_node( unsigned int addr )
 	list_add_tail( &orig_node->list, &orig_list );
 
 	return orig_node;
+
 }
 
 
@@ -556,8 +562,8 @@ void debug() {
 
 				addr_to_string(neigh_node->addr, str, sizeof (str));
 
-				debug_output( 1, " %s(%i) %s", str, neigh_node->packet_count, bit_print( neigh_node->seq_bits ) );
-				debug_output( 4, "\t\t%s (%d) %s\n", str, neigh_node->packet_count , bit_print( neigh_node->seq_bits ) );
+				debug_output( 1, " %s(%i)", str, neigh_node->packet_count );
+				debug_output( 4, "\t\t%s (%d)\n", str, neigh_node->packet_count );
 
 			}
 
@@ -1345,7 +1351,7 @@ int batman()
 	if ( debug_level > 0 )
 		printf( "Deleting all BATMAN routes\n" );
 
-	purge( get_time() + TIMEOUT + orginator_interval );
+	purge( get_time() + ( 2 * TIMEOUT ) + orginator_interval );
 
 
 	list_for_each_safe( hna_pos, hna_pos_tmp, &hna_list ) {

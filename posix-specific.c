@@ -377,14 +377,14 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
-				hna_node = debugMalloc(sizeof(struct hna_node), 16);
-				memset(hna_node, 0, sizeof(struct hna_node));
-				INIT_LIST_HEAD(&hna_node->list);
+				hna_node = debugMalloc( sizeof(struct hna_node), 16 );
+				memset( hna_node, 0, sizeof(struct hna_node) );
+				INIT_LIST_HEAD( &hna_node->list );
 
 				hna_node->addr = tmp_ip_holder.s_addr;
 				hna_node->netmask = netmask;
 
-				list_add_tail(&hna_node->list, &hna_list);
+				list_add_tail( &hna_node->list, &hna_list );
 
 				*slash_ptr = '/';
 				found_args += 2;
@@ -594,6 +594,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
+		FD_ZERO( &receive_wait_set );
+
 		while ( argc > found_args ) {
 
 			batman_if = debugMalloc( sizeof(struct batman_if), 17 );
@@ -604,9 +606,14 @@ void apply_init_args( int argc, char *argv[] ) {
 			batman_if->dev = argv[found_args];
 			batman_if->if_num = found_ifs;
 
-			list_add_tail(&batman_if->list, &if_list);
+			list_add_tail( &batman_if->list, &if_list );
 
 			init_interface ( batman_if );
+
+			if ( batman_if->udp_recv_sock > receive_max_sock )
+				receive_max_sock = batman_if->udp_recv_sock;
+
+			FD_SET( batman_if->udp_recv_sock, &receive_wait_set );
 
 			addr_to_string(batman_if->addr.sin_addr.s_addr, str1, sizeof (str1));
 			addr_to_string(batman_if->broad.sin_addr.s_addr, str2, sizeof (str2));
@@ -850,20 +857,20 @@ void init_interface ( struct batman_if *batman_if )
 	struct ifreq int_req;
 	short on = 1;
 
-	if ( strlen(batman_if->dev) > IFNAMSIZ - 1 ) {
+	if ( strlen( batman_if->dev ) > IFNAMSIZ - 1 ) {
 		debug_output( 0, "Error - interface name too long: %s\n", batman_if->dev );
 		close_all_sockets();
 		exit(EXIT_FAILURE);
 	}
 
-	batman_if->udp_send_sock = socket(PF_INET, SOCK_DGRAM, 0);
+	batman_if->udp_send_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 	if (batman_if->udp_send_sock < 0) {
 		debug_output( 0, "Error - can't create send socket: %s", strerror(errno) );
 		close_all_sockets();
 		exit(EXIT_FAILURE);
 	}
 
-	batman_if->udp_recv_sock = socket(PF_INET, SOCK_DGRAM, 0);
+	batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 	if ( batman_if->udp_recv_sock < 0 ) {
 
 		debug_output( 0, "Error - can't create recieve socket: %s", strerror(errno) );
@@ -872,8 +879,8 @@ void init_interface ( struct batman_if *batman_if )
 
 	}
 
-	memset(&int_req, 0, sizeof (struct ifreq));
-	strncpy(int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1);
+	memset( &int_req, 0, sizeof (struct ifreq) );
+	strncpy( int_req.ifr_name, batman_if->dev, IFNAMSIZ - 1 );
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
 
@@ -1238,19 +1245,19 @@ void close_all_sockets() {
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
 
-	list_for_each_safe(if_pos, if_pos_tmp, &if_list) {
+	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 
-		batman_if = list_entry(if_pos, struct batman_if, list);
+		batman_if = list_entry( if_pos, struct batman_if, list );
 
 		if ( batman_if->listen_thread_id != 0 ) {
 
 			pthread_join( batman_if->listen_thread_id, NULL );
-			close(batman_if->tcp_gw_sock);
+			close( batman_if->tcp_gw_sock );
 
 		}
 
-		close(batman_if->udp_recv_sock);
-		close(batman_if->udp_send_sock);
+		close( batman_if->udp_recv_sock );
+		close( batman_if->udp_send_sock );
 
 		list_del( if_pos );
 		debugFree( if_pos, 203 );
@@ -1260,8 +1267,8 @@ void close_all_sockets() {
 	if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 		del_default_route();
 
-	if (vis_if.sock)
-		close(vis_if.sock);
+	if ( vis_if.sock )
+		close( vis_if.sock );
 
 	if ( unix_if.unix_sock )
 		close( unix_if.unix_sock );
@@ -1280,67 +1287,55 @@ void close_all_sockets() {
 
 int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming ) {
 
-	fd_set wait_set;
-	int res, max_sock = 0;
 	struct sockaddr_in addr;
-	unsigned int addr_len;
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
-	struct packet *p;
+	unsigned int addr_len;
+	int res;
+	fd_set tmp_wait_set = receive_wait_set;
 
 
 	tv.tv_sec = timeout / 1000;
-	tv.tv_usec = (timeout % 1000) * 1000;
+	tv.tv_usec = ( timeout % 1000 ) * 1000;
+	addr_len = sizeof(struct sockaddr_in);
 
+	while (1) {
 
-	FD_ZERO(&wait_set);
+		res = select( receive_max_sock + 1, &tmp_wait_set, NULL, NULL, &tv );
 
-	list_for_each(if_pos, &if_list) {
-
-		batman_if = list_entry(if_pos, struct batman_if, list);
-
-		FD_SET(batman_if->udp_recv_sock, &wait_set);
-
-		if ( batman_if->udp_recv_sock > max_sock )
-			max_sock = batman_if->udp_recv_sock;
-
-	}
-
-	for (;;)
-	{
-		res = select( max_sock + 1, &wait_set, NULL, NULL, &tv );
-
-		if (res >= 0)
+		if ( res >= 0 )
 			break;
 
 		if ( errno != EINTR ) {
+
 			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
 			return -1;
+
 		}
+
 	}
 
 	if ( res == 0 )
 		return 0;
 
-	addr_len = sizeof (struct sockaddr_in);
+	list_for_each( if_pos, &if_list ) {
 
-	list_for_each(if_pos, &if_list) {
-		batman_if = list_entry(if_pos, struct batman_if, list);
+		batman_if = list_entry( if_pos, struct batman_if, list );
 
-		if ( FD_ISSET( batman_if->udp_recv_sock, &wait_set) ) {
+		if ( FD_ISSET( batman_if->udp_recv_sock, &tmp_wait_set ) ) {
 
 			if ( ( *hna_buff_len = recvfrom( batman_if->udp_recv_sock, packet_buff, packet_buff_len - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
+
 				debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
 				return -1;
+
 			}
 
 			if ( *hna_buff_len < sizeof(struct packet) )
 				return 0;
-			p = (struct packet *) packet_buff;
-			p->seqno = ntohs(p->seqno);		/* network to host order for our 16bit seqno. 
-											 * ip adress shall remain in network order, 
-											 * so we don't swap bytes for p->orig. */
+
+			((struct packet *)packet_buff)->seqno = ntohs( ((struct packet *)packet_buff)->seqno ); /* network to host order for our 16bit seqno.*/
 
 
 			(*if_incoming) = batman_if;
@@ -1358,13 +1353,11 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 
 
 
-int send_packet(unsigned char *buff, int len, struct sockaddr_in *broad, int sock)
-{
-	struct packet *p;
-	p=(struct packet *)buff;
-	p->seqno = htons(p->seqno);		/* change sequence number to network order. ip address(es) remain in network order */
+int send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock ) {
 
-	if ( sendto( sock, buff, len, 0, (struct sockaddr *)broad, sizeof (struct sockaddr_in) ) < 0 ) {
+	((struct packet *)packet_buff)->seqno = htons( ((struct packet *)packet_buff)->seqno ); /* change sequence number to network order */
+
+	if ( sendto( send_sock, packet_buff, packet_buff_len, 0, (struct sockaddr *)broad, sizeof(struct sockaddr_in) ) < 0 ) {
 
 		if ( errno == 1 ) {
 
