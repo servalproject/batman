@@ -1296,11 +1296,12 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 	fd_set tmp_wait_set = receive_wait_set;
 
 
-	tv.tv_sec = timeout / 1000;
-	tv.tv_usec = ( timeout % 1000 ) * 1000;
 	addr_len = sizeof(struct sockaddr_in);
 
 	while (1) {
+
+		tv.tv_sec = timeout / 1000;
+		tv.tv_usec = ( timeout % 1000 ) * 1000;
 
 		res = select( receive_max_sock + 1, &tmp_wait_set, NULL, NULL, &tv );
 

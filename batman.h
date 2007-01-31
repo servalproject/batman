@@ -85,12 +85,12 @@ extern struct debug_clients debug_clients;
 
 struct packet
 {
-	uint32_t  	orig;
-	uint8_t  	flags;    /* 0xF0: UNIDIRECTIONAL link, 0x80: DIRECTLINK flag, ... */
-	uint8_t  	ttl;
-	uint16_t	seqno;
-	uint8_t	  	gwflags;  /* flags related to gateway functions: gateway class */
-	uint8_t	  	version;  /* batman version field */
+	uint32_t orig;
+	uint8_t  flags;    /* 0xF0: UNIDIRECTIONAL link, 0x80: DIRECTLINK flag, ... */
+	uint8_t  ttl;
+	uint16_t seqno;
+	uint8_t  gwflags;  /* flags related to gateway functions: gateway class */
+	uint8_t  version;  /* batman version field */
 } __attribute__((packed));
 
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */

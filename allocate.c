@@ -56,7 +56,7 @@ void checkIntegrity(void)
 	{
 		if (walker->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", walker->magicNumber, walker->tag);
+			fprintf(stderr, "checkIntegrity - invalid magic number in header: %08x, malloc tag = %d\n", walker->magicNumber, walker->tag);
 			exit(1);
 		}
 
@@ -66,7 +66,7 @@ void checkIntegrity(void)
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, walker->tag);
+			fprintf(stderr, "checkIntegrity - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, walker->tag);
 			exit(1);
 		}
 	}
@@ -127,7 +127,7 @@ void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
 
 		if (chunkHeader->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
+			fprintf(stderr, "debugRealloc - invalid magic number in header: %08x, malloc tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
 			exit(1);
 		}
 
@@ -135,7 +135,7 @@ void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
+			fprintf(stderr, "debugRealloc - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
 			exit(1);
 		}
 	}
@@ -169,7 +169,7 @@ void debugFree(void *memoryParameter, int tag)
 
 	if (chunkHeader->magicNumber != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag, tag);
+		fprintf(stderr, "debugFree - invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag, tag);
 		exit(1);
 	}
 
@@ -199,7 +199,7 @@ void debugFree(void *memoryParameter, int tag)
 
 	if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "Invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag, tag);
+		fprintf(stderr, "debugFree - invalid magic number in trailer: %08x, malloc tag = %d, free tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag, tag);
 		exit(1);
 	}
 
