@@ -37,7 +37,7 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 };
 
 /* returns true if corresponding bit in given seq_bits indicates so and curr_seqno is within range of last_seqno */
-int get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno ) {
+uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno ) {
 
 	int word_offset,word_num;
 //TBD: not shure for wrap arounds, what about: if ( curr_seqno - last_seqno > 0 || curr_seqno - last_seqno <
@@ -81,8 +81,8 @@ char* bit_print( TYPE_OF_WORD *seq_bits ) {
 }
 
 /* turn corresponding bit on, so we can remember that we got the packet */
-void bit_mark( TYPE_OF_WORD *seq_bits, int n ) {
-	int word_offset,word_num;
+void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n ) {
+	int32_t word_offset,word_num;
 
 	if ( n<0 || n >= SEQ_RANGE ) {			/* if too old, just drop it */
 // 		printf("got old packet, dropping\n");
@@ -98,9 +98,9 @@ void bit_mark( TYPE_OF_WORD *seq_bits, int n ) {
 }
 
 /* shift the packet array p by n places. */
-void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
-	int word_offset, word_num;
-	int i;
+void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n ) {
+	int32_t word_offset, word_num;
+	int32_t i;
 
 //	bit_print( seq_bits );
 	if( n<=0 ) return;
@@ -142,7 +142,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int n ) {
 
 
 /* receive and process one packet, returns 1 if received seq_num is considered new, 0 if old  */
-char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark ) {
+char bit_get_packet( TYPE_OF_WORD *seq_bits, int32_t seq_num_diff, int8_t set_mark ) {
 
 	int i;
 

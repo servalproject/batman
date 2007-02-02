@@ -42,7 +42,7 @@
 #include "os.h"
 #include "batman-specific.h"
 
-void set_rp_filter(int state, char* dev)
+void set_rp_filter(int32_t state, char* dev)
 {
 	FILE *f;
 	char filename[100], *colon_ptr;
@@ -63,10 +63,10 @@ void set_rp_filter(int state, char* dev)
 		*colon_ptr = ':';
 }
 
-int get_rp_filter(char *dev)
+int32_t get_rp_filter(char *dev)
 {
 	FILE *f;
-	int state = 0;
+	int32_t state = 0;
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
@@ -87,7 +87,7 @@ int get_rp_filter(char *dev)
 	return state;
 }
 
-void set_forwarding(int state)
+void set_forwarding(int32_t state)
 {
 	FILE *f;
 
@@ -98,10 +98,10 @@ void set_forwarding(int state)
 	fclose(f);
 }
 
-int get_forwarding(void)
+int32_t get_forwarding(void)
 {
 	FILE *f;
-	int state = 0;
+	int32_t state = 0;
 
 	if((f = fopen("/proc/sys/net/ipv4/ip_forward", "r")) == NULL)
 		return 0;
@@ -112,7 +112,7 @@ int get_forwarding(void)
 	return state;
 }
 
-int bind_to_iface( int udp_recv_sock, char *dev ) {
+int8_t bind_to_iface( int32_t udp_recv_sock, char *dev ) {
 
 	char *colon_ptr;
 

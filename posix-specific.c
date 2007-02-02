@@ -45,11 +45,11 @@
 #include "allocate.h"
 
 
-void debug_output( short debug_prio, char *format, ... ) {
+void debug_output( int8_t debug_prio, char *format, ... ) {
 
 	struct list_head *debug_pos;
 	struct debug_level_info *debug_level_info;
-	short debug_prio_intern;
+	int8_t debug_prio_intern;
 	va_list args;
 
 
@@ -117,7 +117,8 @@ void *unix_listen( void *arg ) {
 	struct debug_level_info *debug_level_info;
 	struct list_head *unix_pos, *unix_pos_tmp, *debug_pos, *debug_pos_tmp;
 	struct timeval tv;
-	int res, status, max_sock;
+	int32_t status, max_sock;
+	int8_t res;
 	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 	socklen_t sun_size = sizeof(struct sockaddr_un);
@@ -326,11 +327,13 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
 // 	struct timeval tv;
-	short found_args = 1, unix_client = 0, batch_mode = 0, batch_counter = 0, netmask;
+	uint8_t found_args = 1, unix_client = 0, batch_mode = 0, batch_counter = 0;
+	uint16_t netmask;
+	int8_t res;
 
-	int optchar, res, recv_buff_len, bytes_written;
+	int32_t optchar, recv_buff_len, bytes_written;
 	char str1[16], str2[16], *slash_ptr, unix_string[100], buff[1500], *buff_ptr, *cr_ptr;
-	unsigned int vis_server = 0;
+	uint32_t vis_server = 0;
 // 	fd_set wait_sockets, tmp_wait_sockets;
 
 	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
@@ -369,7 +372,7 @@ void apply_init_args( int argc, char *argv[] ) {
 					exit(EXIT_FAILURE);
 				}
 
-				if ( netmask < 0 || netmask > 32 ) {
+				if ( netmask < 1 || netmask > 32 ) {
 
 					*slash_ptr = '/';
 					printf( "Invalid announced network (netmask is invalid): %s\n", optarg );
@@ -408,7 +411,7 @@ void apply_init_args( int argc, char *argv[] ) {
 					exit(EXIT_FAILURE);
 				}
 
-				if ( debug_level < 0 || debug_level > 4 ) {
+				if ( debug_level > 4 ) {
 					printf( "Invalid debug level: %i\nDebug level has to be between 0 and 4.\n", debug_level );
 					exit(EXIT_FAILURE);
 				}
@@ -426,7 +429,7 @@ void apply_init_args( int argc, char *argv[] ) {
 					exit(EXIT_FAILURE);
 				}
 
-				if ( gateway_class < 0 || gateway_class > 11 ) {
+				if ( gateway_class > 11 ) {
 					printf( "Invalid gateway class specified: %i.\nThe class is a value between 0 and 11.\n", gateway_class );
 					exit(EXIT_FAILURE);
 				}
@@ -443,14 +446,11 @@ void apply_init_args( int argc, char *argv[] ) {
 				errno = 0;
 				orginator_interval = strtol (optarg, NULL , 10);
 
-				if ( (errno == ERANGE && ((orginator_interval == LONG_MAX) || (orginator_interval == LONG_MIN)) ) || (errno != 0 && orginator_interval == 0) ) {
-					perror("strtol");
-					exit(EXIT_FAILURE);
-				}
+				if ( orginator_interval < 1 ) {
 
-				if (orginator_interval < 1) {
 					printf( "Invalid orginator interval specified: %i.\nThe Interval has to be greater than 0.\n", orginator_interval );
 					exit(EXIT_FAILURE);
+
 				}
 
 				found_args += 2;
@@ -476,14 +476,11 @@ void apply_init_args( int argc, char *argv[] ) {
 				errno = 0;
 				routing_class = strtol (optarg, NULL , 10);
 
-				if ( ( errno == ERANGE ) || ( errno != 0 && routing_class == 0 ) ) {
-					perror("strtol");
-					exit(EXIT_FAILURE);
-				}
+				if ( routing_class > 3 ) {
 
-				if (routing_class < 0 || routing_class > 3) {
 					printf( "Invalid routing class specified: %i.\nThe class is a value between 0 and 3.\n", routing_class );
 					exit(EXIT_FAILURE);
+
 				}
 
 				found_args += 2;
@@ -1225,7 +1222,7 @@ void del_default_route() {
 
 
 
-int add_default_route() {
+int8_t add_default_route() {
 
 	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gateway ) != 0 ) {
 
@@ -1285,14 +1282,14 @@ void close_all_sockets() {
 
 
 
-int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_buff_len, unsigned int *neigh, unsigned int timeout, struct batman_if **if_incoming ) {
+int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming ) {
 
 	struct sockaddr_in addr;
 	struct timeval tv;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
-	unsigned int addr_len;
-	int res;
+	uint32_t addr_len;
+	int8_t res;
 	fd_set tmp_wait_set = receive_wait_set;
 
 
@@ -1354,7 +1351,7 @@ int receive_packet( unsigned char *packet_buff, int packet_buff_len, int *hna_bu
 
 
 
-int send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock ) {
+int8_t send_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock ) {
 
 	((struct packet *)packet_buff)->seqno = htons( ((struct packet *)packet_buff)->seqno ); /* change sequence number to network order */
 
@@ -1377,6 +1374,8 @@ int send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockadd
 	return 0;
 
 }
+
+
 
 void *gw_listen( void *arg ) {
 
@@ -1611,7 +1610,7 @@ void *gw_listen( void *arg ) {
 
 void cleanup() {
 
-	short i;
+	int8_t i;
 	struct debug_level_info *debug_level_info;
 	struct list_head *debug_pos, *debug_pos_tmp;
 

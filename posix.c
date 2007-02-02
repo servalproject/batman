@@ -73,8 +73,8 @@ static void get_time_internal(struct timeval *tv)
 	tv->tv_usec = usec;
 }
 
-unsigned int get_time(void)
-{
+uint32_t get_time( void ) {
+
 	struct timeval tv;
 
 	get_time_internal(&tv);
@@ -139,7 +139,7 @@ void bat_wait( int T, int t ) {
 
 
 
-int print_animation( void ) {
+void print_animation( void ) {
 
 	system( "clear" );
 	BAT_LOGO_END( 0, 50 );
@@ -209,37 +209,39 @@ int print_animation( void ) {
 	sym_print( 12, 6, "\\" );
 	BAT_LOGO_END( 0 ,35 );
 
-	return 0;
-
 }
 
 
 
-int is_aborted()
-{
+int8_t is_aborted() {
+
 	return stop != 0;
+
 }
 
-void addr_to_string(unsigned int addr, char *str, int len)
-{
+void addr_to_string( uint32_t addr, char *str, int32_t len ) {
+
 	inet_ntop(AF_INET, &addr, str, len);
+
 }
 
-int rand_num(int limit)
-{
+int32_t rand_num( int32_t limit ) {
+
 	return ( limit == 0 ? 0 : rand() % limit );
+
 }
 
 
-static void handler(int sig)
-{
+static void handler( int32_t sig ) {
+
 	stop = 1;
+
 }
 
 
 int main( int argc, char *argv[] ) {
 
-	short res;
+	int8_t res;
 	stop = 0;
 
 //  memset( &device_node_array[0], 0, sizeof( device_node_array ) );

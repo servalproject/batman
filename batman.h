@@ -61,20 +61,20 @@
 
 
 
-extern short debug_level;
-extern short gateway_class;
-extern short routing_class;
-extern short num_hna;
-extern unsigned long orginator_interval;
-extern unsigned int pref_gateway;
+extern uint8_t debug_level;
+extern uint8_t gateway_class;
+extern uint8_t routing_class;
+extern uint8_t num_hna;
+extern int16_t orginator_interval;
+extern uint32_t pref_gateway;
 
 extern unsigned char *hna_buff;
 
 extern struct gw_node *curr_gateway;
 pthread_t curr_gateway_thread_id;
 
-extern short found_ifs;
-extern int receive_max_sock;
+extern uint8_t found_ifs;
+extern int32_t receive_max_sock;
 extern fd_set receive_wait_set;
 
 extern struct list_head if_list;
@@ -96,25 +96,25 @@ struct packet
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
 {
 	struct list_head list;
-	unsigned int orig;
+	uint32_t orig;
 	struct neigh_node *router;
 	struct batman_if *batman_if;
-	unsigned int *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
-	unsigned int last_aware;        /* when last packet from this node was received */
-	unsigned char gwflags;          /* flags related to gateway functions: gateway class */
+	uint32_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
+	uint32_t last_aware;        /* when last packet from this node was received */
+	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
-	int hna_buff_len;
-	uint16_t last_seqno;      /* last known squence number */
+	int16_t  hna_buff_len;
+	uint16_t last_seqno;        /* last and best known squence number */
 	struct list_head neigh_list;
 };
 
 struct neigh_node
 {
 	struct list_head list;
-	unsigned int addr;
-	unsigned short packet_count;
-	unsigned char last_ttl;         /* ttl of last received packet */
-	unsigned int last_aware;        /* when last packet via this neighbour was received */
+	uint32_t addr;
+	uint16_t packet_count;
+	uint8_t  last_ttl;         /* ttl of last received packet */
+	uint32_t last_aware;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD seq_bits[ NUM_WORDS ];
 	struct batman_if *if_incoming;
 };
@@ -122,17 +122,17 @@ struct neigh_node
 struct hna_node
 {
 	struct list_head list;
-	unsigned int addr;
-	unsigned int netmask;
+	uint32_t addr;
+	uint16_t netmask;
 };
 
 struct forw_node                 /* structure for forw_list maintaining packets to be send/forwarded */
 {
 	struct list_head list;
-	unsigned int when;
-	int own;
+	uint32_t when;
+	uint8_t  own;
 	unsigned char *pack_buff;
-	int pack_buff_len;
+	int32_t  pack_buff_len;
 	struct batman_if *if_outgoing;
 };
 
@@ -140,20 +140,20 @@ struct gw_node
 {
 	struct list_head list;
 	struct orig_node *orig_node;
-	int unavail_factor;
-	int last_failure;
+	uint16_t unavail_factor;
+	uint32_t last_failure;
 };
 
 struct batman_if
 {
 	struct list_head list;
 	char *dev;
-	int udp_send_sock;
-	int udp_recv_sock;
-	int tcp_gw_sock;
-	int tunnel_sock;
-	short if_num;
-	short if_rp_filter_old;
+	int32_t udp_send_sock;
+	int32_t udp_recv_sock;
+	int32_t tcp_gw_sock;
+	int32_t tunnel_sock;
+	int16_t if_num;
+	int16_t if_rp_filter_old;
 	pthread_t listen_thread_id;
 	struct sockaddr_in addr;
 	struct sockaddr_in broad;
@@ -165,18 +165,18 @@ struct gw_client
 {
 	struct list_head list;
 	struct batman_if *batman_if;
-	int sock;
-	unsigned int last_keep_alive;
+	int32_t sock;
+	uint32_t last_keep_alive;
 	struct sockaddr_in addr;
 };
 
 struct vis_if {
-	int sock;
+	int32_t sock;
 	struct sockaddr_in addr;
 };
 
 struct unix_if {
-	int unix_sock;
+	int32_t unix_sock;
 	pthread_t listen_thread_id;
 	struct sockaddr_un addr;
 	struct list_head client_list;
@@ -184,34 +184,34 @@ struct unix_if {
 
 struct unix_client {
 	struct list_head list;
-	int sock;
-	char debug_level;
+	int32_t sock;
+	uint8_t debug_level;
 	struct sockaddr_un addr;
 };
 
 struct debug_clients {
 	void *fd_list[4];
-	short clients_num[4];
+	int16_t clients_num[4];
 };
 
 struct debug_level_info {
 	struct list_head list;
-	int fd;
+	int32_t fd;
 };
 
 
-int batman();
-void usage(void);
-void verbose_usage(void);
-void del_default_route();
-int add_default_route();
+int8_t batman( void );
+void   usage( void );
+void   verbose_usage( void );
+void   del_default_route();
+int8_t add_default_route();
 
 void bit_init( TYPE_OF_WORD *seq_bits );
-int  get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno );
-char* bit_print( TYPE_OF_WORD *seq_bits );
-void bit_mark( TYPE_OF_WORD *seq_bits, int n );
-void bit_shift( TYPE_OF_WORD *seq_bits, int n );
-char bit_get_packet( TYPE_OF_WORD *seq_bits, int seq_num_diff, int set_mark );
+uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno );
+char *bit_print( TYPE_OF_WORD *seq_bits );
+void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n );
+void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n );
+char bit_get_packet( TYPE_OF_WORD *seq_bits, int32_t seq_num_diff, int8_t set_mark );
 int  bit_packet_count( TYPE_OF_WORD *seq_bits );
 
 #endif

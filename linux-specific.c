@@ -43,7 +43,7 @@
 #include "batman-specific.h"
 
 
-void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router, int del, char *dev, int sock ) {
+void add_del_route( uint32_t dest, uint16_t netmask, uint32_t router, int8_t del, char *dev, int32_t sock ) {
 
 	struct rtentry route;
 	char str1[16], str2[16];
@@ -107,9 +107,9 @@ void add_del_route( unsigned int dest, unsigned int netmask, unsigned int router
 
 
 /* Probe for tun interface availability */
-int probe_tun()
-{
-	int fd;
+int8_t probe_tun() {
+
+	int32_t fd;
 
 	if ( ( fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
@@ -124,7 +124,7 @@ int probe_tun()
 
 }
 
-int del_dev_tun( int fd ) {
+int8_t del_dev_tun( int32_t fd ) {
 
 	if ( ioctl( fd, TUNSETPERSIST, 0 ) < 0 ) {
 
@@ -140,9 +140,9 @@ int del_dev_tun( int fd ) {
 }
 
 
-int add_dev_tun( struct batman_if *batman_if, unsigned int tun_addr, char *tun_dev, size_t tun_dev_size, int *fd ) {
+int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd ) {
 
-	int tmp_fd;
+	int32_t tmp_fd;
 	struct ifreq ifr_tun, ifr_if;
 	struct sockaddr_in addr;
 

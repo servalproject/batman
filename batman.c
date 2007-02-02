@@ -38,7 +38,7 @@
  * Beware that high debugging levels eat a lot of CPU-Power
  */
 
-short debug_level = 0;
+uint8_t debug_level = 0;
 
 /* "-g" is the command line switch for the gateway class,
  * 0 no gateway
@@ -69,7 +69,7 @@ char *gw2string[] = { "No Gateway",
                       "6 MBit",
                       ">6 MBit" };
 
-short gateway_class = 0;
+uint8_t gateway_class = 0;
 
 /* "-r" is the command line switch for the routing class,
  * 0 set no default route
@@ -79,24 +79,24 @@ short gateway_class = 0;
  * this option is used to set the routing behaviour
  */
 
-short routing_class = 0;
+uint8_t routing_class = 0;
 
 
-unsigned long orginator_interval = 1000;   /* orginator message interval in miliseconds */
+int16_t orginator_interval = 1000;   /* orginator message interval in miliseconds */
 
-unsigned int bidirectional_timeout = 0;   /* bidirectional neighbour reply timeout in ms */
+uint32_t bidirectional_timeout = 0;   /* bidirectional neighbour reply timeout in ms */
 
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
 
-unsigned int pref_gateway = 0;
+uint32_t pref_gateway = 0;
 
 unsigned char *hna_buff = NULL;
 
-short num_hna = 0;
+uint8_t num_hna = 0;
 
-short found_ifs = 0;
-int receive_max_sock = 0;
+uint8_t found_ifs = 0;
+int32_t receive_max_sock = 0;
 fd_set receive_wait_set;
 
 
@@ -111,68 +111,75 @@ struct vis_if vis_if;
 struct unix_if unix_if;
 struct debug_clients debug_clients;
 
-void usage(void)
-{
-	fprintf(stderr, "Usage: batman [options] interface [interface interface]\n" );
-	fprintf(stderr, "       -a announce network(s)\n" );
-	fprintf(stderr, "       -b run connection in batch mode\n" );
-	fprintf(stderr, "       -c connect via unix socket\n" );
-	fprintf(stderr, "       -d debug level\n" );
-	fprintf(stderr, "       -g gateway class\n" );
-	fprintf(stderr, "       -h this help\n" );
-	fprintf(stderr, "       -H verbose help\n" );
-	fprintf(stderr, "       -o orginator interval in ms\n" );
-	fprintf(stderr, "       -p preferred gateway\n" );
-	fprintf(stderr, "       -r routing class\n" );
-	fprintf(stderr, "       -s visualisation server\n" );
-	fprintf(stderr, "       -v print version\n" );
-}
 
-void verbose_usage(void)
-{
-	fprintf(stderr, "Usage: batman [options] interface [interface interface]\n\n" );
-	fprintf(stderr, "       -a announce network(s)\n" );
-	fprintf(stderr, "          network/netmask is expected\n" );
-	fprintf(stderr, "       -b run connection in batch mode\n" );
-	fprintf(stderr, "       -c connect to running batmand via unix socket\n" );
-	fprintf(stderr, "       -d debug level\n" );
-	fprintf(stderr, "          default:         0 -> debug disabled\n" );
-	fprintf(stderr, "          allowed values:  1 -> list neighbours\n" );
-	fprintf(stderr, "                           2 -> list gateways\n" );
-	fprintf(stderr, "                           3 -> observe batman\n" );
-	fprintf(stderr, "                           4 -> observe batman (very verbose)\n\n" );
-	fprintf(stderr, "       -g gateway class\n" );
-	fprintf(stderr, "          default:         0 -> this is not an internet gateway\n" );
-	fprintf(stderr, "          allowed values:  1 -> modem line\n" );
-	fprintf(stderr, "                           2 -> ISDN line\n" );
-	fprintf(stderr, "                           3 -> double ISDN\n" );
-	fprintf(stderr, "                           4 -> 256 KBit\n" );
-	fprintf(stderr, "                           5 -> UMTS / 0.5 MBit\n" );
-	fprintf(stderr, "                           6 -> 1 MBit\n" );
-	fprintf(stderr, "                           7 -> 2 MBit\n" );
-	fprintf(stderr, "                           8 -> 3 MBit\n" );
-	fprintf(stderr, "                           9 -> 5 MBit\n" );
-	fprintf(stderr, "                          10 -> 6 MBit\n" );
-	fprintf(stderr, "                          11 -> >6 MBit\n\n" );
-	fprintf(stderr, "       -h shorter help\n" );
-	fprintf(stderr, "       -H this help\n" );
-	fprintf(stderr, "       -o orginator interval in ms\n" );
-	fprintf(stderr, "          default: 1000, allowed values: >0\n\n" );
-	fprintf(stderr, "       -p preferred gateway\n" );
-	fprintf(stderr, "          default: none, allowed values: IP\n\n" );
-	fprintf(stderr, "       -r routing class (only needed if gateway class = 0)\n" );
-	fprintf(stderr, "          default:         0 -> set no default route\n" );
-	fprintf(stderr, "          allowed values:  1 -> use fast internet connection\n" );
-	fprintf(stderr, "                           2 -> use stable internet connection\n" );
-	fprintf(stderr, "                           3 -> use best statistic internet connection (olsr style)\n\n" );
-	fprintf(stderr, "       -s visualisation server\n" );
-	fprintf(stderr, "          default: none, allowed values: IP\n\n" );
-	fprintf(stderr, "       -v print version\n" );
+
+void usage( void ) {
+
+	fprintf( stderr, "Usage: batman [options] interface [interface interface]\n" );
+	fprintf( stderr, "       -a announce network(s)\n" );
+	fprintf( stderr, "       -b run connection in batch mode\n" );
+	fprintf( stderr, "       -c connect via unix socket\n" );
+	fprintf( stderr, "       -d debug level\n" );
+	fprintf( stderr, "       -g gateway class\n" );
+	fprintf( stderr, "       -h this help\n" );
+	fprintf( stderr, "       -H verbose help\n" );
+	fprintf( stderr, "       -o orginator interval in ms\n" );
+	fprintf( stderr, "       -p preferred gateway\n" );
+	fprintf( stderr, "       -r routing class\n" );
+	fprintf( stderr, "       -s visualisation server\n" );
+	fprintf( stderr, "       -v print version\n" );
 
 }
+
+
+
+void verbose_usage( void ) {
+
+	fprintf( stderr, "Usage: batman [options] interface [interface interface]\n\n" );
+	fprintf( stderr, "       -a announce network(s)\n" );
+	fprintf( stderr, "          network/netmask is expected\n" );
+	fprintf( stderr, "       -b run connection in batch mode\n" );
+	fprintf( stderr, "       -c connect to running batmand via unix socket\n" );
+	fprintf( stderr, "       -d debug level\n" );
+	fprintf( stderr, "          default:         0 -> debug disabled\n" );
+	fprintf( stderr, "          allowed values:  1 -> list neighbours\n" );
+	fprintf( stderr, "                           2 -> list gateways\n" );
+	fprintf( stderr, "                           3 -> observe batman\n" );
+	fprintf( stderr, "                           4 -> observe batman (very verbose)\n\n" );
+	fprintf( stderr, "       -g gateway class\n" );
+	fprintf( stderr, "          default:         0 -> this is not an internet gateway\n" );
+	fprintf( stderr, "          allowed values:  1 -> modem line\n" );
+	fprintf( stderr, "                           2 -> ISDN line\n" );
+	fprintf( stderr, "                           3 -> double ISDN\n" );
+	fprintf( stderr, "                           4 -> 256 KBit\n" );
+	fprintf( stderr, "                           5 -> UMTS / 0.5 MBit\n" );
+	fprintf( stderr, "                           6 -> 1 MBit\n" );
+	fprintf( stderr, "                           7 -> 2 MBit\n" );
+	fprintf( stderr, "                           8 -> 3 MBit\n" );
+	fprintf( stderr, "                           9 -> 5 MBit\n" );
+	fprintf( stderr, "                          10 -> 6 MBit\n" );
+	fprintf( stderr, "                          11 -> >6 MBit\n\n" );
+	fprintf( stderr, "       -h shorter help\n" );
+	fprintf( stderr, "       -H this help\n" );
+	fprintf( stderr, "       -o orginator interval in ms\n" );
+	fprintf( stderr, "          default: 1000, allowed values: >0\n\n" );
+	fprintf( stderr, "       -p preferred gateway\n" );
+	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
+	fprintf( stderr, "       -r routing class (only needed if gateway class = 0)\n" );
+	fprintf( stderr, "          default:         0 -> set no default route\n" );
+	fprintf( stderr, "          allowed values:  1 -> use fast internet connection\n" );
+	fprintf( stderr, "                           2 -> use stable internet connection\n" );
+	fprintf( stderr, "                           3 -> use best statistic internet connection (olsr style)\n\n" );
+	fprintf( stderr, "       -s visualisation server\n" );
+	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
+	fprintf( stderr, "       -v print version\n" );
+
+}
+
+
 
 /* this function finds or creates an originator entry for the given address if it does not exits */
-struct orig_node *get_orig_node( unsigned int addr ) {
+struct orig_node *get_orig_node( uint32_t addr ) {
 
 	struct list_head *pos;
 	struct orig_node *orig_node;
@@ -206,16 +213,17 @@ struct orig_node *get_orig_node( unsigned int addr ) {
 }
 
 
-void add_del_hna( struct orig_node *orig_node, int del ) {
 
-	int hna_buff_count = 0;
-	unsigned int hna, netmask;
+void add_del_hna( struct orig_node *orig_node, int8_t del ) {
+
+	uint16_t hna_buff_count = 0;
+	uint32_t hna, netmask;
 
 
 	while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
 
-		memcpy( &hna, ( unsigned int *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
-		netmask = ( unsigned int )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+		memcpy( &hna, ( uint32_t *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
+		netmask = ( uint32_t )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
 
 		if ( ( netmask > 0 ) && ( netmask < 33 ) )
 			add_del_route( hna, netmask, orig_node->router->addr, del, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
@@ -239,7 +247,7 @@ static void choose_gw() {
 
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
-	int max_gw_class = 0, max_packets = 0, max_gw_factor = 0;
+	uint8_t max_gw_class = 0, max_packets = 0, max_gw_factor = 0;
 	static char orig_str[ADDR_STR_LEN];
 
 
@@ -343,7 +351,7 @@ static void choose_gw() {
 
 
 
-static void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int hna_buff_len ) {
+static void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
 	static char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
 
@@ -431,13 +439,15 @@ static void update_routes( struct orig_node *orig_node, struct neigh_node *neigh
 
 }
 
-static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwflags ) {
+
+
+static void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct gw_node *gw_node;
 	static char orig_str[ADDR_STR_LEN];
 
-	list_for_each_safe(gw_pos, gw_pos_tmp, &gw_list) {
+	list_for_each_safe( gw_pos, gw_pos_tmp, &gw_list ) {
 
 		gw_node = list_entry(gw_pos, struct gw_node, list);
 
@@ -469,15 +479,15 @@ static void update_gw_list( struct orig_node *orig_node, unsigned char new_gwfla
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	debug_output( 3, "Found new gateway %s -> class: %i - %s\n", orig_str, new_gwflags, gw2string[new_gwflags] );
 
-	gw_node = debugMalloc(sizeof(struct gw_node), 5);
-	memset(gw_node, 0, sizeof(struct gw_node));
-	INIT_LIST_HEAD(&gw_node->list);
+	gw_node = debugMalloc( sizeof(struct gw_node), 5 );
+	memset( gw_node, 0, sizeof(struct gw_node) );
+	INIT_LIST_HEAD( &gw_node->list );
 
 	gw_node->orig_node = orig_node;
 	gw_node->unavail_factor = 0;
 	gw_node->last_failure = get_time();
 
-	list_add_tail(&gw_node->list, &gw_list);
+	list_add_tail( &gw_node->list, &gw_list );
 
 	choose_gw();
 
@@ -492,7 +502,7 @@ void debug() {
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node;
 	struct gw_node *gw_node;
-	unsigned int batman_count = 0;
+	uint16_t batman_count = 0;
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN];
 
 
@@ -500,7 +510,7 @@ void debug() {
 
 		debug_output( 2, "BOD\n" );
 
-		if ( list_empty(&gw_list) ) {
+		if ( list_empty( &gw_list ) ) {
 
 			debug_output( 2, "No gateways in range ...\n" );
 
@@ -543,8 +553,8 @@ void debug() {
 
 		}
 
-		list_for_each(orig_pos, &orig_list) {
-			orig_node = list_entry(orig_pos, struct orig_node, list);
+		list_for_each( orig_pos, &orig_list ) {
+			orig_node = list_entry( orig_pos, struct orig_node, list );
 
 			if ( orig_node->router == NULL )
 				continue;
@@ -557,10 +567,10 @@ void debug() {
 			debug_output( 1, "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
 			debug_output( 4, "%s, GW: %s(%i), last_aware:%u via:\n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
 
-			list_for_each(neigh_pos, &orig_node->neigh_list) {
-				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
+			list_for_each( neigh_pos, &orig_node->neigh_list ) {
+				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
-				addr_to_string(neigh_node->addr, str, sizeof (str));
+				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
 				debug_output( 1, " %s(%i)", str, neigh_node->packet_count );
 				debug_output( 4, "\t\t%s (%d)\n", str, neigh_node->packet_count );
@@ -586,19 +596,19 @@ void debug() {
 
 
 
-int isDuplicate( unsigned int orig, unsigned short seqno ) {
+int isDuplicate( uint32_t orig, uint16_t seqno ) {
 
 	struct list_head *orig_pos, *neigh_pos;
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node;
 
-	list_for_each(orig_pos, &orig_list) {
-		orig_node = list_entry(orig_pos, struct orig_node, list);
+	list_for_each( orig_pos, &orig_list ) {
+		orig_node = list_entry( orig_pos, struct orig_node, list );
 
 		if ( orig == orig_node->orig ) {
 
-			list_for_each(neigh_pos, &orig_node->neigh_list) {
-				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
+			list_for_each( neigh_pos, &orig_node->neigh_list ) {
+				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 				if ( get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, seqno ) )
 					return 1;
@@ -619,7 +629,7 @@ int isDuplicate( unsigned int orig, unsigned short seqno ) {
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 
-	if( orig_neigh_node->bidirect_link[if_incoming->if_num] > 0 && (orig_neigh_node->bidirect_link[if_incoming->if_num] + (bidirectional_timeout)) >= get_time() )
+	if( orig_neigh_node->bidirect_link[if_incoming->if_num] > 0 && ( orig_neigh_node->bidirect_link[if_incoming->if_num] + (bidirectional_timeout) ) >= get_time() )
 		return 1;
 	else
 		return 0;
@@ -628,12 +638,11 @@ int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *i
 
 
 
-void update_originator( struct orig_node *orig_node, struct packet *in, unsigned int neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int hna_buff_len ) {
+void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
 	struct list_head *neigh_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
-	int max_packet_count = 0;
-	char is_new_seqno = 0;
+	uint8_t max_packet_count = 0, is_new_seqno = 0;
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -641,7 +650,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
-		tmp_neigh_node = list_entry(neigh_pos, struct neigh_node, list);
+		tmp_neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
 
@@ -669,12 +678,12 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 		neigh_node = debugMalloc( sizeof (struct neigh_node), 6 );
 		memset( neigh_node, 0, sizeof(struct neigh_node) );
-		INIT_LIST_HEAD(&neigh_node->list);
+		INIT_LIST_HEAD( &neigh_node->list );
 
 		neigh_node->addr = neigh;
 		neigh_node->if_incoming = if_incoming;
 
-		list_add_tail(&neigh_node->list, &orig_node->neigh_list);
+		list_add_tail( &neigh_node->list, &orig_node->neigh_list );
 
 	} else {
 
@@ -696,10 +705,13 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 	neigh_node->last_aware = get_time();
 
-	if( is_new_seqno ) {
+	if ( is_new_seqno ) {
+
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno  );
+
 		orig_node->last_seqno = in->seqno;
 		neigh_node->last_ttl = in->ttl;
+
 	}
 
 	/* update routing table and check for changed hna announcements */
@@ -712,7 +724,9 @@ void update_originator( struct orig_node *orig_node, struct packet *in, unsigned
 
 }
 
-void schedule_forward_packet( struct packet *in, int unidirectional, int directlink, unsigned char *hna_recv_buff, int hna_buff_len, struct batman_if *if_outgoing ) {
+
+
+void schedule_forward_packet( struct packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing ) {
 
 	struct forw_node *forw_node_new;
 
@@ -776,13 +790,15 @@ void schedule_forward_packet( struct packet *in, int unidirectional, int directl
 
 }
 
+
+
 void send_outstanding_packets() {
 
 	struct forw_node *forw_node;
 	struct list_head *forw_pos, *if_pos, *temp;
 	struct batman_if *batman_if;
 	static char orig_str[ADDR_STR_LEN];
-	int directlink;
+	uint8_t directlink;
 
 	if ( list_empty( &forw_list ) )
 		return;
@@ -880,12 +896,14 @@ void send_outstanding_packets() {
 
 }
 
+
+
 void schedule_own_packet() {
 
 	struct forw_node *forw_node_new;
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
-	int curr_time;
+	uint32_t curr_time;
 
 
 	curr_time = get_time();
@@ -933,21 +951,22 @@ void schedule_own_packet() {
 
 
 
-void purge( unsigned int curr_time ) {
+void purge( uint32_t curr_time ) {
 
 	struct list_head *orig_pos, *neigh_pos, *orig_temp, *neigh_temp;
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node;
 	struct gw_node *gw_node;
-	short gw_purged = 0;
+	uint8_t gw_purged = 0;
 	static char orig_str[ADDR_STR_LEN];
 
 	debug_output( 4, "purge() \n" );
 
 	/* for all origins... */
-	list_for_each_safe(orig_pos, orig_temp, &orig_list) {
-		orig_node = list_entry(orig_pos, struct orig_node, list);
+	list_for_each_safe( orig_pos, orig_temp, &orig_list ) {
+
+		orig_node = list_entry( orig_pos, struct orig_node, list );
 
 		if ( (int)( ( orig_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
 
@@ -994,7 +1013,8 @@ void purge( unsigned int curr_time ) {
 
 			/* for all neighbours towards this orginator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
-				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
+
+				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 				if ( (int)( ( neigh_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
 
@@ -1013,6 +1033,8 @@ void purge( unsigned int curr_time ) {
 		choose_gw();
 
 }
+
+
 
 void send_vis_packet()
 {
@@ -1043,21 +1065,22 @@ void send_vis_packet()
 	}
 }
 
-int batman()
-{
+int8_t batman() {
+
 	struct list_head *if_pos, *neigh_pos, *hna_pos, *hna_pos_tmp, *forw_pos, *forw_pos_tmp;
 	struct orig_node *orig_neigh_node, *orig_node;
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
 	struct forw_node *forw_node;
-	unsigned int neigh, hna, netmask, debug_timeout, select_timeout;
+	uint32_t neigh, hna, netmask, debug_timeout, select_timeout;
 	unsigned char in[1501], *hna_recv_buff;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
-	short forward_old, res, hna_buff_count;
-	short if_rp_filter_all_old, if_rp_filter_default_old;
-	short is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
-	int time_count = 0, curr_time, hna_buff_len;
+	int16_t hna_buff_count, hna_buff_len;
+	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old;
+	uint8_t is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
+	int8_t res;
+	uint32_t time_count = 0, curr_time;
 
 	last_own_packet = debug_timeout = get_time();
 	bidirectional_timeout = orginator_interval * 3;
@@ -1117,7 +1140,7 @@ int batman()
 		curr_time = get_time();
 		select_timeout = ( curr_time >= last_own_packet + orginator_interval - 10 ? orginator_interval : last_own_packet + orginator_interval - curr_time );
 
-		res = receive_packet( ( unsigned char *)&in, 1501, &hna_buff_len, &neigh, select_timeout, &if_incoming );
+		res = receive_packet( ( unsigned char *)&in, sizeof(in), &hna_buff_len, &neigh, select_timeout, &if_incoming );
 
 		if ( res < 0 )
 			return -1;
@@ -1133,7 +1156,7 @@ int batman()
 			hna_buff_len -= sizeof(struct packet);
 			hna_recv_buff = ( hna_buff_len > 4 ? in + sizeof(struct packet) : NULL );
 
-			list_for_each(if_pos, &if_list) {
+			list_for_each( if_pos, &if_list ) {
 
 				batman_if = list_entry(if_pos, struct batman_if, list);
 
@@ -1181,8 +1204,8 @@ int batman()
 
 				while ( ( hna_buff_count + 1 ) * 5 <= hna_buff_len ) {
 
-					memmove( &hna, ( unsigned int *)&hna_recv_buff[ hna_buff_count * 5 ], 4 );
-					netmask = ( unsigned int )hna_recv_buff[ ( hna_buff_count * 5 ) + 4 ];
+					memmove( &hna, ( uint32_t *)&hna_recv_buff[ hna_buff_count * 5 ], 4 );
+					netmask = ( uint32_t )hna_recv_buff[ ( hna_buff_count * 5 ) + 4 ];
 
 					addr_to_string( hna, orig_str, sizeof (orig_str) );
 
@@ -1279,7 +1302,7 @@ int batman()
 
 						} else if ( ( orig_node->router != NULL ) && ( orig_node->router->addr == neigh ) ) {
 
-							list_for_each(neigh_pos, &orig_node->neigh_list) {
+							list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
 								neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
