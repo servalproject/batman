@@ -38,7 +38,7 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 
 int8_t send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
 int32_t rand_num( int32_t limit );
-int8_t bind_to_iface( int32_t udp_recv_sock, char *dev );
+int8_t bind_to_iface( int32_t sock, char *dev );
 int8_t probe_tun();
 int8_t del_dev_tun( int32_t fd );
 int8_t add_dev_tun( struct batman_if *batman_if, uint32_t dest_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd );

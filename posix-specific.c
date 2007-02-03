@@ -1353,8 +1353,6 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 
 int8_t send_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock ) {
 
-	((struct packet *)packet_buff)->seqno = htons( ((struct packet *)packet_buff)->seqno ); /* change sequence number to network order */
-
 	if ( sendto( send_sock, packet_buff, packet_buff_len, 0, (struct sockaddr *)broad, sizeof(struct sockaddr_in) ) < 0 ) {
 
 		if ( errno == 1 ) {

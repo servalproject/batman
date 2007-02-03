@@ -112,7 +112,7 @@ int32_t get_forwarding(void)
 	return state;
 }
 
-int8_t bind_to_iface( int32_t udp_recv_sock, char *dev ) {
+int8_t bind_to_iface( int32_t sock, char *dev ) {
 
 	char *colon_ptr;
 
@@ -120,7 +120,7 @@ int8_t bind_to_iface( int32_t udp_recv_sock, char *dev ) {
 	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
 		*colon_ptr = '\0';
 
-	if ( setsockopt( udp_recv_sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 ) {
+	if ( setsockopt( sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 ) {
 
 		debug_output( 0, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
 		return -1;
