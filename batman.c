@@ -404,7 +404,8 @@ static void update_routes( struct orig_node *orig_node, struct neigh_node *neigh
 				orig_node->hna_buff = debugMalloc( hna_buff_len, 3 );
 				orig_node->hna_buff_len = hna_buff_len;
 
-				memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
+				if ( memcmp( orig_node->hna_buff, hna_recv_buff, hna_buff_len ) != 0 )
+					memmove( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
 
 				add_del_hna( orig_node, 0 );
 
@@ -417,7 +418,7 @@ static void update_routes( struct orig_node *orig_node, struct neigh_node *neigh
 	} else if ( orig_node != NULL ) {
 
 		/* may be just HNA changed */
-		if ( ( hna_buff_len != orig_node->hna_buff_len ) || ( ( hna_buff_len > 0 ) && ( orig_node->hna_buff_len > 0 ) && ( memcmp(orig_node->hna_buff, hna_recv_buff, hna_buff_len ) != 0 ) ) ) {
+		if ( ( hna_buff_len != orig_node->hna_buff_len ) || ( ( hna_buff_len > 0 ) && ( orig_node->hna_buff_len > 0 ) && ( memcmp( orig_node->hna_buff, hna_recv_buff, hna_buff_len ) != 0 ) ) ) {
 
 			if ( orig_node->hna_buff_len > 0 )
 				add_del_hna( orig_node, 1 );
@@ -1221,6 +1222,10 @@ int8_t batman() {
 				}
 
 			}
+
+
+			/*if ( ( ! is_my_addr ) && ( ! is_my_orig ) )
+				debug_output( 3, "IP: %s send packet with sequence number: %i from %s\n", neigh_str, ((struct packet *)&in)->seqno, orig_str );*/
 
 
 			if ( ((struct packet *)&in)->version != COMPAT_VERSION ) {
