@@ -1359,9 +1359,6 @@ int8_t batman() {
 
 		send_outstanding_packets();
 
-		if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
-			choose_gw();
-
 		purge( get_time() );
 
 		if ( debug_timeout + 1000 < get_time() ) {
@@ -1371,6 +1368,9 @@ int8_t batman() {
 			debug();
 
 			checkIntegrity();
+
+			if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
+				choose_gw();
 
 		}
 
