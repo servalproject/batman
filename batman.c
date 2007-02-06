@@ -404,8 +404,7 @@ static void update_routes( struct orig_node *orig_node, struct neigh_node *neigh
 				orig_node->hna_buff = debugMalloc( hna_buff_len, 3 );
 				orig_node->hna_buff_len = hna_buff_len;
 
-				if ( ( orig_node->hna_buff_len == 0 ) || ( memcmp( orig_node->hna_buff, hna_recv_buff, hna_buff_len ) != 0 ) )
-					memmove( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
+				memmove( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
 
 				add_del_hna( orig_node, 0 );
 
