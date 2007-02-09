@@ -279,6 +279,9 @@ static void choose_gw() {
 		if ( gw_node->orig_node->router == NULL )
 			continue;
 
+		if ( gw_node->deleted )
+			continue;
+
 		switch ( routing_class ) {
 
 			case 1:   /* fast connection */
@@ -457,13 +460,13 @@ static void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 
 			if ( new_gwflags == 0 ) {
 
-				list_del( gw_pos );
-				debugFree( gw_pos, 102 );
+				gw_node->deleted = get_time();
 
 				debug_output( 3, "Gateway %s removed from gateway list\n", orig_str );
 
 			} else {
 
+				gw_node->deleted = 0;
 				gw_node->orig_node->gwflags = new_gwflags;
 
 			}
@@ -515,8 +518,12 @@ void debug() {
 
 		} else {
 
-			list_for_each(orig_pos, &gw_list) {
-				gw_node = list_entry(orig_pos, struct gw_node, list);
+			list_for_each( orig_pos, &gw_list ) {
+
+				gw_node = list_entry( orig_pos, struct gw_node, list );
+
+				if ( gw_node->deleted )
+					continue;
 
 				addr_to_string( gw_node->orig_node->orig, str, sizeof (str) );
 				addr_to_string( gw_node->orig_node->router->addr, str2, sizeof (str2) );
@@ -528,6 +535,9 @@ void debug() {
 				}
 
 			}
+
+			if ( batman_count == 0 )
+				debug_output( 2, "No gateways in range ...\n" );
 
 		}
 
@@ -986,17 +996,19 @@ void purge( uint32_t curr_time ) {
 
 			}
 
-			list_for_each_safe(gw_pos, gw_pos_tmp, &gw_list) {
+			list_for_each_safe( gw_pos, gw_pos_tmp, &gw_list ) {
 
-				gw_node = list_entry(gw_pos, struct gw_node, list);
+				gw_node = list_entry( gw_pos, struct gw_node, list );
+
+				if ( gw_node->deleted )
+					continue;
 
 				if ( gw_node->orig_node == orig_node ) {
 
 					addr_to_string( gw_node->orig_node->orig, orig_str, ADDR_STR_LEN );
 					debug_output( 3, "Removing gateway %s from gateway list\n", orig_str );
 
-					list_del( gw_pos );
-					debugFree( gw_pos, 107 );
+					gw_node->deleted = get_time();
 
 					gw_purged = 1;
 
@@ -1028,6 +1040,19 @@ void purge( uint32_t curr_time ) {
 				}
 
 			}
+
+		}
+
+	}
+
+	list_for_each_safe(gw_pos, gw_pos_tmp, &gw_list) {
+
+		gw_node = list_entry(gw_pos, struct gw_node, list);
+
+		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + 3 * TIMEOUT) < curr_time) ) ) {
+
+			list_del( gw_pos );
+			debugFree( gw_pos, 107 );
 
 		}
 
@@ -1382,7 +1407,7 @@ int8_t batman() {
 	if ( debug_level > 0 )
 		printf( "Deleting all BATMAN routes\n" );
 
-	purge( get_time() + ( 2 * TIMEOUT ) + orginator_interval );
+	purge( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
 
 
 	list_for_each_safe( hna_pos, hna_pos_tmp, &hna_list ) {

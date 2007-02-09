@@ -142,6 +142,7 @@ struct gw_node
 	struct orig_node *orig_node;
 	uint16_t unavail_factor;
 	uint32_t last_failure;
+	uint32_t deleted;
 };
 
 struct batman_if
@@ -197,6 +198,12 @@ struct debug_clients {
 struct debug_level_info {
 	struct list_head list;
 	int32_t fd;
+};
+
+struct curr_gw_data {
+	unsigned int orig;
+	struct gw_node *gw_node;
+	struct batman_if *batman_if;
 };
 
 
