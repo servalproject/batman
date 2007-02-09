@@ -44,7 +44,7 @@
  * Here is the stuff you may want to play with:
  */
 
-#define JITTER 50
+#define JITTER 100
 #define TTL 50             /* Time To Live of broadcast messages */
 #define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
 #define SEQ_RANGE 60       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
@@ -129,7 +129,7 @@ struct hna_node
 struct forw_node                 /* structure for forw_list maintaining packets to be send/forwarded */
 {
 	struct list_head list;
-	uint32_t when;
+	uint32_t send_time;
 	uint8_t  own;
 	unsigned char *pack_buff;
 	int32_t  pack_buff_len;

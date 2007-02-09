@@ -1,7 +1,7 @@
 #ifndef _LINUX_LIST_H
 #define _LINUX_LIST_H
 
-/* 
+/*
  * XXX: Resolve conflict between this file and <sys/queue.h> on BSD systems.
  */
 #ifdef LIST_HEAD
@@ -32,7 +32,7 @@ struct list_head {
 } while (0)
 
 /*
- * Insert a new entry between two known consecutive entries. 
+ * Insert a new entry between two known consecutive entries.
  *
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
@@ -98,6 +98,20 @@ static inline void list_del(struct list_head *entry)
 	entry->prev = (void *) 0;
 }
 
+static inline void list_add_before( struct list_head *list, struct list_head *pos_node, struct list_head *new_node ) {
+
+	if ( pos_node->prev != NULL )
+		pos_node->prev->next = new_node;
+	else
+		list->next = new_node;
+
+	new_node->prev = pos_node->prev;
+	new_node->next = pos_node;
+
+	pos_node->prev = new_node;
+
+}
+
 /**
  * list_del_init - deletes entry from list and reinitialize it.
  * @entry: the element to delete from the list.
@@ -105,7 +119,7 @@ static inline void list_del(struct list_head *entry)
 static inline void list_del_init(struct list_head *entry)
 {
 	__list_del(entry->prev, entry->next);
-	INIT_LIST_HEAD(entry); 
+	INIT_LIST_HEAD(entry);
 }
 
 /**
@@ -206,7 +220,7 @@ static inline void list_splice_init(struct list_head *list,
 #define list_for_each_prev(pos, head) \
 	for (pos = (head)->prev; pos != (head); \
         	pos = pos->prev)
-        	
+
 /**
  * list_for_each_safe	-	iterate over a list safe against removal of list entry
  * @pos:	the &struct list_head to use as a loop counter.

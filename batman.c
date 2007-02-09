@@ -105,7 +105,6 @@ static LIST_HEAD(forw_list);
 static LIST_HEAD(gw_list);
 LIST_HEAD(if_list);
 LIST_HEAD(hna_list);
-static unsigned int last_own_packet;
 
 struct vis_if vis_if;
 struct unix_if unix_if;
@@ -546,7 +545,7 @@ void debug() {
 			list_for_each( forw_pos, &forw_list ) {
 				forw_node = list_entry( forw_pos, struct forw_node, list );
 				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, str, sizeof (str) );
-				debug_output( 4, "    %s at %u\n", str, forw_node->when );
+				debug_output( 4, "    %s at %u\n", str, forw_node->send_time );
 			}
 
 			debug_output( 4, "Originator list\n" );
@@ -726,6 +725,57 @@ void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t
 
 
 
+void schedule_own_packet( struct batman_if *batman_if ) {
+
+	struct forw_node *forw_node_new, *forw_packet_tmp = NULL;
+	struct list_head *list_pos;
+
+
+	forw_node_new = debugMalloc( sizeof(struct forw_node), 11 );
+
+	INIT_LIST_HEAD( &forw_node_new->list );
+
+	forw_node_new->send_time = get_time() + orginator_interval - JITTER + rand_num( 2 * JITTER );
+	forw_node_new->if_outgoing = batman_if;
+	forw_node_new->own = 1;
+
+	if ( num_hna > 0 ) {
+
+		forw_node_new->pack_buff = debugMalloc( sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char), 12 );
+		memcpy( forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct packet) );
+		memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_buff, num_hna * 5 * sizeof(unsigned char) );
+		forw_node_new->pack_buff_len = sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char);
+
+	} else {
+
+		forw_node_new->pack_buff = debugMalloc( sizeof(struct packet), 13 );
+		memcpy( forw_node_new->pack_buff, &batman_if->out, sizeof(struct packet) );
+		forw_node_new->pack_buff_len = sizeof(struct packet);
+
+	}
+
+	list_for_each( list_pos, &forw_list ) {
+
+		forw_packet_tmp = list_entry( list_pos, struct forw_node, list );
+
+		if ( forw_packet_tmp->send_time > forw_node_new->send_time ) {
+
+			list_add_before( &forw_list, list_pos, &forw_node_new->list );
+			break;
+
+		}
+
+	}
+
+	if ( ( forw_packet_tmp == NULL ) || ( forw_packet_tmp->send_time <= forw_node_new->send_time ) )
+		list_add_tail( &forw_node_new->list, &forw_list );
+
+	batman_if->out.seqno++;
+
+}
+
+
+
 void schedule_forward_packet( struct packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing ) {
 
 	struct forw_node *forw_node_new;
@@ -759,16 +809,10 @@ void schedule_forward_packet( struct packet *in, uint8_t unidirectional, uint8_t
 
 
 		((struct packet *)forw_node_new->pack_buff)->ttl--;
-		forw_node_new->when = get_time();
+		forw_node_new->send_time = get_time();
 		forw_node_new->own = 0;
 
 		forw_node_new->if_outgoing = if_outgoing;
-
-		/* list_for_each(forw_pos, &forw_list) {
-			forw_node = list_entry(forw_pos, struct forw_node, list);
-			if ((int)(forw_node->when - forw_node_new->when) > 0)
-				break;
-		} */
 
 		if ( unidirectional ) {
 
@@ -799,25 +843,31 @@ void send_outstanding_packets() {
 	struct batman_if *batman_if;
 	static char orig_str[ADDR_STR_LEN];
 	uint8_t directlink;
+	uint32_t curr_time;
+
 
 	if ( list_empty( &forw_list ) )
 		return;
 
+	curr_time = get_time();
+
 	list_for_each_safe( forw_pos, temp, &forw_list ) {
 		forw_node = list_entry( forw_pos, struct forw_node, list );
 
-		if ( forw_node->when <= get_time() ) {
+		if ( forw_node->send_time <= curr_time ) {
 
 			addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, orig_str, ADDR_STR_LEN );
 
 			directlink = ( ( ((struct packet *)forw_node->pack_buff)->flags & DIRECTLINK ) ? 1 : 0 );
+
+			((struct packet *)forw_node->pack_buff)->seqno = htons( ((struct packet *)forw_node->pack_buff)->seqno ); /* change sequence number to network order */
 
 
 			if ( ((struct packet *)forw_node->pack_buff)->flags & UNIDIRECTIONAL ) {
 
 				if ( forw_node->if_outgoing != NULL ) {
 
-					debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev );
+					debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct packet *)forw_node->pack_buff)->seqno ), ((struct packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev );
 
 					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
 						exit( -1 );
@@ -862,9 +912,7 @@ void send_outstanding_packets() {
 							((struct packet *)forw_node->pack_buff)->flags = 0x00;
 						}
 
-						debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ((struct packet *)forw_node->pack_buff)->seqno, ((struct packet *)forw_node->pack_buff)->ttl, batman_if->dev );
-
-						((struct packet *)forw_node->pack_buff)->seqno = htons( ((struct packet *)forw_node->pack_buff)->seqno ); /* change sequence number to network order */
+						debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct packet *)forw_node->pack_buff)->seqno ), ((struct packet *)forw_node->pack_buff)->ttl, batman_if->dev );
 
 						/* non-primary interfaces do not send hna information */
 						if ( ( forw_node->own ) && ( ((struct packet *)forw_node->pack_buff)->orig != ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr ) ) {
@@ -889,63 +937,17 @@ void send_outstanding_packets() {
 
 			list_del( forw_pos );
 
+			if ( forw_node->own )
+				schedule_own_packet( forw_node->if_outgoing );
+
 			debugFree( forw_node->pack_buff, 103 );
 			debugFree( forw_node, 104 );
 
-		}
+		} else {
 
-	}
-
-}
-
-
-
-void schedule_own_packet() {
-
-	struct forw_node *forw_node_new;
-	struct list_head *if_pos;
-	struct batman_if *batman_if;
-	uint32_t curr_time;
-
-
-	curr_time = get_time();
-
-	if ( ( last_own_packet + orginator_interval ) <= curr_time ) {
-
-		list_for_each(if_pos, &if_list) {
-
-			batman_if = list_entry(if_pos, struct batman_if, list);
-
-			forw_node_new = debugMalloc( sizeof(struct forw_node), 11 );
-
-			INIT_LIST_HEAD(&forw_node_new->list);
-
-			forw_node_new->when = curr_time + rand_num( JITTER );
-			forw_node_new->if_outgoing = NULL;
-			forw_node_new->own = 1;
-
-			if ( num_hna > 0 ) {
-
-				forw_node_new->pack_buff = debugMalloc( sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char), 12 );
-				memcpy( forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct packet) );
-				memcpy( forw_node_new->pack_buff + sizeof(struct packet), hna_buff, num_hna * 5 * sizeof(unsigned char) );
-				forw_node_new->pack_buff_len = sizeof(struct packet) + num_hna * 5 * sizeof(unsigned char);
-
-			} else {
-
-				forw_node_new->pack_buff = debugMalloc( sizeof(struct packet), 13 );
-				memcpy( forw_node_new->pack_buff, &batman_if->out, sizeof(struct packet) );
-				forw_node_new->pack_buff_len = sizeof(struct packet);
-
-			}
-
-			list_add( &forw_node_new->list, &forw_list );
-
-			batman_if->out.seqno++;
+			break;
 
 		}
-
-		last_own_packet = curr_time;
 
 	}
 
@@ -1084,7 +1086,7 @@ int8_t batman() {
 	int8_t res;
 	uint32_t time_count = 0, curr_time;
 
-	last_own_packet = debug_timeout = get_time();
+	debug_timeout = get_time();
 	bidirectional_timeout = orginator_interval * 3;
 
 	if ( !( list_empty( &hna_list ) ) ) {
@@ -1106,16 +1108,18 @@ int8_t batman() {
 
 	list_for_each( if_pos, &if_list ) {
 
-		batman_if = list_entry(if_pos, struct batman_if, list);
+		batman_if = list_entry( if_pos, struct batman_if, list );
 
 		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
 		batman_if->out.flags = 0x00;
 		batman_if->out.ttl = ( batman_if->if_num == 0 ? TTL : 2 );
-		batman_if->out.seqno = 0;
+		batman_if->out.seqno = 1;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = COMPAT_VERSION;
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
 		set_rp_filter( 0 , batman_if->dev );
+
+		schedule_own_packet( batman_if );
 
 	}
 
@@ -1140,7 +1144,7 @@ int8_t batman() {
 
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time();
-		select_timeout = ( curr_time >= last_own_packet + orginator_interval - 10 ? orginator_interval : last_own_packet + orginator_interval - curr_time );
+		select_timeout = ( curr_time < ((struct forw_node *)forw_list.next)->send_time ? ((struct forw_node *)forw_list.next)->send_time - curr_time : 10 );
 
 		res = receive_packet( ( unsigned char *)&in, sizeof(in), &hna_buff_len, &neigh, select_timeout, &if_incoming );
 
@@ -1353,8 +1357,6 @@ int8_t batman() {
 			}
 
 		}
-
-		schedule_own_packet();
 
 		send_outstanding_packets();
 

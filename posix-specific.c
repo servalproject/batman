@@ -1335,7 +1335,6 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 
 			((struct packet *)packet_buff)->seqno = ntohs( ((struct packet *)packet_buff)->seqno ); /* network to host order for our 16bit seqno.*/
 
-
 			(*if_incoming) = batman_if;
 			break;
 
