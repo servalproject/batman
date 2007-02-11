@@ -336,7 +336,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	uint32_t vis_server = 0;
 // 	fd_set wait_sockets, tmp_wait_sockets;
 
-	memset(&tmp_ip_holder, 0, sizeof (struct in_addr));
+	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
 
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
@@ -1003,8 +1003,8 @@ void *client_to_gw_tun( void *arg ) {
 	struct curr_gw_data *curr_gw_data = (struct curr_gw_data *)arg;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
-	int res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd, server_keep_alive_timeout;
-	unsigned int addr_len;
+	int32_t res, max_sock, status, buff_len, curr_gateway_tcp_sock, curr_gateway_tun_sock, curr_gateway_tun_fd, server_keep_alive_timeout;
+	uint32_t addr_len;
 	char curr_gateway_tun_if[IFNAMSIZ], keep_alive_string[] = "ping\0";
 	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -1239,6 +1239,7 @@ int8_t add_default_route() {
 	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gw_data ) != 0 ) {
 
 		debug_output( 0, "Error - couldn't spawn thread: %s\n", strerror(errno) );
+		debugFree( curr_gw_data, 247 );
 		curr_gateway = NULL;
 
 	}
@@ -1396,8 +1397,8 @@ void *gw_listen( void *arg ) {
 	struct in_addr tmp_ip_holder;
 	socklen_t sin_size = sizeof(struct sockaddr_in);
 	char gw_addr[16], str2[16], tun_dev[IFNAMSIZ], tun_ip[] = "104.255.255.254\0";
-	int res, status, max_sock_min, max_sock, buff_len, tun_fd;
-	unsigned int addr_len, client_timeout;
+	int32_t res, status, max_sock_min, max_sock, buff_len, tun_fd;
+	uint32_t addr_len, client_timeout;
 	unsigned char buff[1500];
 	fd_set wait_sockets, tmp_wait_sockets;
 

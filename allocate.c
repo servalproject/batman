@@ -26,6 +26,7 @@
 #include "allocate.h"
 
 #define DEBUG_MALLOC
+/*#define MEMORY_USAGE*/
 
 #define MAGIC_NUMBER 0x12345678
 
@@ -36,21 +37,122 @@ struct chunkHeader *chunkList = NULL;
 struct chunkHeader
 {
 	struct chunkHeader *next;
-	unsigned int length;
-	int tag;
-	unsigned int magicNumber;
+	uint32_t length;
+	int32_t tag;
+	uint32_t magicNumber;
 };
 
 struct chunkTrailer
 {
-	unsigned int magicNumber;
+	uint32_t magicNumber;
 };
+
+
+
+#if defined MEMORY_USAGE
+
+struct memoryUsage *memoryList = NULL;
+
+
+struct memoryUsage
+{
+	struct memoryUsage *next;
+	uint32_t length;
+	uint32_t counter;
+	int32_t tag;
+};
+
+
+void addMemory( uint32_t length, int32_t tag ) {
+
+	struct memoryUsage *walker;
+
+
+	for ( walker = memoryList; walker != NULL; walker = walker->next ) {
+
+		if ( walker->tag == tag ) {
+
+			walker->counter++;
+			break;
+
+		}
+
+	}
+
+	if ( walker == NULL ) {
+
+		walker = malloc( sizeof(struct memoryUsage) );
+
+		walker->length = length;
+		walker->tag = tag;
+		walker->counter = 1;
+
+		walker->next = memoryList;
+		memoryList = walker;
+
+	}
+
+}
+
+
+void removeMemory( int32_t tag, int32_t freetag ) {
+
+	struct memoryUsage *walker;
+
+
+	for ( walker = memoryList; walker != NULL; walker = walker->next ) {
+
+		if ( walker->tag == tag ) {
+
+			if ( walker->counter == 0 ) {
+
+				fprintf( stderr, "Freeing more memory than was allocated: malloc tag = %d, free tag = %d\n", tag, freetag );
+				exit(1);
+
+			}
+
+			walker->counter--;
+			break;
+
+		}
+
+	}
+
+	if ( walker == NULL ) {
+
+		fprintf( stderr, "Freeing memory that was never allocated: malloc tag = %d, free tag = %d\n", tag, freetag );
+		exit(1);
+
+	}
+
+}
+
+#endif
+
+
 
 void checkIntegrity(void)
 {
 	struct chunkHeader *walker;
 	struct chunkTrailer *chunkTrailer;
 	unsigned char *memory;
+
+
+#if defined MEMORY_USAGE
+
+	struct memoryUsage *memoryWalker;
+
+	fprintf( stderr, "Memory usage information:\n" );
+
+	for ( memoryWalker = memoryList; memoryWalker != NULL; memoryWalker = memoryWalker->next ) {
+
+		if ( memoryWalker->counter != 0 )
+			fprintf( stderr, "   tag: %i, num malloc: %i, bytes per malloc: %i, total: %i\n", memoryWalker->tag, memoryWalker->counter, memoryWalker->length, memoryWalker->counter * memoryWalker->length );
+
+	}
+
+#endif
+
 
 	for (walker = chunkList; walker != NULL; walker = walker->next)
 	{
@@ -80,7 +182,7 @@ void checkLeak(void)
 		fprintf(stderr, "Memory leak detected, malloc tag = %d\n", walker->tag);
 }
 
-void *debugMalloc(unsigned int length, int tag)
+void *debugMalloc(uint32_t length, int32_t tag)
 {
 	unsigned char *memory;
 	struct chunkHeader *chunkHeader;
@@ -110,16 +212,22 @@ void *debugMalloc(unsigned int length, int tag)
 	chunkHeader->next = chunkList;
 	chunkList = chunkHeader;
 
+#if defined MEMORY_USAGE
+
+	addMemory( length, tag );
+
+#endif
+
 	return chunk;
 }
 
-void *debugRealloc(void *memoryParameter, unsigned int length, int tag)
+void *debugRealloc(void *memoryParameter, uint32_t length, int32_t tag)
 {
 	unsigned char *memory;
 	struct chunkHeader *chunkHeader;
 	struct chunkTrailer *chunkTrailer;
 	unsigned char *result;
-	unsigned int copyLength;
+	uint32_t copyLength;
 
 	if (memoryParameter) { /* if memoryParameter==NULL, realloc() should work like malloc() !! */
 		memory = memoryParameter;
@@ -203,7 +311,14 @@ void debugFree(void *memoryParameter, int tag)
 		exit(1);
 	}
 
+#if defined MEMORY_USAGE
+
+	removeMemory( chunkHeader->tag, tag );
+
+#endif
+
 	free(chunkHeader);
+
 }
 
 #else
@@ -216,7 +331,7 @@ void checkLeak(void)
 {
 }
 
-void *debugMalloc(unsigned int length, int tag)
+void *debugMalloc(uint32_t length, int32_t tag)
 {
 	void *result;
 
@@ -231,7 +346,7 @@ void *debugMalloc(unsigned int length, int tag)
 	return result;
 }
 
-void *debugRealloc(void *memory, unsigned int length, int tag)
+void *debugRealloc(void *memory, uint32_t length, int32_t tag)
 {
 	void *result;
 
@@ -246,7 +361,7 @@ void *debugRealloc(void *memory, unsigned int length, int tag)
 	return result;
 }
 
-void debugFree(void *memory, int tag)
+void debugFree(void *memory, int32_t tag)
 {
 	free(memory);
 }

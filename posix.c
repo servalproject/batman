@@ -51,26 +51,26 @@
 extern struct vis_if vis_if;
 
 static struct timeval start_time;
-static short stop;
+static int8_t stop;
 
 
-static void get_time_internal(struct timeval *tv)
-{
-	int sec;
-	int usec;
-	gettimeofday(tv, NULL);
+static void get_time_internal( struct timeval *tv ) {
+
+	int32_t sec, usec;
+
+	gettimeofday( tv, NULL );
 
 	sec = tv->tv_sec - start_time.tv_sec;
 	usec = tv->tv_usec - start_time.tv_usec;
 
-	if (usec < 0)
-	{
+	if ( usec < 0 ) {
 		sec--;
 		usec += 1000000;
 	}
 
 	tv->tv_sec = sec;
 	tv->tv_usec = usec;
+
 }
 
 uint32_t get_time( void ) {
@@ -124,14 +124,14 @@ void sym_print( char x, char y, char *z ) {
 
 
 
-void bat_wait( int T, int t ) {
+void bat_wait( int32_t T, int32_t t ) {
 
 	struct timeval time;
 
 	time.tv_sec = T;
 	time.tv_usec = ( t * 10000 );
 
-	select(0, NULL, NULL, NULL, &time);
+	select( 0, NULL, NULL, NULL, &time );
 
 	return;
 
@@ -219,17 +219,22 @@ int8_t is_aborted() {
 
 }
 
+
+
 void addr_to_string( uint32_t addr, char *str, int32_t len ) {
 
-	inet_ntop(AF_INET, &addr, str, len);
+	inet_ntop( AF_INET, &addr, str, len );
 
 }
+
+
 
 int32_t rand_num( int32_t limit ) {
 
 	return ( limit == 0 ? 0 : rand() % limit );
 
 }
+
 
 
 static void handler( int32_t sig ) {
