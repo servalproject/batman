@@ -27,7 +27,7 @@
 #include "list.h"
 
 
-#define SOURCE_VERSION "0.2 early alpha"
+#define SOURCE_VERSION "0.2 alpha"
 #define COMPAT_VERSION 2
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
