@@ -131,7 +131,7 @@ void *unix_listen( void *arg ) {
 
 	max_sock = unix_if.unix_sock;
 
-	while (!is_aborted()) {
+	while ( !is_aborted() ) {
 
 		tv.tv_sec = 1;
 		tv.tv_usec = 0;

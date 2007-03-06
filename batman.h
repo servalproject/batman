@@ -25,6 +25,7 @@
 #include <sys/un.h>
 #include <stdint.h>
 #include "list.h"
+#include "bitarray.h"
 
 
 #define SOURCE_VERSION "0.2 alpha"
@@ -47,16 +48,11 @@
 #define JITTER 100
 #define TTL 50             /* Time To Live of broadcast messages */
 #define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
-#define SEQ_RANGE 60       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
+#define SEQ_RANGE 64       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
 
 
 
-#define TYPE_OF_WORD unsigned long /* you should choose something big, if you don't want to waste cpu */
-
-#define MIN_NUM_WORDS ( SEQ_RANGE / ( sizeof(TYPE_OF_WORD) * 8 ) )
-#define RST_NUM_WORDS ( SEQ_RANGE % ( sizeof(TYPE_OF_WORD) * 8 ) )
-#define NUM_WORDS ( RST_NUM_WORDS ? ( MIN_NUM_WORDS + 1) : MIN_NUM_WORDS )
-#define WORD_BIT_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
+#define NUM_WORDS ( SEQ_RANGE / WORD_BIT_SIZE )
 
 
 
@@ -212,13 +208,5 @@ void   usage( void );
 void   verbose_usage( void );
 void   del_default_route();
 int8_t add_default_route();
-
-void bit_init( TYPE_OF_WORD *seq_bits );
-uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno );
-char *bit_print( TYPE_OF_WORD *seq_bits );
-void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n );
-void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n );
-char bit_get_packet( TYPE_OF_WORD *seq_bits, int32_t seq_num_diff, int8_t set_mark );
-int  bit_packet_count( TYPE_OF_WORD *seq_bits );
 
 #endif

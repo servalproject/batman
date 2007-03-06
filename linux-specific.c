@@ -237,7 +237,7 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 	/* set MTU of tun interface: real MTU - 28 */
 	if ( ifr_if.ifr_mtu < 100 ) {
 
-		debug_output( 0, "Warning - MTU smaller than 100 -> can't reduce MTU anymore\n", strerror(errno) );
+		debug_output( 0, "Warning - MTU smaller than 100 -> can't reduce MTU anymore\n" );
 
 	} else {
 

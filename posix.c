@@ -249,13 +249,11 @@ int main( int argc, char *argv[] ) {
 	int8_t res;
 	stop = 0;
 
-//  memset( &device_node_array[0], 0, sizeof( device_node_array ) );
-//  printf("B.A.T.M.A.N-experimental %s\n", VERSION);
 
 	/* check if user is root */
 	if ( ( getuid() ) || ( getgid() ) ) {
 
-		fprintf( stderr, "Error - you must be root to run batmand !\n" );
+		fprintf( stderr, "Error - you must be root to run %s !\n", argv[0] );
 		exit(EXIT_FAILURE);
 
 	}
@@ -263,19 +261,15 @@ int main( int argc, char *argv[] ) {
 	apply_init_args( argc, argv );
 
 
-	signal(SIGINT, handler);
-	signal(SIGTERM, handler);
+	signal( SIGINT, handler );
+	signal( SIGTERM, handler );
 
-	gettimeofday(&start_time, NULL);
-	srand(getpid());
+	gettimeofday( &start_time, NULL );
+	srand( getpid() );
 
-//  forward_old = get_forwarding();
-//  set_forwarding(1);
 
 	res = batman();
 
-//  delAllRoutes();
-//  set_forwarding(forward_old);
 
 	close_all_sockets();
 	cleanup();

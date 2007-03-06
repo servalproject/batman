@@ -186,11 +186,11 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int32_t seq_num_diff, int8_t set_ma
 int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 
 	int i, hamming = 0;
-	TYPE_OF_WORD word, pattern=~0;
+	TYPE_OF_WORD word;
 
 	for (i=0; i<NUM_WORDS; i++) {
 
-		word= ( ( i < NUM_WORDS - 1 ) ? seq_bits[i] : seq_bits[i] & pattern >> ( WORD_BIT_SIZE - RST_NUM_WORDS ) );
+		word = seq_bits[i];
 
 		while (word) {
 

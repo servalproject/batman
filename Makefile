@@ -47,7 +47,7 @@ OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o bitarray.o
 endif
 
 LINUX_SRC_C= batman.c posix-specific.c posix.c  linux-specific.c linux.c allocate.c bitarray.c
-LINUX_SRC_H= batman.h batman-specific.h list.h os.h allocate.h
+LINUX_SRC_H= batman.h batman-specific.h list.h os.h allocate.h bitarray.h
 
 all:	batmand
 
