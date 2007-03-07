@@ -544,9 +544,8 @@ void apply_init_args( int argc, char *argv[] ) {
 		exit(EXIT_FAILURE);
 	}
 
-	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun() ) ) {
-		exit( 1 );
-	}
+	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun() ) )
+		exit(EXIT_FAILURE);
 
 	if ( ! unix_client ) {
 
@@ -852,7 +851,7 @@ void apply_init_args( int argc, char *argv[] ) {
 void init_interface ( struct batman_if *batman_if )
 {
 	struct ifreq int_req;
-	short on = 1;
+	int16_t on = 1;
 
 	if ( strlen( batman_if->dev ) > IFNAMSIZ - 1 ) {
 		debug_output( 0, "Error - interface name too long: %s\n", batman_if->dev );
