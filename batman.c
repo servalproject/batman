@@ -202,8 +202,8 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->orig = addr;
 	orig_node->router = NULL;
 
-	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(int), 2 );
-	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(int) );
+	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(uint32_t), 2 );
+	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(uint32_t) );
 
 	list_add_tail( &orig_node->list, &orig_list );
 
