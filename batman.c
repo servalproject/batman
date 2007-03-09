@@ -1080,7 +1080,7 @@ void send_vis_packet()
 			if(cnt >= size)
 			{
 				size += step;
-				packet = debugRealloc(packet, size * sizeof(unsigned char), 14);
+				packet = debugRealloc(packet, size * sizeof(unsigned char), 113);
 			}
 			memmove(&packet[cnt], (unsigned char*)&orig_node->orig,4);
 			 *(packet + cnt + 4) = (unsigned char) orig_node->router->packet_count;
