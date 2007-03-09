@@ -31,23 +31,23 @@ LDFLAGS =		-lpthread
 UNAME=$(shell uname)
 
 ifeq ($(UNAME),Linux)
-OS_OBJ=	posix-specific.o posix.o  linux-specific.o linux.o allocate.o bitarray.o
+OS_OBJ=	orginator.o schedule.o posix-specific.o posix.o linux-specific.o linux.o allocate.o bitarray.o hash.o
 endif
 
 ifeq ($(UNAME),Darwin)
-OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o bitarray.o
+OS_OBJ=	orginator.o schedule.o posix-specific.o posix.o bsd.o allocate.o bitarray.o hash.o
 endif
 
 ifeq ($(UNAME),FreeBSD)
-OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o bitarray.o
+OS_OBJ=	orginator.o schedule.o posix-specific.o posix.o bsd.o allocate.o bitarray.o hash.o
 endif
 
 ifeq ($(UNAME),OpenBSD)
-OS_OBJ=	posix-specific.o posix.o bsd.o allocate.o bitarray.o
+OS_OBJ=	orginator.o schedule.o posix-specific.o posix.o bsd.o allocate.o bitarray.o hash.o
 endif
 
-LINUX_SRC_C= batman.c posix-specific.c posix.c  linux-specific.c linux.c allocate.c bitarray.c
-LINUX_SRC_H= batman.h batman-specific.h list.h os.h allocate.h bitarray.h
+LINUX_SRC_C= batman.c orginator.c schedule.c posix-specific.c posix.c linux-specific.c linux.c allocate.c bitarray.c hash.c
+LINUX_SRC_H= batman.h orginator.h schedule.h batman-specific.h list.h os.h allocate.h bitarray.h hash.h
 
 all:	batmand
 

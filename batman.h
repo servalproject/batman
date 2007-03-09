@@ -26,6 +26,9 @@
 #include <stdint.h>
 #include "list.h"
 #include "bitarray.h"
+#include "hash.h"
+#include "allocate.h"
+
 
 
 #define SOURCE_VERSION "0.2 alpha"
@@ -73,11 +76,17 @@ extern uint8_t found_ifs;
 extern int32_t receive_max_sock;
 extern fd_set receive_wait_set;
 
+extern struct hashtable_t *orig_hash;
+
 extern struct list_head if_list;
 extern struct list_head hna_list;
+extern struct list_head gw_list;
+extern struct list_head forw_list;
 extern struct vis_if vis_if;
 extern struct unix_if unix_if;
 extern struct debug_clients debug_clients;
+
+extern char *gw2string[];
 
 struct packet
 {
@@ -91,8 +100,8 @@ struct packet
 
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
 {
-	struct list_head list;
 	uint32_t orig;
+	struct list_head list;
 	struct neigh_node *router;
 	struct batman_if *batman_if;
 	uint32_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
@@ -204,9 +213,17 @@ struct curr_gw_data {
 
 
 int8_t batman( void );
-void   usage( void );
-void   verbose_usage( void );
-void   del_default_route();
+void usage( void );
+void verbose_usage( void );
+void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
+void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
+void choose_gw();
+void del_default_route();
 int8_t add_default_route();
+void debug_output( int8_t debug_prio, char *format, ... );
+uint32_t get_time( void );
+void addr_to_string( uint32_t addr, char *str, int32_t len );
+int32_t rand_num( int32_t limit );
+int8_t send_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock );
 
 #endif
