@@ -18,7 +18,8 @@
  */
 
 
-
+#ifndef _ALLOCATE_H
+#define _ALLOCATE_H		1
 #include <stdint.h>
 
 
@@ -28,3 +29,17 @@ void checkLeak(void);
 void *debugMalloc(uint32_t length, int32_t tag);
 void *debugRealloc(void *memory, uint32_t length, int32_t tag);
 void debugFree(void *memoryParameter, int32_t tag);
+
+enum {
+	TAG_HASH=0,
+	TAG_HASH_TABLE,
+	TAG_HASH_BUCKET,
+	TAG_HASH_ITER,
+	TAG_HASH_ALLOC_FAILED,
+	TAG_HASH_BUCKET_REMOVE,
+	TAG_HASH_DELETE,
+	TAG_HASH_ITER_REMOVE,
+
+
+};
+#endif
