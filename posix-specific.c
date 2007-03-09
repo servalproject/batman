@@ -144,7 +144,7 @@ void *unix_listen( void *arg ) {
 			/* new client */
 			if ( FD_ISSET( unix_if.unix_sock, &tmp_wait_sockets ) ) {
 
-				unix_client = debugMalloc( sizeof(struct unix_client), 133 );
+				unix_client = debugMalloc( sizeof(struct unix_client), 201 );
 				memset( unix_client, 0, sizeof(struct unix_client) );
 
 				if ( ( unix_client->sock = accept( unix_if.unix_sock, (struct sockaddr *)&unix_client->addr, &sun_size) ) == -1 ) {
@@ -195,7 +195,7 @@ void *unix_listen( void *arg ) {
 											list_del( debug_pos );
 											debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
-											debugFree( debug_pos, 263 );
+											debugFree( debug_pos, 1201 );
 
 											break;
 
@@ -207,7 +207,7 @@ void *unix_listen( void *arg ) {
 
 								if ( unix_client->debug_level != buff[2] ) {
 
-									debug_level_info = debugMalloc( sizeof(struct debug_level_info), 57 );
+									debug_level_info = debugMalloc( sizeof(struct debug_level_info), 202 );
 									INIT_LIST_HEAD( &debug_level_info->list );
 									debug_level_info->fd = unix_client->sock;
 									list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[(int)buff[2] - '1'] );
@@ -242,7 +242,7 @@ void *unix_listen( void *arg ) {
 											list_del( debug_pos );
 											debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
-											debugFree( debug_pos, 264 );
+											debugFree( debug_pos, 1202 );
 
 											break;
 
@@ -260,7 +260,7 @@ void *unix_listen( void *arg ) {
 							close( unix_client->sock );
 
 							list_del( unix_pos );
-							debugFree( unix_pos, 231 );
+							debugFree( unix_pos, 1203 );
 
 						}
 
@@ -299,7 +299,7 @@ void *unix_listen( void *arg ) {
 					list_del( debug_pos );
 					debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
-					debugFree( debug_pos, 265 );
+					debugFree( debug_pos, 1204 );
 
 					break;
 
@@ -310,7 +310,7 @@ void *unix_listen( void *arg ) {
 		}
 
 		list_del( unix_pos );
-		debugFree( unix_pos, 241 );
+		debugFree( unix_pos, 1205 );
 
 	}
 
@@ -380,7 +380,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
-				hna_node = debugMalloc( sizeof(struct hna_node), 16 );
+				hna_node = debugMalloc( sizeof(struct hna_node), 203 );
 				memset( hna_node, 0, sizeof(struct hna_node) );
 				INIT_LIST_HEAD( &hna_node->list );
 
@@ -558,7 +558,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		for ( res = 0; res < 4; res++ ) {
 
-			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head), 97 );
+			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head), 204 );
 			INIT_LIST_HEAD( (struct list_head *)debug_clients.fd_list[res] );
 
 		}
@@ -583,7 +583,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			printf( "B.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
 
 			debug_clients.clients_num[ debug_level - 1 ]++;
-			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 39 );
+			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 205 );
 			INIT_LIST_HEAD( &debug_level_info->list );
 			debug_level_info->fd = 1;
 			list_add( &debug_level_info->list, (struct list_head *)debug_clients.fd_list[debug_level - 1] );
@@ -594,7 +594,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		while ( argc > found_args ) {
 
-			batman_if = debugMalloc( sizeof(struct batman_if), 17 );
+			batman_if = debugMalloc( sizeof(struct batman_if), 206 );
 			memset( batman_if, 0, sizeof(struct batman_if) );
 			INIT_LIST_HEAD( &batman_if->list );
 			INIT_LIST_HEAD( &batman_if->client_list );
@@ -1028,7 +1028,7 @@ void *client_to_gw_tun( void *arg ) {
 
 		debug_output( 0, "Error - can't create tcp socket: %s\n", strerror(errno) );
 		curr_gateway = NULL;
-		debugFree( arg, 248 );
+		debugFree( arg, 1206 );
 		return NULL;
 
 	}
@@ -1042,7 +1042,7 @@ void *client_to_gw_tun( void *arg ) {
 		curr_gw_data->gw_node->unavail_factor++;
 
 		curr_gateway = NULL;
-		debugFree( arg, 248 );
+		debugFree( arg, 1207 );
 		return NULL;
 
 	}
@@ -1056,7 +1056,7 @@ void *client_to_gw_tun( void *arg ) {
 		debug_output( 0, "Error - can't create udp socket: %s\n", strerror(errno) );
 		close( curr_gateway_tcp_sock );
 		curr_gateway = NULL;
-		debugFree( arg, 248 );
+		debugFree( arg, 1208 );
 		return NULL;
 
 	}
@@ -1067,7 +1067,7 @@ void *client_to_gw_tun( void *arg ) {
 		close( curr_gateway_tcp_sock );
 		close( curr_gateway_tun_sock );
 		curr_gateway = NULL;
-		debugFree( arg, 248 );
+		debugFree( arg, 1209 );
 		return NULL;
 
 	}
@@ -1082,7 +1082,7 @@ void *client_to_gw_tun( void *arg ) {
 		close( curr_gateway_tcp_sock );
 		close( curr_gateway_tun_sock );
 		curr_gateway = NULL;
-		debugFree( arg, 248 );
+		debugFree( arg, 1210 );
 		return NULL;
 
 	}
@@ -1206,7 +1206,7 @@ void *client_to_gw_tun( void *arg ) {
 	del_dev_tun( curr_gateway_tun_fd );
 
 	curr_gateway = NULL;
-	debugFree( arg, 248 );
+	debugFree( arg, 1211 );
 
 	return NULL;
 
@@ -1229,7 +1229,7 @@ int8_t add_default_route() {
 	struct curr_gw_data *curr_gw_data;
 
 
-	curr_gw_data = debugMalloc( sizeof(struct curr_gw_data), 47 );
+	curr_gw_data = debugMalloc( sizeof(struct curr_gw_data), 207 );
 	curr_gw_data->orig = curr_gateway->orig_node->orig;
 	curr_gw_data->gw_node = curr_gateway;
 	curr_gw_data->batman_if = curr_gateway->orig_node->batman_if;
@@ -1238,7 +1238,7 @@ int8_t add_default_route() {
 	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gw_data ) != 0 ) {
 
 		debug_output( 0, "Error - couldn't spawn thread: %s\n", strerror(errno) );
-		debugFree( curr_gw_data, 247 );
+		debugFree( curr_gw_data, 1212 );
 		curr_gateway = NULL;
 
 	}
@@ -1269,7 +1269,7 @@ void close_all_sockets() {
 		close( batman_if->udp_send_sock );
 
 		list_del( if_pos );
-		debugFree( if_pos, 203 );
+		debugFree( if_pos, 1213 );
 
 	}
 
@@ -1444,7 +1444,7 @@ void *gw_listen( void *arg ) {
 			/* new client */
 			if ( FD_ISSET( batman_if->tcp_gw_sock, &tmp_wait_sockets ) ) {
 
-				gw_client = debugMalloc( sizeof(struct gw_client), 18 );
+				gw_client = debugMalloc( sizeof(struct gw_client), 208 );
 				memset( gw_client, 0, sizeof(struct gw_client) );
 
 				if ( ( gw_client->sock = accept(batman_if->tcp_gw_sock, (struct sockaddr *)&gw_client->addr, &sin_size) ) == -1 ) {
@@ -1541,7 +1541,7 @@ void *gw_listen( void *arg ) {
 							close( gw_client->sock );
 
 							list_del( client_pos );
-							debugFree( client_pos, 201 );
+							debugFree( client_pos, 1214 );
 
 						}
 
@@ -1584,7 +1584,7 @@ void *gw_listen( void *arg ) {
 					debug_output( 3, "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
 
 					list_del( client_pos );
-					debugFree( client_pos, 202 );
+					debugFree( client_pos, 1215 );
 
 				} else {
 
@@ -1607,7 +1607,7 @@ void *gw_listen( void *arg ) {
 		gw_client = list_entry(client_pos, struct gw_client, list);
 
 		list_del( client_pos );
-		debugFree( client_pos, 297 );
+		debugFree( client_pos, 1216 );
 
 	}
 
@@ -1633,13 +1633,13 @@ void cleanup() {
 				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 				list_del( debug_pos );
-				debugFree( debug_pos, 277 );
+				debugFree( debug_pos, 1217 );
 
 			}
 
 		}
 
-		debugFree( debug_clients.fd_list[i], 258 );
+		debugFree( debug_clients.fd_list[i], 1218 );
 
 	}
 
