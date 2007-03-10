@@ -211,14 +211,19 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 
 void choose_gw() {
 
+	prof_start( PROF_choose_gw );
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
 	uint8_t max_gw_class = 0, max_packets = 0, max_gw_factor = 0;
 	static char orig_str[ADDR_STR_LEN];
 
 
-	if ( routing_class == 0 )
+	if ( routing_class == 0 ) {
+
+		prof_stop( PROF_choose_gw );
 		return;
+
+	}
 
 	if ( list_empty(&gw_list) ) {
 
@@ -230,6 +235,7 @@ void choose_gw() {
 
 		}
 
+		prof_stop( PROF_choose_gw );
 		return;
 
 	}
@@ -316,12 +322,15 @@ void choose_gw() {
 
 	}
 
+	prof_stop( PROF_choose_gw );
+
 }
 
 
 
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
+	prof_start( PROF_update_routes );
 	static char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
 
 
@@ -406,12 +415,15 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 
 	}
 
+	prof_stop( PROF_update_routes );
+
 }
 
 
 
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 
+	prof_start( PROF_update_gw_list );
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct gw_node *gw_node;
 	static char orig_str[ADDR_STR_LEN];
@@ -438,6 +450,7 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 
 			}
 
+			prof_stop( PROF_update_gw_list );
 			choose_gw();
 			return;
 
@@ -458,6 +471,8 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 
 	list_add_tail( &gw_node->list, &gw_list );
 
+	prof_stop( PROF_update_gw_list );
+
 	choose_gw();
 
 }
@@ -466,6 +481,7 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 
 int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
+	prof_start( PROF_is_duplicate );
 	struct list_head *neigh_pos;
 	struct neigh_node *neigh_node;
 
@@ -473,10 +489,16 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
 		neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
-		if ( get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, seqno ) )
+		if ( get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, seqno ) ) {
+
+			prof_stop( PROF_is_duplicate );
 			return 1;
 
+		}
+
 	}
+
+	prof_stop( PROF_is_duplicate );
 
 	return 0;
 
@@ -550,6 +572,17 @@ int8_t batman() {
 
 	if ( NULL == ( orig_hash = hash_new( 128, orig_comp, orig_choose ) ) )
 		return(-1);
+
+	/* for profiling the functions */
+	prof_init( PROF_choose_gw, "choose_gw" );
+	prof_init( PROF_update_routes, "update_routes" );
+	prof_init( PROF_update_gw_list, "update_gw_list" );
+	prof_init( PROF_is_duplicate, "isDuplicate" );
+	prof_init( PROF_get_orig_node, "get_orig_node" );
+	prof_init( PROF_update_originator, "update_originator" );
+	prof_init( PROF_purge_orginator, "purge_orginator" );
+	prof_init( PROF_schedule_forward_packet, "schedule_forward_packet" );
+	prof_init( PROF_send_outstanding_packets, "send_outstanding_packets" );
 
 	if ( !( list_empty( &hna_list ) ) ) {
 

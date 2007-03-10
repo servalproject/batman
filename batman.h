@@ -28,10 +28,11 @@
 #include "bitarray.h"
 #include "hash.h"
 #include "allocate.h"
+#include "profile.h"
 
 
 
-#define SOURCE_VERSION "0.2 alpha"
+#define SOURCE_VERSION "0.2 alpha (debug)"
 #define COMPAT_VERSION 2
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
@@ -39,6 +40,8 @@
 #define ADDR_STR_LEN 16
 
 #define UNIX_PATH "/var/run/batmand.socket"
+
+#define PROFILE_DATA
 
 
 /*

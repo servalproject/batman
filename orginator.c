@@ -61,13 +61,18 @@ int orig_choose(void *data, int32_t size) {
 /* this function finds or creates an originator entry for the given address if it does not exits */
 struct orig_node *get_orig_node( uint32_t addr ) {
 
+	prof_start( PROF_get_orig_node );
 	struct orig_node *orig_node;
 
 
 	orig_node = ((struct orig_node *)hash_find( orig_hash, &addr ));
 
-	if ( orig_node != NULL )
+	if ( orig_node != NULL ) {
+
+		prof_stop( PROF_get_orig_node );
 		return orig_node;
+
+	}
 
 
 	debug_output( 4, "Creating new originator\n" );
@@ -95,6 +100,8 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	}
 
+	prof_stop( PROF_get_orig_node );
+
 	return orig_node;
 
 }
@@ -103,6 +110,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
+	prof_start( PROF_update_originator );
 	struct list_head *neigh_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
 	uint8_t max_packet_count = 0, is_new_seqno = 0;
@@ -185,12 +193,15 @@ void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t
 
 	orig_node->gwflags = in->gwflags;
 
+	prof_stop( PROF_update_originator );
+
 }
 
 
 
 void purge_orginator( uint32_t curr_time ) {
 
+	prof_start( PROF_purge_orginator );
 	struct hash_it_t *hashit = NULL;
 	struct list_head *neigh_pos, *neigh_temp;
 	struct list_head *gw_pos, *gw_pos_tmp;
@@ -285,6 +296,8 @@ void purge_orginator( uint32_t curr_time ) {
 
 	if ( gw_purged )
 		choose_gw();
+
+	prof_stop( PROF_purge_orginator );
 
 }
 
@@ -395,6 +408,9 @@ void debug_orginator() {
 		debug_output( 4, "---------------------------------------------- END DEBUG\n" );
 
 	}
+
+	if ( debug_clients.clients_num[2] > 0 )
+		prof_print();
 
 }
 

@@ -26,7 +26,7 @@
 #include "allocate.h"
 
 #define DEBUG_MALLOC
-/*#define MEMORY_USAGE*/
+#define MEMORY_USAGE
 
 #define MAGIC_NUMBER 0x12345678
 
