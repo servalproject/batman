@@ -38,8 +38,6 @@
 
 #include "os.h"
 #include "batman-specific.h"
-#include "list.h"
-#include "allocate.h"
 
 
 
@@ -51,7 +49,6 @@
 extern struct vis_if vis_if;
 
 static struct timeval start_time;
-static int8_t stop;
 
 
 static void get_time_internal( struct timeval *tv ) {
@@ -213,14 +210,6 @@ void print_animation( void ) {
 
 
 
-int8_t is_aborted() {
-
-	return stop != 0;
-
-}
-
-
-
 void addr_to_string( uint32_t addr, char *str, int32_t len ) {
 
 	inet_ntop( AF_INET, &addr, str, len );
@@ -237,17 +226,9 @@ int32_t rand_num( int32_t limit ) {
 
 
 
-static void handler( int32_t sig ) {
-
-	stop = 1;
-
-}
-
-
 int main( int argc, char *argv[] ) {
 
 	int8_t res;
-	stop = 0;
 
 
 	/* check if user is root */
@@ -258,20 +239,21 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-	apply_init_args( argc, argv );
-
 
 	signal( SIGINT, handler );
 	signal( SIGTERM, handler );
+	signal( SIGSEGV, segmentation_fault );
+
+
+	apply_init_args( argc, argv );
+
 
 	gettimeofday( &start_time, NULL );
 	srand( getpid() );
 
-
 	res = batman();
 
-
-	close_all_sockets();
+	restore_defaults();
 	cleanup();
 	checkLeak();
 	return res;

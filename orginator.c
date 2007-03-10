@@ -20,13 +20,14 @@
 
 
 #include <string.h>
+#include "os.h"
 #include "batman.h"
 
 
 
 /* needed for hash, compares 2 struct orig_node, but only their ip-addresses. assumes that
  * the ip address is the first field in the struct */
-int orig_comp(void *data1, void *data2) {
+int compare_orig(void *data1, void *data2) {
 
 	return(memcmp(data1, data2, 4));
 
@@ -36,7 +37,7 @@ int orig_comp(void *data1, void *data2) {
 
 /* hashfunction to choose an entry in a hash table of given size */
 /* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
-int orig_choose(void *data, int32_t size) {
+int choose_orig(void *data, int32_t size) {
 
 	unsigned char *key= data;
 	uint32_t hash = 0;
@@ -108,7 +109,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
+void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *neigh_pos;
@@ -199,7 +200,7 @@ void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t
 
 
 
-void purge_orginator( uint32_t curr_time ) {
+void purge_orig( uint32_t curr_time ) {
 
 	prof_start( PROF_purge_orginator );
 	struct hash_it_t *hashit = NULL;
@@ -303,7 +304,7 @@ void purge_orginator( uint32_t curr_time ) {
 
 
 
-void debug_orginator() {
+void debug_orig() {
 
 	struct hash_it_t *hashit = NULL;
 	struct list_head *forw_pos, *orig_pos, *neigh_pos;
@@ -408,9 +409,6 @@ void debug_orginator() {
 		debug_output( 4, "---------------------------------------------- END DEBUG\n" );
 
 	}
-
-	if ( debug_clients.clients_num[2] > 0 )
-		prof_print();
 
 }
 

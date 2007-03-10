@@ -223,10 +223,5 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
 void choose_gw();
 void del_default_route();
 int8_t add_default_route();
-void debug_output( int8_t debug_prio, char *format, ... );
-uint32_t get_time( void );
-void addr_to_string( uint32_t addr, char *str, int32_t len );
-int32_t rand_num( int32_t limit );
-int8_t send_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock );
 
 #endif

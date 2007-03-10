@@ -19,10 +19,10 @@
 
 
 
-int orig_comp(void *data1, void *data2);
-int orig_choose(void *data, int32_t size);
+int compare_orig(void *data1, void *data2);
+int choose_orig(void *data, int32_t size);
 struct orig_node *get_orig_node( uint32_t addr );
-void update_originator( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len );
-void purge_orginator( uint32_t curr_time );
-void debug_orginator();
+void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len );
+void purge_orig( uint32_t curr_time );
+void debug_orig();
 

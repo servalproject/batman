@@ -45,6 +45,27 @@
 #include "allocate.h"
 
 
+
+static int8_t stop;
+
+
+
+int8_t is_aborted() {
+
+	return stop != 0;
+
+}
+
+
+
+void handler( int32_t sig ) {
+
+	stop = 1;
+
+}
+
+
+
 void debug_output( int8_t debug_prio, char *format, ... ) {
 
 	struct list_head *debug_pos;
@@ -337,6 +358,7 @@ void apply_init_args( int argc, char *argv[] ) {
 // 	fd_set wait_sockets, tmp_wait_sockets;
 
 	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
+	stop = 0;
 
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
@@ -439,7 +461,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'H':
 				verbose_usage();
-				exit(0);
+				exit(EXIT_SUCCESS);
 
 			case 'o':
 
@@ -505,7 +527,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'v':
 
 				printf( "B.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
-				exit(0);
+				exit(EXIT_SUCCESS);
 
 			case 'V':
 
@@ -514,12 +536,12 @@ void apply_init_args( int argc, char *argv[] ) {
 				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
 				printf( "\x1B[9;0H \t May the bat guide your path ...\n\n\n" );
 
-				exit(0);
+				exit(EXIT_SUCCESS);
 
 			case 'h':
 			default:
 				usage();
-				exit(0);
+				exit(EXIT_SUCCESS);
 
 		}
 
@@ -552,7 +574,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		if ( argc <= found_args ) {
 			fprintf( stderr, "Error - no interface specified\n" );
 			usage();
-			close_all_sockets();
+			restore_defaults();
 			exit(EXIT_FAILURE);
 		}
 
@@ -571,7 +593,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			if ( daemon( 0, 0 ) < 0 ) {
 
 				printf( "Error - can't fork to background: %s\n", strerror(errno) );
-				close_all_sockets();
+				restore_defaults();
 				exit(EXIT_FAILURE);
 
 			}
@@ -650,13 +672,13 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		if ( bind ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof (struct sockaddr_un) ) < 0 ) {
 			debug_output( 0, "Error - can't bind unix socket: %s\n", strerror(errno) );
-			close_all_sockets();
+			restore_defaults();
 			exit(EXIT_FAILURE);
 		}
 
 		if ( listen( unix_if.unix_sock, 10 ) < 0 ) {
 			debug_output( 0, "Error - can't listen unix socket: %s\n", strerror(errno) );
-			close_all_sockets();
+			restore_defaults();
 			exit(EXIT_FAILURE);
 		}
 
@@ -855,14 +877,14 @@ void init_interface ( struct batman_if *batman_if )
 
 	if ( strlen( batman_if->dev ) > IFNAMSIZ - 1 ) {
 		debug_output( 0, "Error - interface name too long: %s\n", batman_if->dev );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
 	batman_if->udp_send_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 	if (batman_if->udp_send_sock < 0) {
 		debug_output( 0, "Error - can't create send socket: %s", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
@@ -870,7 +892,7 @@ void init_interface ( struct batman_if *batman_if )
 	if ( batman_if->udp_recv_sock < 0 ) {
 
 		debug_output( 0, "Error - can't create recieve socket: %s", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
@@ -881,7 +903,7 @@ void init_interface ( struct batman_if *batman_if )
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
 
 		debug_output( 0, "Error - can't get IP address of interface %s\n", batman_if->dev );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
@@ -893,7 +915,7 @@ void init_interface ( struct batman_if *batman_if )
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
 
 		debug_output( 0, "Error - can't get broadcast IP address of interface %s\n", batman_if->dev );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
@@ -905,14 +927,14 @@ void init_interface ( struct batman_if *batman_if )
 	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
 
 		debug_output( 0, "Error - can't enable broadcasts: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
 
 	if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
 
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
@@ -920,14 +942,14 @@ void init_interface ( struct batman_if *batman_if )
 	if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
 
 		debug_output( 0, "Error - can't bind send socket: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
 
 	if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
 
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
@@ -935,7 +957,7 @@ void init_interface ( struct batman_if *batman_if )
 	if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof (struct sockaddr_in) ) < 0 ) {
 
 		debug_output( 0, "Error - can't bind receive socket: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 
 	}
@@ -954,38 +976,38 @@ void init_interface_gw ( struct batman_if *batman_if )
 
 	if ( batman_if->tcp_gw_sock < 0 ) {
 		debug_output( 0, "Error - can't create socket: %s", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
 	if ( setsockopt( batman_if->tcp_gw_sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int) ) < 0 ) {
 		debug_output( 0, "Error - can't enable reuse of address: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
 	if ( bind( batman_if->tcp_gw_sock, (struct sockaddr*)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
 		debug_output( 0, "Error - can't bind socket: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
 	if ( listen( batman_if->tcp_gw_sock, 10 ) < 0 ) {
 		debug_output( 0, "Error - can't listen socket: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
 	batman_if->tunnel_sock = socket(PF_INET, SOCK_DGRAM, 0);
 	if ( batman_if->tunnel_sock < 0 ) {
 		debug_output( 0, "Error - can't create tunnel socket: %s", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
 	if ( bind( batman_if->tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
 		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
-		close_all_sockets();
+		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
 
@@ -1249,10 +1271,13 @@ int8_t add_default_route() {
 
 
 
-void close_all_sockets() {
+void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
+
+
+	stop = 1;
 
 	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 
@@ -1612,6 +1637,18 @@ void *gw_listen( void *arg ) {
 	}
 
 	return NULL;
+
+}
+
+
+
+void segmentation_fault( int32_t sig ) {
+
+	restore_defaults();
+
+	debug_output( 0, "Error - SIGSEGV received !\n" );
+
+	exit(EXIT_FAILURE);
 
 }
 

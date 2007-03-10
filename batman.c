@@ -558,19 +558,19 @@ int8_t batman() {
 	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
 	struct forw_node *forw_node;
-	uint32_t neigh, hna, netmask, debug_timeout, select_timeout;
+	uint32_t neigh, hna, netmask, debug_timeout, select_timeout, curr_time;
 	unsigned char in[1501], *hna_recv_buff;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	int16_t hna_buff_count, hna_buff_len;
 	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old;
 	uint8_t is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, forward_duplicate_packet;
 	int8_t res;
-	uint32_t time_count = 0, curr_time;
+
 
 	debug_timeout = get_time();
 	bidirectional_timeout = orginator_interval * 3;
 
-	if ( NULL == ( orig_hash = hash_new( 128, orig_comp, orig_choose ) ) )
+	if ( NULL == ( orig_hash = hash_new( 128, compare_orig, choose_orig ) ) )
 		return(-1);
 
 	/* for profiling the functions */
@@ -631,12 +631,6 @@ int8_t batman() {
 
 		debug_output( 4, " \n \n" );
 
-		if(vis_if.sock && time_count == 50)
-		{
-			time_count = 0;
-			send_vis_packet();
-		}
-
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time();
 		select_timeout = ( curr_time < ((struct forw_node *)forw_list.next)->send_time ? ((struct forw_node *)forw_list.next)->send_time - curr_time : 10 );
@@ -673,28 +667,6 @@ int8_t batman() {
 			}
 
 
-			addr_to_string( ((struct packet *)&in)->orig, orig_str, sizeof (orig_str) );
-			addr_to_string( neigh, neigh_str, sizeof (neigh_str) );
-			debug_output( 4, "new packet - orig: %s, sender: %s\n", orig_str, neigh_str );
-
-			/*if ( is_duplicate )
-				output("Duplicate packet \n");
-
-			if ( in.orig == neigh )
-				output("Originator packet from neighbour \n");
-
-			if ( is_my_orig == 1 )
-				output("Originator packet from myself (via neighbour) \n");
-
-			if ( in.flags & UNIDIRECTIONAL )
-				output("Packet with unidirectional flag \n");
-
-			if ( is_bidirectional )
-				output("received via bidirectional link \n");
-
-			if ( !( in.flags & UNIDIRECTIONAL ) && ( !is_bidirectional ) )
-				output("neighbour thinks connection is bidirectional - I disagree \n");*/
-
 			if ( ((struct packet *)&in)->gwflags != 0 )
 				debug_output( 4, "Is an internet gateway (class %i) \n", ((struct packet *)&in)->gwflags );
 
@@ -720,10 +692,6 @@ int8_t batman() {
 				}
 
 			}
-
-
-			/*if ( ( ! is_my_addr ) && ( ! is_my_orig ) )
-				debug_output( 3, "IP: %s send packet with sequence number: %i from %s\n", neigh_str, ((struct packet *)&in)->seqno, orig_str );*/
 
 
 			if ( ((struct packet *)&in)->version != COMPAT_VERSION ) {
@@ -771,7 +739,7 @@ int8_t batman() {
 
 				/* update ranking */
 				if ( ( is_bidirectional ) && ( !is_duplicate ) )
-					update_originator( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
+					update_orig( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
 
 				/* is single hop (direct) neighbour */
 				if ( ((struct packet *)&in)->orig == neigh ) {
@@ -853,24 +821,30 @@ int8_t batman() {
 
 		}
 
+
 		send_outstanding_packets();
 
-		purge_orginator( get_time() );
 
 		if ( debug_timeout + 1000 < get_time() ) {
 
 			debug_timeout = get_time();
 
-			debug_orginator();
+			purge_orig( get_time() );
+
+			debug_orig();
 
 			checkIntegrity();
+
+			if ( debug_clients.clients_num[2] > 0 )
+				prof_print();
 
 			if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
 				choose_gw();
 
-		}
+			if ( vis_if.sock )
+				send_vis_packet();
 
-		time_count++;
+		}
 
 	}
 
@@ -878,7 +852,7 @@ int8_t batman() {
 	if ( debug_level > 0 )
 		printf( "Deleting all BATMAN routes\n" );
 
-	purge_orginator( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
 
 	hash_delete( orig_hash );
 

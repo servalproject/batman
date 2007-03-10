@@ -147,7 +147,7 @@ void checkIntegrity(void)
 	for ( memoryWalker = memoryList; memoryWalker != NULL; memoryWalker = memoryWalker->next ) {
 
 		if ( memoryWalker->counter != 0 )
-			fprintf( stderr, "   tag: %i, num malloc: %i, bytes per malloc: %i, total: %i\n", memoryWalker->tag, memoryWalker->counter, memoryWalker->length, memoryWalker->counter * memoryWalker->length );
+			fprintf( stderr, "   tag: %''4i, num malloc: %''4i, bytes per malloc: %''4i, total: %''6i\n", memoryWalker->tag, memoryWalker->counter, memoryWalker->length, memoryWalker->counter * memoryWalker->length );
 
 	}
 
