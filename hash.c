@@ -35,7 +35,7 @@ void hash_init(struct hashtable_t *hash) {
 /* remove the hash structure. if hashdata_free_cb != NULL,
  * this function will be called to remove the elements inside of the hash.
  * if you don't remove the elements, memory might be leaked. */
-/*void hash_delete(struct hashtable_t *hash, hashdata_free_cb free_cb) {
+void hash_delete(struct hashtable_t *hash, hashdata_free_cb free_cb) {
 	struct element_t *bucket, *last_bucket;
 	int i;
 
@@ -52,12 +52,13 @@ void hash_init(struct hashtable_t *hash) {
 			}
 		}
 	}
-}*/
+	hash_destroy(hash);
+}
 
 
 
-/* FYI: purge deletes all elements within that structure but we should free the hash itself !*/
-void hash_delete(struct hashtable_t *hash) {
+/* free only the hashtable and the hash itself. */
+void hash_destroy(struct hashtable_t *hash) {
 
 	debugFree( hash->table, 1301 );
 	debugFree( hash, 1302 );
@@ -234,7 +235,8 @@ struct hashtable_t *hash_resize(struct hashtable_t *hash, int size) {
 			}
 		}
 	}
-	hash_delete(hash);
+	hash_delete(hash, NULL );	/* remove hash and eventual overflow buckets,
+								 * but not the content itself. */
 
 	return( new_hash);
 

@@ -53,8 +53,10 @@ struct hashtable_t	*hash_new(int size, hashdata_compare_cb compare, hashdata_cho
 /* remove the hash structure. if hashdata_free_cb != NULL,
  * this function will be called to remove the elements inside of the hash.
  * if you don't remove the elements, memory might be leaked. */
-void				 hash_delete(struct hashtable_t *hash);
+void 				 hash_delete(struct hashtable_t *hash, hashdata_free_cb free_cb);
 
+/* free only the hashtable and the hash itself. */
+void 				 hash_destroy(struct hashtable_t *hash);
 
 /* adds data to the hashtable. returns 0 on success, -1 on error */
 int 				 hash_add(struct hashtable_t *hash, void *data);

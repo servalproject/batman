@@ -854,7 +854,7 @@ int8_t batman() {
 
 	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
 
-	hash_delete( orig_hash );
+	hash_destroy( orig_hash );
 
 
 	list_for_each_safe( hna_pos, hna_pos_tmp, &hna_list ) {
