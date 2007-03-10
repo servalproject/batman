@@ -207,9 +207,9 @@ void purge_orig( uint32_t curr_time ) {
 	struct list_head *neigh_pos, *neigh_temp;
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct orig_node *orig_node;
-	struct neigh_node *neigh_node;
+	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
-	uint8_t gw_purged = 0;
+	uint8_t gw_purged = 0, neigh_purged = 0, max_packet_count;
 	static char orig_str[ADDR_STR_LEN];
 
 	debug_output( 4, "purge() \n" );
@@ -264,6 +264,8 @@ void purge_orig( uint32_t curr_time ) {
 
 		} else {
 
+			max_packet_count = 0;
+
 			/* for all neighbours towards this orginator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
 
@@ -271,12 +273,26 @@ void purge_orig( uint32_t curr_time ) {
 
 				if ( (int)( ( neigh_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
 
+					neigh_purged = 1;
 					list_del( neigh_pos );
 					debugFree( neigh_node, 1404 );
+
+				} else {
+
+					if ( neigh_node->packet_count > max_packet_count ) {
+
+						max_packet_count = neigh_node->packet_count;
+						best_neigh_node = neigh_node;
+
+					}
+
 
 				}
 
 			}
+
+			if ( ( neigh_purged ) && ( ( orig_node->router == NULL ) || ( max_packet_count > orig_node->router->packet_count ) ) )
+				update_routes( orig_node, best_neigh_node, orig_node->hna_buff, orig_node->hna_buff_len );
 
 		}
 
@@ -295,10 +311,10 @@ void purge_orig( uint32_t curr_time ) {
 
 	}
 
+	prof_stop( PROF_purge_orginator );
+
 	if ( gw_purged )
 		choose_gw();
-
-	prof_stop( PROF_purge_orginator );
 
 }
 

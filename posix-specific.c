@@ -578,6 +578,10 @@ void apply_init_args( int argc, char *argv[] ) {
 			exit(EXIT_FAILURE);
 		}
 
+		signal( SIGINT, handler );
+		signal( SIGTERM, handler );
+		signal( SIGSEGV, segmentation_fault );
+
 		for ( res = 0; res < 4; res++ ) {
 
 			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head), 204 );

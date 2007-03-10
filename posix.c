@@ -240,11 +240,6 @@ int main( int argc, char *argv[] ) {
 	}
 
 
-	signal( SIGINT, handler );
-	signal( SIGTERM, handler );
-	signal( SIGSEGV, segmentation_fault );
-
-
 	apply_init_args( argc, argv );
 
 

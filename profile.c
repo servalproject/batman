@@ -65,7 +65,7 @@ void prof_print() {
 
 	for ( index = 0; index < PROF_COUNT; index++ ) {
 
-		debug_output( 3, "   %''30s: cpu time = %10.3f, calls = %''4i\n", prof_container[index].name, (float)prof_container[index].total_time/CLOCKS_PER_SEC, prof_container[index].calls );
+		debug_output( 3, "   %''30s: cpu time = %10.3f, calls = %''6i\n", prof_container[index].name, (float)prof_container[index].total_time/CLOCKS_PER_SEC, prof_container[index].calls );
 
 	}
 
