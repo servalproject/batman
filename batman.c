@@ -508,7 +508,7 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 
-	if( orig_neigh_node->bidirect_link[if_incoming->if_num] > 0 && ( orig_neigh_node->bidirect_link[if_incoming->if_num] + (bidirectional_timeout) ) >= get_time() )
+	if ( orig_neigh_node->bidirect_link[if_incoming->if_num] > 0 && ( orig_neigh_node->bidirect_link[if_incoming->if_num] + (bidirectional_timeout) ) >= get_time() )
 		return 1;
 	else
 		return 0;

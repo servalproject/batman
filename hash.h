@@ -30,6 +30,7 @@ struct element_t {
 struct hash_it_t {
 	int index;
 	struct element_t *bucket;
+	struct element_t *next_bucket;
 };
 
 struct hashtable_t {

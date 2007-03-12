@@ -19,7 +19,8 @@
 
 
 #include <stdio.h>		/* NULL */
-#include "batman.h"
+#include "batman-specific.h"
+
 
 /* clears the hash */
 void hash_init(struct hashtable_t *hash) {
@@ -60,8 +61,8 @@ void hash_delete(struct hashtable_t *hash, hashdata_free_cb free_cb) {
 /* free only the hashtable and the hash itself. */
 void hash_destroy(struct hashtable_t *hash) {
 
-	debugFree( hash->table, 1301 );
-	debugFree( hash, 1302 );
+	debugFree( hash->table, 1302 );
+	debugFree( hash, 1303 );
 
 }
 
@@ -76,24 +77,35 @@ struct hash_it_t *hash_iterate(struct hashtable_t *hash, struct hash_it_t *iter_
 	if (iter_in == NULL) {
 		iter= debugMalloc(sizeof(struct hash_it_t), 301);
 		iter->index =  -1;
-		iter->bucket = NULL;
+		iter->bucket = iter->next_bucket = NULL;
 	} else
 		iter= iter_in;
-	if ( iter->bucket!=NULL ) {
-		iter->bucket = iter->bucket->next;		/* choose next */
-		if (iter->bucket !=NULL) 				/* if fine, return it */
+	if (iter->bucket!=NULL) {
+		/* if hash_remove() was used since last call our next pointer may not
+		   correspond with our last next position - we don't to miss some entries */
+		if ( (iter->next_bucket!=NULL) && (iter->bucket->next!=iter->next_bucket) ) {
+			iter->bucket = &(hash->table[ iter->index ]);
+			iter->next_bucket = ((struct element_t *)&(hash->table[ iter->index ]))->next;
 			return(iter);
+		} else if (iter->bucket->next!=NULL) {
+			iter->bucket = iter->bucket->next;		/* choose next */
+			iter->next_bucket = iter->bucket->next;
+			return(iter);
+		} else {
+			iter->bucket = iter->next_bucket = NULL;
+		}
 	}
 	iter->index++;
 	while ( iter->index < hash->size ) {		/* go through the entries of the hash table */
 		if ((hash->table[ iter->index ].data) != NULL){
 			iter->bucket = &(hash->table[ iter->index ]);
+			iter->next_bucket = ((struct element_t *)&(hash->table[ iter->index ]))->next;
 			return(iter);						/* if this table entry is not null, return it */
 		} else
 			iter->index++;						/* else, go to the next */
 	}
 	/* nothing to iterate over anymore */
-	debugFree(iter, 1303);
+	debugFree(iter, 1304);
 	return(NULL);
 }
 
@@ -109,7 +121,7 @@ struct hashtable_t *hash_new(int size, hashdata_compare_cb compare, hashdata_cho
 	hash->size= size;
 	hash->table= debugMalloc( sizeof(struct element_t) * size, 303);
 	if ( hash->table == NULL ) {	/* could not allocate the table */
-		debugFree(hash, 1304);
+		debugFree(hash, 1305);
 		return(NULL);
 	}
 	hash->compare= compare;
@@ -179,7 +191,7 @@ void *hash_find(struct hashtable_t *hash, void *keydata) {
  * we just need the key for comparing. */
 void *hash_remove(struct hashtable_t *hash, void *data) {
 	int index;
-	struct element_t *bucket, *last_bucket;
+	struct element_t *bucket, *last_bucket, *next_bucket;
 	void *data_save;
 
 	index = hash->choose( data , hash->size );
@@ -194,12 +206,15 @@ void *hash_remove(struct hashtable_t *hash, void *data) {
 					if ( bucket->next == NULL ) { 				/* there is no next bucket, nothing to preserve. */
 						bucket->data= NULL;
 					} else {									/* else, move the second bucket onto the first one */
+						next_bucket = bucket->next;
 						bucket->data= bucket->next->data;
 						bucket->next= bucket->next->next;
+						debugFree(next_bucket, 1306);			/* free the next_bucket, as we copied its data into our
+										* first bucket. */
 					}
 				} else { /* not the first entry */
 					last_bucket->next= bucket->next;
-					debugFree(bucket, 1305);
+					debugFree(bucket, 1307);
 				}
 
 				hash->elements--;
@@ -244,22 +259,21 @@ struct hashtable_t *hash_resize(struct hashtable_t *hash, int size) {
 
 
 /* print the hash table for debugging */
-void hash_debug( struct hashtable_t *hash) {
+void hash_debug(struct hashtable_t *hash) {
 	int i;
 	struct element_t *bucket;
 	for (i=0; i<hash->size;i++) {
-		printf("[%d] ",i);
+// 		printf("[%d] ",i);
 		if (hash->table[i].data != NULL) {
-			printf("[%10p] ", hash->table[i].data);
-
+			printf("[%d] [%10p] ", i, hash->table[i].data);
 
 			bucket= hash->table[i].next;
 			while (bucket != NULL) {
 				printf("-> [%10p] ", bucket->data);
 				bucket= bucket->next;
 			}
+			printf("\n");
 		}
-		printf("\n");
 
 	}
 }

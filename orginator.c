@@ -20,6 +20,7 @@
 
 
 #include <string.h>
+#include <stdlib.h>
 #include "os.h"
 #include "batman.h"
 
@@ -64,6 +65,8 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	prof_start( PROF_get_orig_node );
 	struct orig_node *orig_node;
+	struct hashtable_t *swaphash;
+	static char orig_str[ADDR_STR_LEN];
 
 
 	orig_node = ((struct orig_node *)hash_find( orig_hash, &addr ));
@@ -76,7 +79,8 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	}
 
 
-	debug_output( 4, "Creating new originator\n" );
+	addr_to_string( addr, orig_str, ADDR_STR_LEN );
+	debug_output( 4, "Creating new originator: %s \n", orig_str );
 
 	orig_node = debugMalloc( sizeof(struct orig_node), 401 );
 	memset(orig_node, 0, sizeof(struct orig_node));
@@ -89,14 +93,21 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(uint32_t), 402 );
 	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(uint32_t) );
 
-	hash_add(orig_hash, orig_node);
-	if (orig_hash->elements * 4 > orig_hash->size) {
-		struct hashtable_t *swaphash;
-		swaphash = hash_resize(orig_hash, orig_hash->size*2);
-		if (swaphash == NULL)
-			debug_output( 0, "Couldn't resize hash table\n" );
-		else
-			orig_hash = swaphash;
+	hash_add( orig_hash, orig_node );
+
+	if ( orig_hash->elements * 4 > orig_hash->size ) {
+
+		swaphash = hash_resize( orig_hash, orig_hash->size * 2 );
+
+		if ( swaphash == NULL ) {
+
+			debug_output( 0, "Couldn't resize hash table \n" );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+
+		}
+
+		orig_hash = swaphash;
 
 	}
 
@@ -210,7 +221,6 @@ void purge_orig( uint32_t curr_time ) {
 	uint8_t gw_purged = 0, neigh_purged = 0;
 	static char orig_str[ADDR_STR_LEN];
 
-	debug_output( 4, "purge() \n" );
 
 	/* for all origins... */
 	while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
@@ -219,8 +229,8 @@ void purge_orig( uint32_t curr_time ) {
 
 		if ( (int)( ( orig_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
 
-			addr_to_string(orig_node->orig, orig_str, ADDR_STR_LEN);
-			debug_output( 4, "Orginator timeout: originator %s, last_aware %u)\n", orig_str, orig_node->last_aware );
+			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
+			debug_output( 4, "Orginator timeout: originator %s, last_aware %u) \n", orig_str, orig_node->last_aware );
 
 			hash_remove( orig_hash, orig_node );
 
@@ -243,7 +253,7 @@ void purge_orig( uint32_t curr_time ) {
 				if ( gw_node->orig_node == orig_node ) {
 
 					addr_to_string( gw_node->orig_node->orig, orig_str, ADDR_STR_LEN );
-					debug_output( 3, "Removing gateway %s from gateway list\n", orig_str );
+					debug_output( 3, "Removing gateway %s from gateway list \n", orig_str );
 
 					gw_node->deleted = get_time();
 
@@ -351,6 +361,8 @@ void debug_orig() {
 				} else {
 					debug_output( 2, "%s via: %s(%i), gw_class %i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				}
+
+				batman_count++;
 
 			}
 

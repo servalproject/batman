@@ -40,9 +40,8 @@
 #include <syslog.h>
 
 #include "os.h"
+#include "orginator.h"
 #include "batman-specific.h"
-#include "list.h"
-#include "allocate.h"
 
 
 
@@ -112,13 +111,14 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 			if ( debug_prio_intern == 3 )
 				dprintf( debug_level_info->fd, "[%10u] ", get_time() );
 
-			if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strcmp( format, "BOD\n" ) == 0 ) ) {
+			if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strncmp( format, "BOD\n", 3 ) == 0 ) ) {
 
 				system( "clear" );
 
 			} else {
 
-				vdprintf( debug_level_info->fd, format, args );
+				if ( ( ( debug_level != 1 ) && ( debug_level != 2 ) ) || ( debug_level_info->fd != 1 ) || ( strncmp( format, "EOD\n", 3 ) == 0 ) )
+					vdprintf( debug_level_info->fd, format, args );
 
 			}
 
@@ -1587,9 +1587,11 @@ void *gw_listen( void *arg ) {
 
 void segmentation_fault( int32_t sig ) {
 
+	debug_output( 0, "Error - SIGSEGV received !\n" );
+
 	restore_defaults();
 
-	debug_output( 0, "Error - SIGSEGV received !\n" );
+	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
 
 	exit(EXIT_FAILURE);
 

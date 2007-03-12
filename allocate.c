@@ -26,6 +26,7 @@
 #include "os.h"
 #include "allocate.h"
 
+
 #define DEBUG_MALLOC
 #define MEMORY_USAGE
 
@@ -177,10 +178,13 @@ void checkIntegrity(void)
 
 void checkLeak(void)
 {
+
 	struct chunkHeader *walker;
 
 	for (walker = chunkList; walker != NULL; walker = walker->next)
 		fprintf(stderr, "Memory leak detected, malloc tag = %d\n", walker->tag);
+
+
 }
 
 void *debugMalloc(uint32_t length, int32_t tag)
