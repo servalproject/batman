@@ -140,7 +140,7 @@ void *unix_listen( void *arg ) {
 	struct timeval tv;
 	int32_t status, max_sock;
 	int8_t res;
-	unsigned char buff[1500];
+	unsigned char buff[10];
 	fd_set wait_sockets, tmp_wait_sockets;
 	socklen_t sun_size = sizeof(struct sockaddr_un);
 
@@ -203,7 +203,7 @@ void *unix_listen( void *arg ) {
 
 							/* debug_output( 3, "gateway: client sent data via unix socket: %s\n", buff ); */
 
-							if ( ( buff[2] == '1' ) || ( buff[2] == '2' ) || ( buff[2] == '3' ) || ( buff[2] == '4' ) ) {
+							if ( ( status > 2 ) && ( ( buff[2] == '1' ) || ( buff[2] == '2' ) || ( buff[2] == '3' ) || ( buff[2] == '4' ) ) ) {
 
 								if ( unix_client->debug_level != 0 ) {
 
@@ -347,15 +347,14 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
-// 	struct timeval tv;
-	uint8_t found_args = 1, unix_client = 0, batch_mode = 0, batch_counter = 0;
+	uint8_t found_args = 1, unix_client = 0, batch_mode = 0;
 	uint16_t netmask;
 	int8_t res;
 
 	int32_t optchar, recv_buff_len, bytes_written;
-	char str1[16], str2[16], *slash_ptr, unix_string[100], buff[1500], *buff_ptr, *cr_ptr;
+	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
 	uint32_t vis_server = 0;
-// 	fd_set wait_sockets, tmp_wait_sockets;
+
 
 	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
 	stop = 0;
@@ -668,7 +667,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 
 		unlink( UNIX_PATH );
-		unix_if.unix_sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+		unix_if.unix_sock = socket( AF_LOCAL, SOCK_STREAM, 0 );
 
 		memset( &unix_if.addr, 0, sizeof(struct sockaddr_un) );
 		unix_if.addr.sun_family = AF_LOCAL;
@@ -736,46 +735,43 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			}
 
-			snprintf( unix_string, sizeof( unix_string ), "d:%i", debug_level );
+			unix_buff = debugMalloc( 1500, 5001 );
+			snprintf( unix_buff, 10, "d:%i", debug_level );
 
-// 			FD_ZERO(&wait_sockets);
-// 			FD_SET(unix_if.unix_sock, &wait_sockets);
-
-			if ( write( unix_if.unix_sock, unix_string, strlen( unix_string ) ) < 0 ) {
+			if ( write( unix_if.unix_sock, unix_buff, 10 ) < 0 ) {
 
 				printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
 				close( unix_if.unix_sock );
+				debugFree( unix_buff, 5101 );
 				exit(EXIT_FAILURE);
 
 			}
 
-			while ( ( recv_buff_len = read( unix_if.unix_sock, buff, sizeof( buff ) ) ) > 0 ) {
+			while ( ( recv_buff_len = read( unix_if.unix_sock, unix_buff, 1500 ) ) > 0 ) {
 
-				buff_ptr = buff;
+				unix_buff[recv_buff_len] = '\0';
+
+				buff_ptr = unix_buff;
 				bytes_written = 0;
 
 				while ( ( cr_ptr = strchr( buff_ptr, '\n' ) ) != NULL ) {
 
 					*cr_ptr = '\0';
 
-					if ( strcmp( buff_ptr, "BOD" ) == 0 ) {
+					if ( strncmp( buff_ptr, "EOD", 3 ) == 0 ) {
 
 						if ( batch_mode ) {
 
-							if ( batch_counter ) {
-
-								close( unix_if.unix_sock );
-								exit(EXIT_SUCCESS);
-
-							}
-
-							batch_counter++;
-
-						} else {
-
-							system( "clear" );
+							close( unix_if.unix_sock );
+							debugFree( unix_buff, 5102 );
+							exit(EXIT_SUCCESS);
 
 						}
+
+					} else if ( strncmp( buff_ptr, "BOD", 3 ) == 0 ) {
+
+						if ( ! batch_mode )
+							system( "clear" );
 
 					} else {
 
@@ -793,10 +789,12 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			}
 
+			close( unix_if.unix_sock );
+			debugFree( unix_buff, 5103 );
+
 			if ( recv_buff_len < 0 ) {
 
 				printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
-				close( unix_if.unix_sock );
 				exit(EXIT_FAILURE);
 
 			} else {
@@ -804,65 +802,6 @@ void apply_init_args( int argc, char *argv[] ) {
 				printf( "Connection terminated by remote host\n" );
 
 			}
-
-// 			while ( 1 ) {
-//
-// 				if ( write( unix_if.unix_sock, unix_string, strlen( unix_string ) ) < 0 ) {
-//
-// 					printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
-// 					close( unix_if.unix_sock );
-// 					exit(EXIT_FAILURE);
-//
-// 				}
-//
-// 				if ( ! batch_mode )
-// 					system( "clear" );
-//
-// 				while ( 1 ) {
-//
-// 					tv.tv_sec = 1;
-// 					tv.tv_usec = 0;
-// 					tmp_wait_sockets = wait_sockets;
-//
-// 					res = select( unix_if.unix_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
-//
-// 					if ( res > 0 ) {
-//
-// 						if ( ( recv_buff_len = read( unix_if.unix_sock, buff, sizeof( buff ) ) ) < 0 ) {
-//
-// 							printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
-// 							close( unix_if.unix_sock );
-// 							exit(EXIT_FAILURE);
-//
-// 						} else if ( recv_buff_len > 0 ) {
-//
-// 							printf( "%s", buff );
-//
-// 						}
-//
-// 					/* timeout reached */
-// 					} else if ( res == 0 ) {
-//
-// 						break;
-//
-// 					}  else if ( ( res < 0 ) && ( errno != EINTR ) ) {
-//
-// 						printf( "Error - can't select: %s\n", strerror(errno) );
-// 						close( unix_if.unix_sock );
-// 						exit(EXIT_FAILURE);
-//
-// 					}
-//
-// 				}
-//
-// 				if ( batch_mode )
-// 					break;
-//
-// 				sleep( 1 );
-//
-// 			}
-
-			close( unix_if.unix_sock );
 
 		}
 

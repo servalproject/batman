@@ -104,7 +104,6 @@ struct packet
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
 {
 	uint32_t orig;
-	struct list_head list;
 	struct neigh_node *router;
 	struct batman_if *batman_if;
 	uint32_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */

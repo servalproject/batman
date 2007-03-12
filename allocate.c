@@ -143,12 +143,12 @@ void checkIntegrity(void)
 
 	struct memoryUsage *memoryWalker;
 
-	debug_output( 3, "Memory usage information:\n" );
+	debug_output( 3, " \nMemory usage information:\n" );
 
 	for ( memoryWalker = memoryList; memoryWalker != NULL; memoryWalker = memoryWalker->next ) {
 
 		if ( memoryWalker->counter != 0 )
-			debug_output( 3, "   tag: %''4i, num malloc: % 4i, bytes per malloc: %''4i, total: % 6i\n", memoryWalker->tag, memoryWalker->counter, memoryWalker->length, memoryWalker->counter * memoryWalker->length );
+			debug_output( 3, "   tag: %''4i, num malloc: %4i, bytes per malloc: %''4i, total: %6i\n", memoryWalker->tag, memoryWalker->counter, memoryWalker->length, memoryWalker->counter * memoryWalker->length );
 
 	}
 

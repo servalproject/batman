@@ -80,7 +80,6 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	orig_node = debugMalloc( sizeof(struct orig_node), 401 );
 	memset(orig_node, 0, sizeof(struct orig_node));
-	INIT_LIST_HEAD(&orig_node->list);
 	INIT_LIST_HEAD(&orig_node->neigh_list);
 
 	orig_node->orig = addr;
@@ -102,7 +101,6 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	}
 
 	prof_stop( PROF_get_orig_node );
-
 	return orig_node;
 
 }
@@ -209,7 +207,7 @@ void purge_orig( uint32_t curr_time ) {
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
-	uint8_t gw_purged = 0, neigh_purged = 0, max_packet_count;
+	uint8_t gw_purged = 0, neigh_purged = 0;
 	static char orig_str[ADDR_STR_LEN];
 
 	debug_output( 4, "purge() \n" );
@@ -264,7 +262,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		} else {
 
-			max_packet_count = 0;
+			best_neigh_node = NULL;
 
 			/* for all neighbours towards this orginator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
@@ -279,19 +277,15 @@ void purge_orig( uint32_t curr_time ) {
 
 				} else {
 
-					if ( neigh_node->packet_count > max_packet_count ) {
-
-						max_packet_count = neigh_node->packet_count;
+					if ( ( best_neigh_node == NULL ) || ( neigh_node->packet_count > best_neigh_node->packet_count ) )
 						best_neigh_node = neigh_node;
-
-					}
 
 
 				}
 
 			}
 
-			if ( ( neigh_purged ) && ( ( orig_node->router == NULL ) || ( max_packet_count > orig_node->router->packet_count ) ) )
+			if ( ( neigh_purged ) && ( ( best_neigh_node == NULL ) || ( orig_node->router == NULL ) || ( best_neigh_node->packet_count > orig_node->router->packet_count ) ) )
 				update_routes( orig_node, best_neigh_node, orig_node->hna_buff, orig_node->hna_buff_len );
 
 		}
@@ -338,7 +332,7 @@ void debug_orig() {
 
 		if ( list_empty( &gw_list ) ) {
 
-			debug_output( 2, "No gateways in range ...\n" );
+			debug_output( 2, "No gateways in range ... \n" );
 
 		} else {
 
@@ -353,17 +347,19 @@ void debug_orig() {
 				addr_to_string( gw_node->orig_node->router->addr, str2, sizeof (str2) );
 
 				if ( curr_gateway == gw_node ) {
-					debug_output( 2, "=> %s via: %s(%i), gw_class %i - %s, reliability: %i\n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					debug_output( 2, "=> %s via: %s(%i), gw_class %i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				} else {
-					debug_output( 2, "%s via: %s(%i), gw_class %i - %s, reliability: %i\n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					debug_output( 2, "%s via: %s(%i), gw_class %i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				}
 
 			}
 
 			if ( batman_count == 0 )
-				debug_output( 2, "No gateways in range ...\n" );
+				debug_output( 2, "No gateways in range ... \n" );
 
 		}
+
+		debug_output( 2, "EOD\n" );
 
 	}
 
@@ -373,16 +369,16 @@ void debug_orig() {
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
-			debug_output( 4, "------------------ DEBUG ------------------\n" );
-			debug_output( 4, "Forward list\n" );
+			debug_output( 4, "------------------ DEBUG ------------------ \n" );
+			debug_output( 4, "Forward list \n" );
 
 			list_for_each( forw_pos, &forw_list ) {
 				forw_node = list_entry( forw_pos, struct forw_node, list );
 				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, str, sizeof (str) );
-				debug_output( 4, "    %s at %u\n", str, forw_node->send_time );
+				debug_output( 4, "    %s at %u \n", str, forw_node->send_time );
 			}
 
-			debug_output( 4, "Originator list\n" );
+			debug_output( 4, "Originator list \n" );
 
 		}
 
@@ -399,7 +395,7 @@ void debug_orig() {
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
 			debug_output( 1, "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
-			debug_output( 4, "%s, GW: %s(%i), last_aware:%u via:\n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
+			debug_output( 4, "%s, GW: %s(%i), last_aware:%u via: \n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
 
 			list_for_each( neigh_pos, &orig_node->neigh_list ) {
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
@@ -407,22 +403,23 @@ void debug_orig() {
 				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
 				debug_output( 1, " %s(%i)", str, neigh_node->packet_count );
-				debug_output( 4, "\t\t%s (%d)\n", str, neigh_node->packet_count );
+				debug_output( 4, "\t\t%s (%d) \n", str, neigh_node->packet_count );
 
 			}
 
-			debug_output( 1, "\n" );
+			debug_output( 1, " \n" );
 
 		}
 
 		if ( batman_count == 0 ) {
 
-			debug_output( 1, "No batman nodes in range ...\n" );
-			debug_output( 4, "No batman nodes in range ...\n" );
+			debug_output( 1, "No batman nodes in range ... \n" );
+			debug_output( 4, "No batman nodes in range ... \n" );
 
 		}
 
-		debug_output( 4, "---------------------------------------------- END DEBUG\n" );
+		debug_output( 1, "EOD\n" );
+		debug_output( 4, "---------------------------------------------- END DEBUG \n" );
 
 	}
 

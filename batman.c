@@ -644,7 +644,7 @@ int8_t batman() {
 
 			addr_to_string( ((struct packet *)&in)->orig, orig_str, sizeof(orig_str) );
 			addr_to_string( neigh, neigh_str, sizeof(neigh_str) );
-			debug_output( 4, "Received BATMAN packet from %s (originator %s, seqno %d, TTL %d)\n", neigh_str, orig_str, ((struct packet *)&in)->seqno, ((struct packet *)&in)->ttl );
+			debug_output( 4, "Received BATMAN packet from %s (originator %s, seqno %d, TTL %d) \n", neigh_str, orig_str, ((struct packet *)&in)->seqno, ((struct packet *)&in)->ttl );
 
 			is_my_addr = is_my_orig = is_broadcast = is_duplicate = is_bidirectional = forward_duplicate_packet = 0;
 
@@ -672,7 +672,7 @@ int8_t batman() {
 
 			if ( hna_buff_len > 4 ) {
 
-				debug_output( 4, "HNA information received (%i HNA network%s):\n", hna_buff_len / 5, ( hna_buff_len / 5 > 1 ? "s": "" ) );
+				debug_output( 4, "HNA information received (%i HNA network%s): \n", hna_buff_len / 5, ( hna_buff_len / 5 > 1 ? "s": "" ) );
 				hna_buff_count = 0;
 
 				while ( ( hna_buff_count + 1 ) * 5 <= hna_buff_len ) {
@@ -685,7 +685,7 @@ int8_t batman() {
 					if ( ( netmask > 0 ) && ( netmask < 33 ) )
 						debug_output( 4, "hna: %s/%i\n", orig_str, netmask );
 					else
-						debug_output( 4, "hna: %s/%i -> ignoring (invalid netmask)\n", orig_str, netmask );
+						debug_output( 4, "hna: %s/%i -> ignoring (invalid netmask) \n", orig_str, netmask );
 
 					hna_buff_count++;
 
@@ -700,11 +700,11 @@ int8_t batman() {
 
 			} else if ( is_my_addr ) {
 
-				debug_output( 4, "Drop packet: received my own broadcast (sender: %s)\n", neigh_str );
+				debug_output( 4, "Drop packet: received my own broadcast (sender: %s) \n", neigh_str );
 
 			} else if ( is_broadcast ) {
 
-				debug_output( 4, "Drop packet: ignoring all packets with broadcast source IP (sender: %s)\n", neigh_str );
+				debug_output( 4, "Drop packet: ignoring all packets with broadcast source IP (sender: %s) \n", neigh_str );
 
 			} else if ( is_my_orig ) {
 
