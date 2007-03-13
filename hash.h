@@ -25,11 +25,13 @@ typedef void (*hashdata_free_cb)(void *);
 struct element_t {
 	void *data;						/* pointer to the data */
 	struct element_t *next;			/* overflow bucket pointer */
+	struct element_t *prev;			/* previous bucket, if it's an overflow bucket */
 };
 
 struct hash_it_t {
 	int index;
 	struct element_t *bucket;
+	struct element_t *last_bucket;
 	struct element_t *next_bucket;
 };
 
@@ -50,6 +52,11 @@ void 				 hash_init(struct hashtable_t *hash);
 
 /* allocates and clears the hash */
 struct hashtable_t	*hash_new(int size, hashdata_compare_cb compare, hashdata_choose_cb choose);
+
+/* remove bucket (this might be used in hash_iterate() if you already found the bucket
+ * you want to delete and don't need the overhead to find it again with hash_remove(). 
+ * But usually, you don't want to use this function, as it fiddles with hash-internals. */
+void 				*hash_remove_bucket(struct hashtable_t *hash, struct element_t *bucket);
 
 /* remove the hash structure. if hashdata_free_cb != NULL,
  * this function will be called to remove the elements inside of the hash.
