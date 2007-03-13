@@ -194,12 +194,12 @@ struct unix_client {
 	struct list_head list;
 	int32_t sock;
 	uint8_t debug_level;
-	struct sockaddr_un addr;
 };
 
 struct debug_clients {
 	void *fd_list[4];
 	int16_t clients_num[4];
+	pthread_mutex_t *mutex[4];
 };
 
 struct debug_level_info {

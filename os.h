@@ -35,6 +35,7 @@ void add_del_route( uint32_t dest, uint16_t netmask, uint32_t router, int8_t del
 int8_t is_aborted();
 void handler( int32_t sig );
 void segmentation_fault( int32_t sig );
+void restore_and_exit();
 
 
 int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming );

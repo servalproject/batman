@@ -108,8 +108,8 @@ void removeMemory( int32_t tag, int32_t freetag ) {
 
 			if ( walker->counter == 0 ) {
 
-				fprintf( stderr, "Freeing more memory than was allocated: malloc tag = %d, free tag = %d\n", tag, freetag );
-				exit(1);
+				debug_output( 0, "Freeing more memory than was allocated: malloc tag = %d, free tag = %d\n", tag, freetag );
+				restore_and_exit();
 
 			}
 
@@ -122,8 +122,8 @@ void removeMemory( int32_t tag, int32_t freetag ) {
 
 	if ( walker == NULL ) {
 
-		fprintf( stderr, "Freeing memory that was never allocated: malloc tag = %d, free tag = %d\n", tag, freetag );
-		exit(1);
+		debug_output( 0, "Freeing memory that was never allocated: malloc tag = %d, free tag = %d\n", tag, freetag );
+		restore_and_exit();
 
 	}
 
@@ -160,8 +160,8 @@ void checkIntegrity(void)
 	{
 		if (walker->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "checkIntegrity - invalid magic number in header: %08x, malloc tag = %d\n", walker->magicNumber, walker->tag);
-			exit(1);
+			debug_output( 0, "checkIntegrity - invalid magic number in header: %08x, malloc tag = %d\n", walker->magicNumber, walker->tag );
+			restore_and_exit();
 		}
 
 		memory = (unsigned char *)walker;
@@ -170,21 +170,18 @@ void checkIntegrity(void)
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "checkIntegrity - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, walker->tag);
-			exit(1);
+			debug_output( 0, "checkIntegrity - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, walker->tag );
+			restore_and_exit();
 		}
 	}
 }
 
 void checkLeak(void)
 {
-
 	struct chunkHeader *walker;
 
 	for (walker = chunkList; walker != NULL; walker = walker->next)
-		fprintf(stderr, "Memory leak detected, malloc tag = %d\n", walker->tag);
-
-
+		debug_output( 0, "Memory leak detected, malloc tag = %d\n", walker->tag );
 }
 
 void *debugMalloc(uint32_t length, int32_t tag)
@@ -200,8 +197,8 @@ void *debugMalloc(uint32_t length, int32_t tag)
 
 	if (memory == NULL)
 	{
-		fprintf(stderr, "Cannot allocate %u bytes, malloc tag = %d\n", (unsigned int)(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer)), tag);
-		exit(1);
+		debug_output( 0, "Cannot allocate %u bytes, malloc tag = %d\n", (unsigned int)(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer)), tag );
+		restore_and_exit();
 	}
 
 	chunkHeader = (struct chunkHeader *)memory;
@@ -240,16 +237,16 @@ void *debugRealloc(void *memoryParameter, uint32_t length, int32_t tag)
 
 		if (chunkHeader->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "debugRealloc - invalid magic number in header: %08x, malloc tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag);
-			exit(1);
+			debug_output( 0, "debugRealloc - invalid magic number in header: %08x, malloc tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag );
+			restore_and_exit();
 		}
 
 		chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length);
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
-			fprintf(stderr, "debugRealloc - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag);
-			exit(1);
+			debug_output( 0, "debugRealloc - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag );
+			restore_and_exit();
 		}
 	}
 
@@ -282,8 +279,8 @@ void debugFree(void *memoryParameter, int tag)
 
 	if (chunkHeader->magicNumber != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "debugFree - invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag, tag);
-		exit(1);
+		debug_output( 0, "debugFree - invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag, tag );
+		restore_and_exit();
 	}
 
 	previous = NULL;
@@ -298,8 +295,8 @@ void debugFree(void *memoryParameter, int tag)
 
 	if (walker == NULL)
 	{
-		fprintf(stderr, "Double free detected, malloc tag = %d, free tag = %d\n", chunkHeader->tag, tag);
-		exit(1);
+		debug_output( 0, "Double free detected, malloc tag = %d, free tag = %d\n", chunkHeader->tag, tag );
+		restore_and_exit();
 	}
 
 	if (previous == NULL)
@@ -312,8 +309,8 @@ void debugFree(void *memoryParameter, int tag)
 
 	if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 	{
-		fprintf(stderr, "debugFree - invalid magic number in trailer: %08x, malloc tag = %d, free tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag, tag);
-		exit(1);
+		debug_output( 0, "debugFree - invalid magic number in trailer: %08x, malloc tag = %d, free tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag, tag );
+		restore_and_exit();
 	}
 
 #if defined MEMORY_USAGE
@@ -344,8 +341,8 @@ void *debugMalloc(uint32_t length, int32_t tag)
 
 	if (result == NULL)
 	{
-		fprintf(stderr, "Cannot allocate %u bytes, malloc tag = %d\n", length, tag);
-		exit(1);
+		debug_output( 0, "Cannot allocate %u bytes, malloc tag = %d\n", length, tag );
+		restore_and_exit();
 	}
 
 	return result;
@@ -359,8 +356,8 @@ void *debugRealloc(void *memory, uint32_t length, int32_t tag)
 
 	if (result == NULL)
 	{
-		fprintf(stderr, "Cannot re-allocate %u bytes, malloc tag = %d\n", length, tag);
-		exit(1);
+		debug_output( 0, "Cannot re-allocate %u bytes, malloc tag = %d\n", length, tag );
+		restore_and_exit();
 	}
 
 	return result;

@@ -41,7 +41,7 @@
 
 #include "os.h"
 #include "orginator.h"
-#include "batman-specific.h"
+#include "batman.h"
 
 
 
@@ -102,29 +102,40 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 
 	if ( debug_clients.clients_num[debug_prio_intern] > 0 ) {
 
-		va_start( args, format );
+		if ( pthread_mutex_trylock( (pthread_mutex_t *)debug_clients.mutex[debug_prio_intern] ) == 0 ) {
 
-		list_for_each( debug_pos, (struct list_head *)debug_clients.fd_list[debug_prio_intern] ) {
+			va_start( args, format );
 
-			debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+			list_for_each( debug_pos, (struct list_head *)debug_clients.fd_list[debug_prio_intern] ) {
 
-			if ( debug_prio_intern == 3 )
-				dprintf( debug_level_info->fd, "[%10u] ", get_time() );
+				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
-			if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strncmp( format, "BOD\n", 3 ) == 0 ) ) {
+				if ( debug_prio_intern == 3 )
+					dprintf( debug_level_info->fd, "[%10u] ", get_time() );
 
-				system( "clear" );
+				if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strncmp( format, "BOD\n", 3 ) == 0 ) ) {
 
-			} else {
+					system( "clear" );
 
-				if ( ( ( debug_level != 1 ) && ( debug_level != 2 ) ) || ( debug_level_info->fd != 1 ) || ( strncmp( format, "EOD\n", 3 ) == 0 ) )
-					vdprintf( debug_level_info->fd, format, args );
+				} else {
+
+					if ( ( ( debug_level != 1 ) && ( debug_level != 2 ) ) || ( debug_level_info->fd != 1 ) || ( strncmp( format, "EOD\n", 3 ) == 0 ) )
+						vdprintf( debug_level_info->fd, format, args );
+
+				}
 
 			}
 
-		}
+			va_end( args );
 
-		va_end( args );
+			if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[debug_prio_intern] ) < 0 )
+				debug_output( 0, "Error - could not unlock mutex (debug_output): %s \n", strerror( errno ) );
+
+		} else {
+
+			debug_output( 0, "Error - could not trylock mutex (debug_output): %s \n", strerror( errno ) );
+
+		}
 
 	}
 
@@ -138,6 +149,7 @@ void *unix_listen( void *arg ) {
 	struct debug_level_info *debug_level_info;
 	struct list_head *unix_pos, *unix_pos_tmp, *debug_pos, *debug_pos_tmp;
 	struct timeval tv;
+	struct sockaddr_un sun_addr;
 	int32_t status, max_sock;
 	int8_t res;
 	unsigned char buff[10];
@@ -156,7 +168,7 @@ void *unix_listen( void *arg ) {
 
 		tv.tv_sec = 1;
 		tv.tv_usec = 0;
-		tmp_wait_sockets = wait_sockets;
+		memcpy( &tmp_wait_sockets, &wait_sockets, sizeof(fd_set) );
 
 		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
 
@@ -168,18 +180,18 @@ void *unix_listen( void *arg ) {
 				unix_client = debugMalloc( sizeof(struct unix_client), 201 );
 				memset( unix_client, 0, sizeof(struct unix_client) );
 
-				if ( ( unix_client->sock = accept( unix_if.unix_sock, (struct sockaddr *)&unix_client->addr, &sun_size) ) == -1 ) {
+				if ( ( unix_client->sock = accept( unix_if.unix_sock, (struct sockaddr *)&sun_addr, &sun_size) ) == -1 ) {
 					debug_output( 0, "Error - can't accept unix client: %s\n", strerror(errno) );
 					continue;
 				}
 
-				INIT_LIST_HEAD(&unix_client->list);
+				INIT_LIST_HEAD( &unix_client->list );
 
-				FD_SET(unix_client->sock, &wait_sockets);
+				FD_SET( unix_client->sock, &wait_sockets );
 				if ( unix_client->sock > max_sock )
 					max_sock = unix_client->sock;
 
-				list_add_tail(&unix_client->list, &unix_if.client_list);
+				list_add_tail( &unix_client->list, &unix_if.client_list );
 
 				debug_output( 3, "Unix socket: got connection\n" );
 
@@ -207,6 +219,9 @@ void *unix_listen( void *arg ) {
 
 								if ( unix_client->debug_level != 0 ) {
 
+									if ( pthread_mutex_lock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
+										debug_output( 0, "Error - could not lock mutex (unix_listen => 1): %s \n", strerror( errno ) );
+
 									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
 										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
@@ -224,9 +239,15 @@ void *unix_listen( void *arg ) {
 
 									}
 
+									if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
+										debug_output( 0, "Error - could not unlock mutex (unix_listen => 1): %s \n", strerror( errno ) );
+
 								}
 
 								if ( unix_client->debug_level != buff[2] ) {
+
+									if ( pthread_mutex_lock( (pthread_mutex_t *)debug_clients.mutex[(int)buff[2] - '1'] ) != 0 )
+										debug_output( 0, "Error - could not lock mutex (unix_listen => 2): %s \n", strerror( errno ) );
 
 									debug_level_info = debugMalloc( sizeof(struct debug_level_info), 202 );
 									INIT_LIST_HEAD( &debug_level_info->list );
@@ -236,11 +257,16 @@ void *unix_listen( void *arg ) {
 
 									unix_client->debug_level = (int)buff[2];
 
+									if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)buff[2] - '1'] ) != 0 )
+										debug_output( 0, "Error - could not unlock mutex (unix_listen => 2): %s \n", strerror( errno ) );
+
 								} else {
 
 									unix_client->debug_level = 0;
 
 								}
+
+
 
 							}
 
@@ -253,6 +279,9 @@ void *unix_listen( void *arg ) {
 							} else {
 
 								if ( unix_client->debug_level != 0 ) {
+
+									if ( pthread_mutex_lock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
+										debug_output( 0, "Error - could not lock mutex (unix_listen => 3): %s \n", strerror( errno ) );
 
 									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
@@ -270,6 +299,9 @@ void *unix_listen( void *arg ) {
 										}
 
 									}
+
+									if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
+										debug_output( 0, "Error - could not unlock mutex (unix_listen => 3): %s \n", strerror( errno ) );
 
 								}
 
@@ -585,6 +617,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head), 204 );
 			INIT_LIST_HEAD( (struct list_head *)debug_clients.fd_list[res] );
+			debug_clients.mutex[res] = debugMalloc( sizeof(pthread_mutex_t), 209 );
+			pthread_mutex_init( (pthread_mutex_t *)debug_clients.mutex[res], NULL );
 
 		}
 
@@ -770,7 +804,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 					} else if ( strncmp( buff_ptr, "BOD", 3 ) == 0 ) {
 
-						if ( ! batch_mode )
+						if ( !batch_mode )
 							system( "clear" );
 
 					} else {
@@ -1585,15 +1619,23 @@ void *gw_listen( void *arg ) {
 
 
 
+void restore_and_exit() {
+
+	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+
+	restore_defaults();
+
+	exit(EXIT_FAILURE);
+
+}
+
+
+
 void segmentation_fault( int32_t sig ) {
 
 	debug_output( 0, "Error - SIGSEGV received !\n" );
 
-	restore_defaults();
-
-	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
-
-	exit(EXIT_FAILURE);
+	restore_and_exit();
 
 }
 
@@ -1622,6 +1664,7 @@ void cleanup() {
 		}
 
 		debugFree( debug_clients.fd_list[i], 1218 );
+		debugFree( debug_clients.mutex[i], 1219 );
 
 	}
 
