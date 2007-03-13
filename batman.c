@@ -27,7 +27,7 @@
 #include "os.h"
 #include "list.h"
 #include "batman.h"
-#include "orginator.h"
+#include "originator.h"
 #include "schedule.h"
 
 

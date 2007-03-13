@@ -40,7 +40,7 @@
 #include <syslog.h>
 
 #include "os.h"
-#include "orginator.h"
+#include "originator.h"
 #include "batman.h"
 
 
