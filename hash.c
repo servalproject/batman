@@ -46,7 +46,7 @@ void hash_delete(struct hashtable_t *hash, hashdata_free_cb free_cb) {
 
 			bucket= hash->table[i].next;
 			while (bucket != NULL) {
-				if (free_cb!=NULL) free_cb( hash->table[i].data );
+				if (free_cb!=NULL) free_cb( bucket->data );
 				last_bucket= bucket;
 				bucket= bucket->next;
 				debugFree(last_bucket, 1301);
