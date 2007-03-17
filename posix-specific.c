@@ -113,13 +113,13 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 				if ( debug_prio_intern == 3 )
 					dprintf( debug_level_info->fd, "[%10u] ", get_time() );
 
-				if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strncmp( format, "BOD\n", 3 ) == 0 ) ) {
+				if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strncmp( format, "BOD", 3 ) == 0 ) ) {
 
 					system( "clear" );
 
 				} else {
 
-					if ( ( ( debug_level != 1 ) && ( debug_level != 2 ) ) || ( debug_level_info->fd != 1 ) || ( strncmp( format, "EOD\n", 3 ) == 0 ) )
+					if ( ( ( debug_level != 1 ) && ( debug_level != 2 ) ) || ( debug_level_info->fd != 1 ) || ( strncmp( format, "EOD", 3 ) != 0 ) )
 						vdprintf( debug_level_info->fd, format, args );
 
 				}

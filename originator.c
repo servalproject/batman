@@ -28,9 +28,9 @@
 
 /* needed for hash, compares 2 struct orig_node, but only their ip-addresses. assumes that
  * the ip address is the first field in the struct */
-int compare_orig(void *data1, void *data2) {
+int compare_orig( void *data1, void *data2 ) {
 
-	return(memcmp(data1, data2, 4));
+	return ( memcmp( data1, data2, 4 ) );
 
 }
 
@@ -38,7 +38,7 @@ int compare_orig(void *data1, void *data2) {
 
 /* hashfunction to choose an entry in a hash table of given size */
 /* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
-int choose_orig(void *data, int32_t size) {
+int choose_orig( void *data, int32_t size ) {
 
 	unsigned char *key= data;
 	uint32_t hash = 0;
@@ -102,8 +102,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 		if ( swaphash == NULL ) {
 
 			debug_output( 0, "Couldn't resize hash table \n" );
-			restore_defaults();
-			exit(EXIT_FAILURE);
+			restore_and_exit();
 
 		}
 
@@ -218,7 +217,7 @@ void purge_orig( uint32_t curr_time ) {
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
-	uint8_t gw_purged = 0, neigh_purged = 0;
+	uint8_t gw_purged = 0, neigh_purged;
 	static char orig_str[ADDR_STR_LEN];
 
 
@@ -273,6 +272,7 @@ void purge_orig( uint32_t curr_time ) {
 		} else {
 
 			best_neigh_node = NULL;
+			neigh_purged = 0;
 
 			/* for all neighbours towards this orginator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {

@@ -174,10 +174,8 @@ void send_outstanding_packets() {
 
 					debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct packet *)forw_node->pack_buff)->seqno ), ((struct packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev );
 
-					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
-						restore_defaults();
-						exit(EXIT_FAILURE);
-					}
+					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 )
+						restore_and_exit();
 
 				} else {
 
@@ -190,10 +188,8 @@ void send_outstanding_packets() {
 
 				if ( ( forw_node->if_outgoing != NULL ) ) {
 
-					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 ) {
-						restore_defaults();
-						exit(EXIT_FAILURE);
-					}
+					if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 )
+						restore_and_exit();
 
 				} else {
 
@@ -224,17 +220,13 @@ void send_outstanding_packets() {
 						/* non-primary interfaces do not send hna information */
 						if ( ( forw_node->own ) && ( ((struct packet *)forw_node->pack_buff)->orig != ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr ) ) {
 
-							if ( send_packet( forw_node->pack_buff, sizeof(struct packet), &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
-								restore_defaults();
-								exit(EXIT_FAILURE);
-							}
+							if ( send_packet( forw_node->pack_buff, sizeof(struct packet), &batman_if->broad, batman_if->udp_send_sock ) < 0 )
+								restore_and_exit();
 
 						} else {
 
-							if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &batman_if->broad, batman_if->udp_send_sock ) < 0 ) {
-								restore_defaults();
-								exit(EXIT_FAILURE);
-							}
+							if ( send_packet( forw_node->pack_buff, forw_node->pack_buff_len, &batman_if->broad, batman_if->udp_send_sock ) < 0 )
+								restore_and_exit();
 
 						}
 

@@ -25,7 +25,6 @@
 #include <string.h>
 #include <stdio.h>
 #include "os.h"
-#include "list.h"
 #include "batman.h"
 #include "originator.h"
 #include "schedule.h"
