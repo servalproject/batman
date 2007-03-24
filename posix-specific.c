@@ -1633,6 +1633,8 @@ void restore_and_exit() {
 
 void segmentation_fault( int32_t sig ) {
 
+	signal( SIGSEGV, SIG_DFL );
+
 	debug_output( 0, "Error - SIGSEGV received !\n" );
 
 	restore_and_exit();

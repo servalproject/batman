@@ -578,8 +578,8 @@ int8_t batman() {
 	prof_init( PROF_update_gw_list, "update_gw_list" );
 	prof_init( PROF_is_duplicate, "isDuplicate" );
 	prof_init( PROF_get_orig_node, "get_orig_node" );
-	prof_init( PROF_update_originator, "update_originator" );
-	prof_init( PROF_purge_orginator, "purge_orginator" );
+	prof_init( PROF_update_originator, "update_orig" );
+	prof_init( PROF_purge_orginator, "purge_orig" );
 	prof_init( PROF_schedule_forward_packet, "schedule_forward_packet" );
 	prof_init( PROF_send_outstanding_packets, "send_outstanding_packets" );
 
