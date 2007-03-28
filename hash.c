@@ -19,7 +19,8 @@
 
 
 #include <stdio.h>		/* NULL */
-#include "batman-specific.h"
+#include "hash.h"
+#include "allocate.h"
 
 
 /* clears the hash */
@@ -231,6 +232,9 @@ void *hash_remove_bucket(struct hashtable_t *hash, struct element_t *bucket) {
 			bucket->next= bucket->next->next;
 			debugFree(next_bucket, 1306);			/* free the next_bucket, as we copied its data into our
 						 							 * first bucket. */
+			if (bucket->next!=NULL) {				/* 3rd bucket would point on the removed bucket. fix this. */
+				bucket->next->prev= bucket;
+			}
 		}
 	} else { /* not the first entry */
 		if (bucket->next!=NULL)
