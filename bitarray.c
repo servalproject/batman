@@ -21,7 +21,7 @@
 
 #include <stdio.h>              /* printf() */
 
-#include "batman-specific.h"
+#include "bitarray.h"
 #include "os.h"
 
 
@@ -40,9 +40,10 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno ) {
 
 	int word_offset,word_num;
-//TBD: not shure for wrap arounds, what about: if ( curr_seqno - last_seqno > 0 || curr_seqno - last_seqno <
-	if ( curr_seqno > last_seqno || curr_seqno < last_seqno - SEQ_RANGE ) {
-
+	int16_t diff;
+	
+	diff= last_seqno- curr_seqno;
+	if ( diff < 0 || diff >= SEQ_RANGE  ) {
 		return 0;
 
 	} else {
@@ -142,7 +143,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n ) {
 
 
 /* receive and process one packet, returns 1 if received seq_num is considered new, 0 if old  */
-char bit_get_packet( TYPE_OF_WORD *seq_bits, int32_t seq_num_diff, int8_t set_mark ) {
+char bit_get_packet( TYPE_OF_WORD *seq_bits, int16_t seq_num_diff, int8_t set_mark ) {
 
 	int i;
 

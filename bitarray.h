@@ -21,6 +21,7 @@
 
 #define TYPE_OF_WORD unsigned long /* you should choose something big, if you don't want to waste cpu */
 #define WORD_BIT_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
+#include "batman-specific.h"
 
 
 
@@ -29,6 +30,6 @@ uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t cu
 char *bit_print( TYPE_OF_WORD *seq_bits );
 void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n );
 void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n );
-char bit_get_packet( TYPE_OF_WORD *seq_bits, int32_t seq_num_diff, int8_t set_mark );
+char bit_get_packet( TYPE_OF_WORD *seq_bits, int16_t seq_num_diff, int8_t set_mark );
 int  bit_packet_count( TYPE_OF_WORD *seq_bits );
 
