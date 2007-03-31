@@ -379,7 +379,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
-	uint8_t found_args = 1, unix_client = 0, batch_mode = 0;
+	uint8_t found_args = 1, batch_mode = 0;
 	uint16_t netmask;
 	int8_t res;
 
@@ -847,10 +847,11 @@ void apply_init_args( int argc, char *argv[] ) {
 
 
 
-void init_interface ( struct batman_if *batman_if )
-{
+void init_interface ( struct batman_if *batman_if ) {
+
 	struct ifreq int_req;
 	int16_t on = 1;
+
 
 	if ( strlen( batman_if->dev ) > IFNAMSIZ - 1 ) {
 		debug_output( 0, "Error - interface name too long: %s\n", batman_if->dev );
@@ -868,7 +869,7 @@ void init_interface ( struct batman_if *batman_if )
 	batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 	if ( batman_if->udp_recv_sock < 0 ) {
 
-		debug_output( 0, "Error - can't create recieve socket: %s", strerror(errno) );
+		debug_output( 0, "Error - can't create receive socket: %s", strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -900,6 +901,14 @@ void init_interface ( struct batman_if *batman_if )
 	batman_if->broad.sin_family = AF_INET;
 	batman_if->broad.sin_port = htons(PORT);
 	batman_if->broad.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_broadaddr)->sin_addr.s_addr;
+
+	if ( batman_if->broad.sin_addr.s_addr == 0 ) {
+
+		debug_output( 0, "Error - invalid broadcast address detected (0.0.0.0): %s\n", batman_if->dev );
+		restore_defaults();
+		exit(EXIT_FAILURE);
+
+	}
 
 	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
 
@@ -1621,9 +1630,37 @@ void *gw_listen( void *arg ) {
 
 void restore_and_exit() {
 
-	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+	struct list_head *if_pos;
+	struct batman_if *batman_if;
 
-	restore_defaults();
+
+	if ( !unix_client ) {
+
+		/* remove tun interface first */
+		stop = 1;
+
+		list_for_each( if_pos, &if_list ) {
+
+			batman_if = list_entry( if_pos, struct batman_if, list );
+
+			if ( batman_if->listen_thread_id != 0 ) {
+
+				pthread_join( batman_if->listen_thread_id, NULL );
+				close( batman_if->tcp_gw_sock );
+				batman_if->listen_thread_id = 0;
+
+			}
+
+		}
+
+		if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
+			del_default_route();
+
+		purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+
+		restore_defaults();
+
+	}
 
 	exit(EXIT_FAILURE);
 

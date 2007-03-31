@@ -101,6 +101,8 @@ uint8_t found_ifs = 0;
 int32_t receive_max_sock = 0;
 fd_set receive_wait_set;
 
+uint8_t unix_client = 0;
+
 struct hashtable_t *orig_hash;
 
 LIST_HEAD(forw_list);

@@ -81,6 +81,8 @@ extern uint8_t found_ifs;
 extern int32_t receive_max_sock;
 extern fd_set receive_wait_set;
 
+extern uint8_t unix_client;
+
 extern struct hashtable_t *orig_hash;
 
 extern struct list_head if_list;
