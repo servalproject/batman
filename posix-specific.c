@@ -611,7 +611,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		signal( SIGINT, handler );
 		signal( SIGTERM, handler );
-		signal( SIGSEGV, segmentation_fault );
+// 		signal( SIGSEGV, segmentation_fault );
 
 		for ( res = 0; res < 4; res++ ) {
 

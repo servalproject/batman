@@ -123,7 +123,7 @@ struct neigh_node
 {
 	struct list_head list;
 	uint32_t addr;
-	uint16_t packet_count;
+	uint8_t packet_count;
 	uint8_t  last_ttl;         /* ttl of last received packet */
 	uint32_t last_aware;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD seq_bits[ NUM_WORDS ];
