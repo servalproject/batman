@@ -22,6 +22,7 @@
 #ifndef _BATMAN_BATMAN_H
 #define _BATMAN_BATMAN_H
 
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sys/un.h>
