@@ -1041,13 +1041,33 @@ void *client_to_gw_tun( void *arg ) {
 
 	}
 
-	if ( connect ( curr_gateway_tcp_sock, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr) ) < 0 ) {
+	if ( pthread_mutex_lock( &curr_gw_mutex ) == 0 ) {
 
-		debug_output( 0, "Error - can't connect to gateway: %s\n", strerror(errno) );
+		if ( connect ( curr_gateway_tcp_sock, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr) ) < 0 ) {
+
+			debug_output( 0, "Error - can't connect to gateway: %s\n", strerror(errno) );
+			close( curr_gateway_tcp_sock );
+
+			curr_gw_data->gw_node->last_failure = get_time();
+			curr_gw_data->gw_node->unavail_factor++;
+
+			curr_gateway = NULL;
+			debugFree( arg, 1207 );
+
+			if ( pthread_mutex_unlock( &curr_gw_mutex ) != 0 )
+				debug_output( 0, "Error - could not unlock mutex (client_to_gw_tun => 1): %s \n", strerror( errno ) );
+
+			return NULL;
+
+		}
+
+		if ( pthread_mutex_unlock( &curr_gw_mutex ) != 0 )
+			debug_output( 0, "Error - could not unlock mutex (client_to_gw_tun => 2): %s \n", strerror( errno ) );
+
+	} else {
+
+		debug_output( 0, "Error - could not lock mutex (client_to_gw_tun => 1): %s \n", strerror( errno ) );
 		close( curr_gateway_tcp_sock );
-
-		curr_gw_data->gw_node->last_failure = get_time();
-		curr_gw_data->gw_node->unavail_factor++;
 
 		curr_gateway = NULL;
 		debugFree( arg, 1207 );
@@ -1114,12 +1134,28 @@ void *client_to_gw_tun( void *arg ) {
 
 			server_keep_alive_timeout = get_time();
 
-			if ( write( curr_gateway_tcp_sock, keep_alive_string, sizeof( keep_alive_string ) ) < 0 ) {
+			if ( pthread_mutex_lock( &curr_gw_mutex ) == 0 ) {
 
-				debug_output( 3, "server_keepalive failed: %s\n", strerror(errno) );
+				if ( write( curr_gateway_tcp_sock, keep_alive_string, sizeof( keep_alive_string ) ) < 0 ) {
 
-				curr_gw_data->gw_node->last_failure = get_time();
-				curr_gw_data->gw_node->unavail_factor++;
+					debug_output( 3, "server_keepalive failed: %s\n", strerror(errno) );
+
+					curr_gw_data->gw_node->last_failure = get_time();
+					curr_gw_data->gw_node->unavail_factor++;
+
+					if ( pthread_mutex_unlock( &curr_gw_mutex ) != 0 )
+						debug_output( 0, "Error - could not unlock mutex (client_to_gw_tun => 3): %s \n", strerror( errno ) );
+
+					break;
+
+				}
+
+				if ( pthread_mutex_unlock( &curr_gw_mutex ) != 0 )
+					debug_output( 0, "Error - could not unlock mutex (client_to_gw_tun => 4): %s \n", strerror( errno ) );
+
+			} else {
+
+				debug_output( 0, "Error - could not lock mutex (client_to_gw_tun => 2): %s \n", strerror( errno ) );
 
 				break;
 

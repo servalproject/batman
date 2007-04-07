@@ -29,6 +29,7 @@
 #include "originator.h"
 #include "schedule.h"
 
+#include <errno.h>  /* should be removed together with tcp control channel */
 
 
 /* "-d" is the command line switch for the debug level,
@@ -90,6 +91,7 @@ uint32_t bidirectional_timeout = 0;   /* bidirectional neighbour reply timeout i
 
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
+pthread_mutex_t curr_gw_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 uint32_t pref_gateway = 0;
 
@@ -301,23 +303,34 @@ void choose_gw() {
 
 	if ( curr_gateway != tmp_curr_gw ) {
 
-		if ( curr_gateway != NULL ) {
+		if ( pthread_mutex_trylock( &curr_gw_mutex ) == 0 ) {
 
-			debug_output( 3, "Removing default route - better gateway found\n" );
+			if ( curr_gateway != NULL ) {
 
-			del_default_route();
+				debug_output( 3, "Removing default route - better gateway found\n" );
 
-		}
+				del_default_route();
 
-		curr_gateway = tmp_curr_gw;
+			}
 
-		/* may be the last gateway is now gone */
-		if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
+			curr_gateway = tmp_curr_gw;
 
-			addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
+			/* may be the last gateway is now gone */
+			if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
 
-			add_default_route();
+				addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
+				debug_output( 3, "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
+
+				add_default_route();
+
+			}
+
+			if ( pthread_mutex_unlock( &curr_gw_mutex ) < 0 )
+				debug_output( 0, "Error - could not unlock mutex (choose_gw): %s \n", strerror( errno ) );
+
+		} else {
+
+			debug_output( 0, "Warning - could not change default route (mutex locked): %s \n", strerror( EBUSY ) );
 
 		}
 

@@ -76,7 +76,8 @@ extern uint32_t pref_gateway;
 extern unsigned char *hna_buff;
 
 extern struct gw_node *curr_gateway;
-pthread_t curr_gateway_thread_id;
+extern pthread_t curr_gateway_thread_id;
+extern pthread_mutex_t curr_gw_mutex;
 
 extern uint8_t found_ifs;
 extern int32_t receive_max_sock;
