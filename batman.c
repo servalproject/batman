@@ -585,7 +585,7 @@ int8_t batman() {
 
 
 	debug_timeout = get_time();
-	bidirectional_timeout = orginator_interval * 3;
+	bidirectional_timeout = orginator_interval * 2;
 
 	if ( NULL == ( orig_hash = hash_new( 128, compare_orig, choose_orig ) ) )
 		return(-1);

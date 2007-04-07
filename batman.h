@@ -35,8 +35,8 @@
 
 
 
-#define SOURCE_VERSION "0.2 alpha (debug)"
-#define COMPAT_VERSION 2
+#define SOURCE_VERSION "0.2 beta"
+#define COMPAT_VERSION 3
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
