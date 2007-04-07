@@ -544,8 +544,10 @@ void send_vis_packet() {
 	}
 	if(packet != NULL)
 	{
-		send_packet(packet, size * sizeof(unsigned char), &vis_if.addr, vis_if.sock);
-	 	debugFree( packet, 1102 );
+		packet = debugRealloc(packet, ( size * sizeof(unsigned char) ) + 1, 114);
+		*(packet + size + 1) = gateway_class;
+		send_packet(packet, ( size * sizeof(unsigned char) ) + 1, &vis_if.addr, vis_if.sock);
+		debugFree( packet, 1102 );
 	}
 }
 

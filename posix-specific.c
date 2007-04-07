@@ -133,7 +133,7 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 
 		} else {
 
-			debug_output( 0, "Error - could not trylock mutex (debug_output): %s \n", strerror( errno ) );
+			debug_output( 0, "Warning - could not trylock mutex (debug_output): %s \n", strerror( EBUSY ) );
 
 		}
 
@@ -611,7 +611,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		signal( SIGINT, handler );
 		signal( SIGTERM, handler );
-// 		signal( SIGSEGV, segmentation_fault );
+		signal( SIGSEGV, segmentation_fault );
 
 		for ( res = 0; res < 4; res++ ) {
 
