@@ -16,9 +16,14 @@
 # 02110-1301, USA
 #
 
-CC_MIPS_PATH =	/usr/src/openWrt/build/buildroot-ng/openwrt/staging_dir_mipsel/bin
-CC_MIPS =		$(CC_MIPS_PATH)/mipsel-linux-uclibc-gcc
-STRIP_MIPS =	$(CC_MIPS_PATH)/sstrip
+CC_MIPS_KK_PATH =	/usr/src/openWrt/build/buildroot-ng/openwrt/staging_dir_mipsel/bin
+CC_MIPS_KK =		$(CC_MIPS_KK_PATH)/mipsel-linux-uclibc-gcc
+STRIP_MIPS_KK =		$(CC_MIPS_KK_PATH)/sstrip
+
+CC_MIPS_WR_PATH =	/usr/src/openWrt/build/whiterussian/openwrt/staging_dir_mipsel/bin
+CC_MIPS_WR =		$(CC_MIPS_WR_PATH)/mipsel-linux-uclibc-gcc
+STRIP_MIPS_WR =		$(CC_MIPS_WR_PATH)/sstrip
+
 CFLAGS_MIPS =	-Wall -O0 -g3
 LDFLAGS_MIPS =	-lpthread
 
@@ -51,19 +56,30 @@ LINUX_SRC_H= batman.h originator.h schedule.h batman-specific.h list.h os.h allo
 
 all:	batmand
 
-mips:	batmand-mips-static batmand-mips-dynamic
-
 batmand:	batman.o $(OS_OBJ) Makefile batman.h
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
-batmand-mips-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
-	$(STRIP_MIPS) $@
 
-batmand-mips-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS)
-	$(STRIP_MIPS) $@
+mips-kk:	batmand-mips-kk-static batmand-mips-kk-dynamic
 
+batmand-mips-kk-static:		$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+	$(CC_MIPS_KK) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+	$(STRIP_MIPS_KK) $@
+
+batmand-mips-kk-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+	$(CC_MIPS_KK) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+	$(STRIP_MIPS_KK) $@
+
+mips-wr:	batmand-mips-wr-static batmand-mips-wr-dynamic
+
+
+batmand-mips-wr-static:		$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+	$(CC_MIPS_WR) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+	$(STRIP_MIPS_WR) $@
+
+batmand-mips-wr-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+	$(CC_MIPS_WR) $(CFLAGS_MIPS) -o $@ $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+	$(STRIP_MIPS_WR) $@
 
 clean:
 		rm -f batmand batmand-mips* *.o *~
