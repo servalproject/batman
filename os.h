@@ -44,6 +44,8 @@ int8_t send_packet( unsigned char *packet_buff, int packet_buff_len, struct sock
 int8_t probe_tun();
 int8_t del_dev_tun( int32_t fd );
 int8_t add_dev_tun( struct batman_if *batman_if, uint32_t dest_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd );
+void   del_default_route();
+int8_t add_default_route();
 
 void apply_init_args( int argc, char *argv[] );
 void init_interface ( struct batman_if *batman_if );

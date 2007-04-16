@@ -226,7 +226,6 @@ void verbose_usage( void );
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
 void choose_gw();
-void del_default_route();
-int8_t add_default_route();
+
 
 #endif
