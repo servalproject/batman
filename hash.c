@@ -156,6 +156,7 @@ struct hashtable_t *hash_new(int size, hashdata_compare_cb compare, hashdata_cho
 		debugFree(hash, 1305);
 		return(NULL);
 	}
+	hash_init(hash);
 	hash->compare= compare;
 	hash->choose= choose;
 	return(hash);
