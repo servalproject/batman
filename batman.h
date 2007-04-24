@@ -56,6 +56,7 @@
 
 #define JITTER 100
 #define TTL 50             /* Time To Live of broadcast messages */
+#define BIDIRECT_TIMEOUT 2
 #define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
 #define SEQ_RANGE 64       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
 
@@ -112,7 +113,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	uint32_t orig;
 	struct neigh_node *router;
 	struct batman_if *batman_if;
-	uint32_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
+	uint16_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
 	uint32_t last_aware;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;

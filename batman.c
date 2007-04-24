@@ -87,8 +87,6 @@ uint8_t routing_class = 0;
 
 int16_t orginator_interval = 1000;   /* orginator message interval in miliseconds */
 
-uint32_t bidirectional_timeout = 0;   /* bidirectional neighbour reply timeout in ms */
-
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
 pthread_mutex_t curr_gw_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -519,16 +517,20 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 }
 
 int isBntog(  uint32_t neigh, struct orig_node *orig_tog_node ) {
- if ( ( orig_tog_node->router != NULL ) && ( orig_tog_node->router->addr == neigh ) ) return 1;
- else return 0;
+
+	if ( ( orig_tog_node->router != NULL ) && ( orig_tog_node->router->addr == neigh ) )
+		return 1;
+
+	return 0;
+
 }
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 
-	if ( orig_neigh_node->bidirect_link[if_incoming->if_num] > 0 && ( orig_neigh_node->bidirect_link[if_incoming->if_num] + (bidirectional_timeout) ) >= get_time() )
+	if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] + BIDIRECT_TIMEOUT ) >=  if_incoming->out.seqno )
 		return 1;
-	else
-		return 0;
+
+	return 0;
 
 }
 
@@ -588,7 +590,6 @@ int8_t batman() {
 
 
 	debug_timeout = get_time();
-	bidirectional_timeout = orginator_interval * 2;
 
 	if ( NULL == ( orig_hash = hash_new( 128, compare_orig, choose_orig ) ) )
 		return(-1);
@@ -735,9 +736,9 @@ int8_t batman() {
 				/* neighbour has to indicate direct link and it has to come via the corresponding interface */
 				if ( ( ((struct packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct packet *)&in)->orig ) ) {
 
-					orig_neigh_node->bidirect_link[if_incoming->if_num] = get_time();
+					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct packet *)&in)->seqno;
 
-					debug_output( 4, "received my own packet from neighbour indicating bidirectional link, updating bidirect_link timestamp \n");
+					debug_output( 4, "received my own packet from neighbour indicating bidirectional link, updating bidirect_link seqno \n");
 
 				}
 
