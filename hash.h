@@ -74,7 +74,7 @@ int 				 hash_add(struct hashtable_t *hash, void *data);
  * we just need the key for comparing. */
 void 				*hash_remove(struct hashtable_t *hash, void *data);
 
-/* adds data to the hashtable. returns 0 on success, -1 on error */
+/* finds data, based on the key in keydata. returns the found data on success, or NULL on error */
 void 				*hash_find(struct hashtable_t *hash, void *keydata);
 
 /* resize the hash, returns the pointer to the new hash or NULL on error. removes the old hash on success */
