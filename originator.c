@@ -346,6 +346,8 @@ void debug_orig() {
 
 		} else {
 
+			debug_output( 2, "%''12s       %''15s (%''3s %''2s) \n", "Gateway", "Router", "%", "#" );
+
 			list_for_each( orig_pos, &gw_list ) {
 
 				gw_node = list_entry( orig_pos, struct gw_node, list );
@@ -357,9 +359,9 @@ void debug_orig() {
 				addr_to_string( gw_node->orig_node->router->addr, str2, sizeof (str2) );
 
 				if ( curr_gateway == gw_node ) {
-					debug_output( 2, "=> %s via: %s(%i), gw_class %i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					debug_output( 2, "=> %-15s %''15s (%''3i %''2i), gw_class %2i - %s, reliability: %i \n", str, str2, ( 100 * gw_node->orig_node->router->packet_count / SEQ_RANGE ), gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				} else {
-					debug_output( 2, "%s via: %s(%i), gw_class %i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					debug_output( 2, "   %-15s %''15s (%''3i %''2i), gw_class %2i - %s, reliability: %i \n", str, str2, ( 100 * gw_node->orig_node->router->packet_count / SEQ_RANGE ), gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				}
 
 				batman_count++;
@@ -378,6 +380,7 @@ void debug_orig() {
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
 
 		debug_output( 1, "BOD\n" );
+		debug_output( 1, "%''15s %''15s (%''3s %''2s): %''20s\n", "Orginator", "Router", "%", "#", "potential gateways" );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
@@ -391,6 +394,7 @@ void debug_orig() {
 			}
 
 			debug_output( 4, "Originator list \n" );
+			debug_output( 4, "%''15s %''15s (%''3s %''2s): %''20s\n", "Orginator", "Gateway", "%", "#", "potential gateways" );
 
 		}
 
@@ -406,16 +410,16 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%s, GW: %s(%i) via:", str, str2, orig_node->router->packet_count );
-			debug_output( 4, "%s, GW: %s(%i), last_aware:%u via: \n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
+			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, ( 100 * orig_node->router->packet_count / SEQ_RANGE ), orig_node->router->packet_count );
+			debug_output( 4, "%''15s %''15s (%3i %2i), last_aware:%u: \n", str, str2, ( 100 * orig_node->router->packet_count / SEQ_RANGE ), orig_node->router->packet_count, orig_node->last_aware );
 
 			list_for_each( neigh_pos, &orig_node->neigh_list ) {
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
-				debug_output( 1, " %s(%i)", str, neigh_node->packet_count );
-				debug_output( 4, "\t\t%s (%d) \n", str, neigh_node->packet_count );
+				debug_output( 1, " %''15s (%3i %2i)", str, ( 100 * neigh_node->packet_count / SEQ_RANGE ), neigh_node->packet_count );
+				debug_output( 4, "\t\t%''15s (%3i %2i) \n", str, ( 100 * neigh_node->packet_count / SEQ_RANGE ), neigh_node->packet_count );
 
 			}
 
