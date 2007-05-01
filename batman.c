@@ -516,7 +516,7 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
 }
 
-int isBntog(  uint32_t neigh, struct orig_node *orig_tog_node ) {
+int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 	if ( ( orig_tog_node->router != NULL ) && ( orig_tog_node->router->addr == neigh ) )
 		return 1;

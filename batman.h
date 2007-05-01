@@ -35,7 +35,7 @@
 
 
 
-#define SOURCE_VERSION "0.2 beta"
+#define SOURCE_VERSION "0.2 rc1"
 #define COMPAT_VERSION 3
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
@@ -44,7 +44,7 @@
 
 #define UNIX_PATH "/var/run/batmand.socket"
 
-#define PROFILE_DATA
+/* #define PROFILE_DATA */
 
 
 /*

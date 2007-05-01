@@ -379,7 +379,7 @@ void debug_orig() {
 
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
 
-		debug_output( 1, "BOD\n" );
+		debug_output( 1, "BOD \n" );
 		debug_output( 1, "%''15s %''15s (%''3s %''2s): %''20s\n", "Orginator", "Router", "%", "#", "potential routers" );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
