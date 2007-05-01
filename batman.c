@@ -527,7 +527,7 @@ int isBntog(  uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 
-	if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] + BIDIRECT_TIMEOUT ) >=  if_incoming->out.seqno )
+	if ( ( if_incoming->out.seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] ) <=  BIDIRECT_TIMEOUT )
 		return 1;
 
 	return 0;
@@ -734,7 +734,8 @@ int8_t batman() {
 				orig_neigh_node->last_aware = get_time();
 
 				/* neighbour has to indicate direct link and it has to come via the corresponding interface */
-				if ( ( ((struct packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct packet *)&in)->orig ) ) {
+				/* if received seqno bigger than last received seqno save new seqno for bidirectional check */
+				if ( ( ((struct packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct packet *)&in)->orig ) && ( ((struct packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] < SEQ_RANGE ) ) {
 
 					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct packet *)&in)->seqno;
 
