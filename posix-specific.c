@@ -1332,8 +1332,6 @@ void restore_defaults() {
 	if ( unix_if.listen_thread_id != 0 )
 		pthread_join( unix_if.listen_thread_id, NULL );
 
-	unlink( UNIX_PATH );
-
 	if ( debug_level == 0 )
 		closelog();
 
