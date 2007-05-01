@@ -150,7 +150,7 @@ void *unix_listen( void *arg ) {
 	struct list_head *unix_pos, *unix_pos_tmp, *debug_pos, *debug_pos_tmp;
 	struct timeval tv;
 	struct sockaddr_un sun_addr;
-	int32_t status, max_sock;
+	int32_t status, max_sock, unix_opts;
 	int8_t res;
 	unsigned char buff[10];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -256,6 +256,10 @@ void *unix_listen( void *arg ) {
 									debug_clients.clients_num[(int)buff[2] - '1']++;
 
 									unix_client->debug_level = (int)buff[2];
+
+									/* make unix socket non blocking */
+									unix_opts = fcntl( debug_level_info->fd, F_GETFL, 0 );
+									fcntl( debug_level_info->fd, F_SETFL, unix_opts | O_NONBLOCK );
 
 									if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)buff[2] - '1'] ) != 0 )
 										debug_output( 0, "Error - could not unlock mutex (unix_listen => 2): %s \n", strerror( errno ) );
@@ -1070,7 +1074,7 @@ void *client_to_gw_tun( void *arg ) {
 		close( curr_gateway_tcp_sock );
 
 		curr_gateway = NULL;
-		debugFree( arg, 1207 );
+		debugFree( arg, 1208 );
 		return NULL;
 
 	}
@@ -1084,7 +1088,7 @@ void *client_to_gw_tun( void *arg ) {
 		debug_output( 0, "Error - can't create udp socket: %s\n", strerror(errno) );
 		close( curr_gateway_tcp_sock );
 		curr_gateway = NULL;
-		debugFree( arg, 1208 );
+		debugFree( arg, 1209 );
 		return NULL;
 
 	}
@@ -1095,7 +1099,7 @@ void *client_to_gw_tun( void *arg ) {
 		close( curr_gateway_tcp_sock );
 		close( curr_gateway_tun_sock );
 		curr_gateway = NULL;
-		debugFree( arg, 1209 );
+		debugFree( arg, 1210 );
 		return NULL;
 
 	}
@@ -1110,7 +1114,7 @@ void *client_to_gw_tun( void *arg ) {
 		close( curr_gateway_tcp_sock );
 		close( curr_gateway_tun_sock );
 		curr_gateway = NULL;
-		debugFree( arg, 1210 );
+		debugFree( arg, 1211 );
 		return NULL;
 
 	}
@@ -1250,7 +1254,7 @@ void *client_to_gw_tun( void *arg ) {
 	del_dev_tun( curr_gateway_tun_fd );
 
 	curr_gateway = NULL;
-	debugFree( arg, 1211 );
+	debugFree( arg, 1212 );
 
 	return NULL;
 
@@ -1282,7 +1286,7 @@ int8_t add_default_route() {
 	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gw_data ) != 0 ) {
 
 		debug_output( 0, "Error - couldn't spawn thread: %s\n", strerror(errno) );
-		debugFree( curr_gw_data, 1212 );
+		debugFree( curr_gw_data, 1213 );
 		curr_gateway = NULL;
 
 	}
@@ -1316,7 +1320,7 @@ void restore_defaults() {
 		close( batman_if->udp_send_sock );
 
 		list_del( if_pos );
-		debugFree( if_pos, 1213 );
+		debugFree( if_pos, 1214 );
 
 	}
 
@@ -1586,7 +1590,7 @@ void *gw_listen( void *arg ) {
 							close( gw_client->sock );
 
 							list_del( client_pos );
-							debugFree( client_pos, 1214 );
+							debugFree( client_pos, 1215 );
 
 						}
 
@@ -1629,7 +1633,7 @@ void *gw_listen( void *arg ) {
 					debug_output( 3, "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
 
 					list_del( client_pos );
-					debugFree( client_pos, 1215 );
+					debugFree( client_pos, 1216 );
 
 				} else {
 
@@ -1652,7 +1656,7 @@ void *gw_listen( void *arg ) {
 		gw_client = list_entry(client_pos, struct gw_client, list);
 
 		list_del( client_pos );
-		debugFree( client_pos, 1216 );
+		debugFree( client_pos, 1217 );
 
 	}
 
@@ -1730,14 +1734,14 @@ void cleanup() {
 				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 				list_del( debug_pos );
-				debugFree( debug_pos, 1217 );
+				debugFree( debug_pos, 1218 );
 
 			}
 
 		}
 
-		debugFree( debug_clients.fd_list[i], 1218 );
-		debugFree( debug_clients.mutex[i], 1219 );
+		debugFree( debug_clients.fd_list[i], 1219 );
+		debugFree( debug_clients.mutex[i], 1220 );
 
 	}
 
