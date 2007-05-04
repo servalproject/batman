@@ -29,7 +29,7 @@
 void schedule_own_packet( struct batman_if *batman_if ) {
 
 	struct forw_node *forw_node_new, *forw_packet_tmp = NULL;
-	struct list_head *list_pos;
+	struct list_head *list_pos, *prev_list_head;
 
 
 	forw_node_new = debugMalloc( sizeof(struct forw_node), 501 );
@@ -55,16 +55,20 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 	}
 
+	prev_list_head = (struct list_head *)&forw_list;
+
 	list_for_each( list_pos, &forw_list ) {
 
 		forw_packet_tmp = list_entry( list_pos, struct forw_node, list );
 
 		if ( forw_packet_tmp->send_time > forw_node_new->send_time ) {
 
-			list_add_before( &forw_list, list_pos, &forw_node_new->list );
+			list_add_before( prev_list_head, list_pos, &forw_node_new->list );
 			break;
 
 		}
+
+		prev_list_head = &forw_packet_tmp->list;
 
 	}
 
@@ -236,7 +240,7 @@ void send_outstanding_packets() {
 
 			}
 
-			list_del( forw_pos );
+			list_del( (struct list_head *)&forw_list, forw_pos, &forw_list );
 
 			if ( forw_node->own )
 				schedule_own_packet( forw_node->if_outgoing );

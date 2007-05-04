@@ -27,7 +27,7 @@
 #include <pthread.h>
 #include <sys/un.h>
 #include <stdint.h>
-#include "list.h"
+#include "list-batman.h"
 #include "bitarray.h"
 #include "hash.h"
 #include "allocate.h"
@@ -35,7 +35,7 @@
 
 
 
-#define SOURCE_VERSION "0.2 rc1"
+#define SOURCE_VERSION "0.3 pre alpha"
 #define COMPAT_VERSION 3
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
@@ -88,10 +88,10 @@ extern uint8_t unix_client;
 
 extern struct hashtable_t *orig_hash;
 
-extern struct list_head if_list;
-extern struct list_head hna_list;
-extern struct list_head gw_list;
-extern struct list_head forw_list;
+extern struct list_head_first if_list;
+extern struct list_head_first hna_list;
+extern struct list_head_first gw_list;
+extern struct list_head_first forw_list;
 extern struct vis_if vis_if;
 extern struct unix_if unix_if;
 extern struct debug_clients debug_clients;
@@ -119,7 +119,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	unsigned char *hna_buff;
 	int16_t  hna_buff_len;
 	uint16_t last_seqno;        /* last and best known squence number */
-	struct list_head neigh_list;
+	struct list_head_first neigh_list;
 };
 
 struct neigh_node
@@ -173,7 +173,7 @@ struct batman_if
 	struct sockaddr_in addr;
 	struct sockaddr_in broad;
 	struct packet out;
-	struct list_head client_list;
+	struct list_head_first client_list;
 };
 
 struct gw_client
@@ -194,7 +194,7 @@ struct unix_if {
 	int32_t unix_sock;
 	pthread_t listen_thread_id;
 	struct sockaddr_un addr;
-	struct list_head client_list;
+	struct list_head_first client_list;
 };
 
 struct unix_client {

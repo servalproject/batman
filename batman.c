@@ -105,10 +105,10 @@ uint8_t unix_client = 0;
 
 struct hashtable_t *orig_hash;
 
-LIST_HEAD(forw_list);
-LIST_HEAD(gw_list);
-LIST_HEAD(if_list);
-LIST_HEAD(hna_list);
+struct list_head_first forw_list;
+struct list_head_first gw_list;
+struct list_head_first if_list;
+struct list_head_first hna_list;
 
 struct vis_if vis_if;
 struct unix_if unix_if;
@@ -895,7 +895,7 @@ int8_t batman() {
 	list_for_each_safe( forw_pos, forw_pos_tmp, &forw_list ) {
 		forw_node = list_entry( forw_pos, struct forw_node, list );
 
-		list_del( forw_pos );
+		list_del( (struct list_head *)&forw_list, forw_pos, &forw_list );
 
 		debugFree( forw_node->pack_buff, 1105 );
 		debugFree( forw_node, 1106 );

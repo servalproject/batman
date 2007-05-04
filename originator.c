@@ -84,7 +84,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	orig_node = debugMalloc( sizeof(struct orig_node), 401 );
 	memset(orig_node, 0, sizeof(struct orig_node));
-	INIT_LIST_HEAD(&orig_node->neigh_list);
+	INIT_LIST_HEAD_FIRST( orig_node->neigh_list );
 
 	orig_node->orig = addr;
 	orig_node->router = NULL;
@@ -212,7 +212,7 @@ void purge_orig( uint32_t curr_time ) {
 
 	prof_start( PROF_purge_orginator );
 	struct hash_it_t *hashit = NULL;
-	struct list_head *neigh_pos, *neigh_temp;
+	struct list_head *neigh_pos, *neigh_temp, *prev_list_head;
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node, *best_neigh_node;
@@ -237,7 +237,7 @@ void purge_orig( uint32_t curr_time ) {
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
 				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
-				list_del( neigh_pos );
+				list_del( (struct list_head *)&orig_node->neigh_list, neigh_pos, &orig_node->neigh_list );
 				debugFree( neigh_node, 1401 );
 
 			}
@@ -273,6 +273,7 @@ void purge_orig( uint32_t curr_time ) {
 
 			best_neigh_node = NULL;
 			neigh_purged = 0;
+			prev_list_head = (struct list_head *)&orig_node->neigh_list;
 
 			/* for all neighbours towards this orginator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
@@ -282,7 +283,7 @@ void purge_orig( uint32_t curr_time ) {
 				if ( (int)( ( neigh_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
 
 					neigh_purged = 1;
-					list_del( neigh_pos );
+					list_del( prev_list_head, neigh_pos, &orig_node->neigh_list );
 					debugFree( neigh_node, 1404 );
 
 				} else {
@@ -293,6 +294,8 @@ void purge_orig( uint32_t curr_time ) {
 
 				}
 
+				prev_list_head = &neigh_node->list;
+
 			}
 
 			if ( ( neigh_purged ) && ( ( best_neigh_node == NULL ) || ( orig_node->router == NULL ) || ( best_neigh_node->packet_count > orig_node->router->packet_count ) ) )
@@ -302,16 +305,21 @@ void purge_orig( uint32_t curr_time ) {
 
 	}
 
+
+	prev_list_head = (struct list_head *)&gw_list;
+
 	list_for_each_safe(gw_pos, gw_pos_tmp, &gw_list) {
 
 		gw_node = list_entry(gw_pos, struct gw_node, list);
 
 		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + 3 * TIMEOUT) < curr_time) ) ) {
 
-			list_del( gw_pos );
+			list_del( prev_list_head, gw_pos, &gw_list );
 			debugFree( gw_pos, 1405 );
 
 		}
+
+		prev_list_head = &gw_node->list;
 
 	}
 
@@ -346,7 +354,7 @@ void debug_orig() {
 
 		} else {
 
-			debug_output( 2, "%''12s       %''15s (%''3s %''2s) \n", "Gateway", "Router", "%", "#" );
+			debug_output( 2, "%''12s     %''15s (%s/%i) \n", "Gateway", "Router", "#", SEQ_RANGE );
 
 			list_for_each( orig_pos, &gw_list ) {
 
@@ -359,9 +367,9 @@ void debug_orig() {
 				addr_to_string( gw_node->orig_node->router->addr, str2, sizeof (str2) );
 
 				if ( curr_gateway == gw_node ) {
-					debug_output( 2, "=> %-15s %''15s (%''3i %''2i), gw_class %2i - %s, reliability: %i \n", str, str2, ( 100 * gw_node->orig_node->router->packet_count / SEQ_RANGE ), gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					debug_output( 2, "=> %-15s %''15s (%2i), gw_class %2i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				} else {
-					debug_output( 2, "   %-15s %''15s (%''3i %''2i), gw_class %2i - %s, reliability: %i \n", str, str2, ( 100 * gw_node->orig_node->router->packet_count / SEQ_RANGE ), gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
+					debug_output( 2, "   %-15s %''15s (%2i), gw_class %2i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
 				}
 
 				batman_count++;
@@ -380,7 +388,7 @@ void debug_orig() {
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
 
 		debug_output( 1, "BOD \n" );
-		debug_output( 1, "%''15s %''15s (%''3s %''2s): %''20s\n", "Orginator", "Router", "%", "#", "potential routers" );
+		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s\n", "Orginator", "Router", "#", SEQ_RANGE, "potential routers" );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
@@ -394,7 +402,7 @@ void debug_orig() {
 			}
 
 			debug_output( 4, "Originator list \n" );
-			debug_output( 4, "%''15s %''15s (%''3s %''2s): %''20s\n", "Orginator", "Gateway", "%", "#", "potential gateways" );
+			debug_output( 4, "  %-12s %''14s (%s/%i): %''20s\n", "Orginator", "Router", "#", SEQ_RANGE, "potential gateways" );
 
 		}
 
@@ -410,16 +418,16 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, ( 100 * orig_node->router->packet_count / SEQ_RANGE ), orig_node->router->packet_count );
-			debug_output( 4, "%''15s %''15s (%3i %2i), last_aware:%u: \n", str, str2, ( 100 * orig_node->router->packet_count / SEQ_RANGE ), orig_node->router->packet_count, orig_node->last_aware );
+			debug_output( 1, "%-15s %''15s (%2i):", str, str2, orig_node->router->packet_count );
+			debug_output( 4, "%''15s %''15s (%2i), last_aware:%u: \n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
 
 			list_for_each( neigh_pos, &orig_node->neigh_list ) {
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
-				debug_output( 1, " %''15s (%3i %2i)", str, ( 100 * neigh_node->packet_count / SEQ_RANGE ), neigh_node->packet_count );
-				debug_output( 4, "\t\t%''15s (%3i %2i) \n", str, ( 100 * neigh_node->packet_count / SEQ_RANGE ), neigh_node->packet_count );
+				debug_output( 1, " %''15s (%2i)", str, neigh_node->packet_count );
+				debug_output( 4, "\t\t%''15s (%2i) \n", str, neigh_node->packet_count );
 
 			}
 
