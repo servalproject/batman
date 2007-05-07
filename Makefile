@@ -65,7 +65,7 @@ OS_OBJ=	originator.o schedule.o posix-specific.o posix.o bsd.o allocate.o bitarr
 endif
 
 LINUX_SRC_C= batman.c originator.c schedule.c posix-specific.c posix.c linux-specific.c linux.c allocate.c bitarray.c hash.c profile.c
-LINUX_SRC_H= batman.h originator.h schedule.h batman-specific.h list.h os.h allocate.h bitarray.h hash.h profile.h
+LINUX_SRC_H= batman.h originator.h schedule.h batman-specific.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h
 
 REVISION=		$(shell svn info | grep Revision | awk '{print $$2}')
 
@@ -96,7 +96,7 @@ LINK_AND_TAR=		tar czvf $(FILE_NAME).tgz $(FILE_NAME)
 all:	batmand
 
 
-batmand:	batman.o $(OS_OBJ) Makefile batman.h
+batmand:	batman.o $(OS_OBJ) $(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC) -o $@ batman.o $(OS_OBJ) $(LDFLAGS)
 
 
