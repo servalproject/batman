@@ -109,15 +109,15 @@ test:
 long:	i386 mipsel-kk-bc mips-kk-at mipsel-wr
 
 
-i386: i386-elf-32-lsb-static i386-elf-32-lsb-dynamic
+i386: i386-gc-elf-32-lsb-static i386-gc-elf-32-lsb-dynamic
 
-i386-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+i386-gc-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC) $(CFLAGS) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS) -static
 	$(STRIP) $(FILE_NAME) 
 	$(IPKG_BUILD) i386 
 	$(LINK_AND_TAR)	
 
-i386-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+i386-gc-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC) $(CFLAGS) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS)
 	$(STRIP) $(FILE_NAME)
 	$(IPKG_BUILD) i386 
