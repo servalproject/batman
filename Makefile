@@ -48,7 +48,7 @@ OS_C=	bsd.c
 endif
 
 LINUX_SRC_C= batman.c originator.c schedule.c posix-specific.c posix.c allocate.c bitarray.c hash.c profile.c $(OS_C)
-LINUX_SRC_H= batman.h originator.h schedule.h batman-specific.h list.h os.h allocate.h bitarray.h hash.h profile.h 
+LINUX_SRC_H= batman.h originator.h schedule.h batman-specific.h list.h os.h allocate.h bitarray.h hash.h profile.h
 
 
 CC_MIPS_KK_BC_PATH =	/usr/src/openWrt/build/kamikaze-brcm63xx-2.6/kamikaze/staging_dir_mipsel/bin
@@ -98,7 +98,7 @@ all:	batmand
 
 
 batmand:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -o $@ $(LINUX_SRC_C) $(LDFLAGS) -static
+	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
 
 
 
@@ -210,7 +210,7 @@ arm-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_ARM_OE) $(FILE_NAME)
 	$(IPKG_BUILD) arm
-	$(LINK_AND_TAR)	
+	$(LINK_AND_TAR)
 
 	mkdir -p dl/arm
 	ln -f $(FILE_NAME).ipk dl/arm/
@@ -220,7 +220,7 @@ arm-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_ARM_OE) $(FILE_NAME)
 	$(IPKG_BUILD) arm kernel-module-tun
-	$(LINK_AND_TAR)	
+	$(LINK_AND_TAR)
 
 	mkdir -p dl/zaurus-akita
 	ln -f $(FILE_NAME).ipk dl/zaurus-akita/

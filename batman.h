@@ -44,11 +44,22 @@
 
 #define UNIX_PATH "/var/run/batmand.socket"
 
-/* #define PROFILE_DATA */
+
+
+/*
+ * Things you should enable via your make file:
+ *
+ * DEBUG_MALLOC   enables malloc() / free() wrapper functions to detect memory leaks / buffer overflows / etc
+ * MEMORY_USAGE   allows you to monitor the internal memory usage (needs DEBUG_MALLOC to work)
+ * PROFILE_DATA   allows you to monitor the cpu usage for each function
+ *
+ */
+
 
 #ifndef REVISION_VERSION
 #define REVISION_VERSION "0"
 #endif
+
 
 
 /*
@@ -74,6 +85,7 @@
 
 
 extern uint8_t debug_level;
+extern uint8_t debug_level_max;
 extern uint8_t gateway_class;
 extern uint8_t routing_class;
 extern uint8_t num_hna;
@@ -213,9 +225,9 @@ struct unix_client {
 };
 
 struct debug_clients {
-	void *fd_list[4];
-	int16_t clients_num[4];
-	pthread_mutex_t *mutex[4];
+	void *fd_list[5];
+	int16_t clients_num[5];
+	pthread_mutex_t *mutex[5];
 };
 
 struct debug_level_info {

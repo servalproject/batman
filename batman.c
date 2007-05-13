@@ -43,6 +43,22 @@
 
 uint8_t debug_level = 0;
 
+
+#ifdef PROFILE_DATA
+
+uint8_t debug_level_max = 5;
+
+#elif DEBUG_MALLOC && MEMORY_USAGE
+
+uint8_t debug_level_max = 5;
+
+#else
+
+uint8_t debug_level_max = 4;
+
+#endif
+
+
 /* "-g" is the command line switch for the gateway class,
  * 0 no gateway
  * 1 modem

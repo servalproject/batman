@@ -145,6 +145,7 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 
 	}
 
+
 	if ( debug_clients.clients_num[debug_prio_intern] > 0 ) {
 
 		if ( pthread_mutex_trylock( (pthread_mutex_t *)debug_clients.mutex[debug_prio_intern] ) == 0 ) {
@@ -262,7 +263,7 @@ void *unix_listen( void *arg ) {
 
 							/* debug_output( 3, "gateway: client sent data via unix socket: %s\n", buff ); */
 
-							if ( ( status > 2 ) && ( ( buff[2] == '1' ) || ( buff[2] == '2' ) || ( buff[2] == '3' ) || ( buff[2] == '4' ) ) ) {
+							if ( ( status > 2 ) && ( ( buff[2] == '1' ) || ( buff[2] == '2' ) || ( buff[2] == '3' ) || ( buff[2] == '4' ) || ( buff[2] == '5' ) ) ) {
 
 								if ( unix_client->debug_level != 0 ) {
 
@@ -525,8 +526,8 @@ void apply_init_args( int argc, char *argv[] ) {
 					exit(EXIT_FAILURE);
 				}
 
-				if ( debug_level > 4 ) {
-					printf( "Invalid debug level: %i\nDebug level has to be between 0 and 4.\n", debug_level );
+				if ( debug_level > debug_level_max ) {
+					printf( "Invalid debug level: %i\nDebug level has to be between 0 and %i.\n", debug_level, debug_level_max );
 					exit(EXIT_FAILURE);
 				}
 
@@ -674,7 +675,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		signal( SIGTERM, handler );
 		signal( SIGSEGV, segmentation_fault );
 
-		for ( res = 0; res < 4; res++ ) {
+		for ( res = 0; res < debug_level_max; res++ ) {
 
 			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head_first), 204 );
 			((struct list_head_first *)debug_clients.fd_list[res])->next = debug_clients.fd_list[res];
@@ -813,9 +814,9 @@ void apply_init_args( int argc, char *argv[] ) {
 	/* connect to running batmand via unix socket */
 	} else {
 
-		if ( ( debug_level == 1 ) || ( debug_level == 2 ) || ( debug_level == 3 ) || ( debug_level == 4 ) ) {
+		if ( ( debug_level > 0 ) && ( debug_level <= debug_level_max ) ) {
 
-			if ( ( ( debug_level == 3 ) || ( debug_level == 4 ) ) && ( batch_mode ) )
+			if ( ( debug_level > 2 ) && ( batch_mode ) )
 				printf( "WARNING: Your chosen debug level (%i) does not support batch mode !\n", debug_level );
 
 			unix_if.unix_sock = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -1818,7 +1819,7 @@ void cleanup() {
 	struct list_head *debug_pos, *debug_pos_tmp;
 
 
-	for ( i = 0; i < 4; i++ ) {
+	for ( i = 0; i < debug_level_max; i++ ) {
 
 		if ( debug_clients.clients_num[i] > 0 ) {
 
