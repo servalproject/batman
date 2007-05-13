@@ -98,7 +98,8 @@ all:	batmand
 
 
 batmand:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
+	$(CC) $(CFLAGS) -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
+#	$(CC) $(CFLAGS) -o $@ $(LINUX_SRC_C) $(LDFLAGS) -static
 
 
 
@@ -109,6 +110,8 @@ test:
 	echo IPKG_VERSION: $(IPKG_VERSION)
 
 long:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe
+
+axel:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe
 
 sources:
 	mkdir -p $(FILE_NAME)
