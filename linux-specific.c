@@ -29,7 +29,7 @@
 #include <fcntl.h>        /* open(), O_RDWR */
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <sys/types.h>
+#include <sys/socket.h>
 
 #include "os.h"
 #include "batman-specific.h"

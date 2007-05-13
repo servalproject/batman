@@ -68,7 +68,7 @@ CC_ARM_OE =		$(CC_ARM_OE_PATH)/arm-linux-gcc
 STRIP_ARM_OE =		$(CC_ARM_OE_PATH)/arm-linux-strip
 
 
-REVISION=		$(shell svn info | grep Revision | awk '{print $$2}')
+REVISION=		$(shell svn info | grep Revision | sed -e '1p' -n | awk '{print $$2}')
 REVISION_VERSION=	\"\ rv$(REVISION)\"
 IPKG_BUILD_PATH=	/home/batman/build/ipkg-build
 
