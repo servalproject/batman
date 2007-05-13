@@ -46,14 +46,15 @@
 
 
 
-/*
+/***
+ *
  * Things you should enable via your make file:
  *
  * DEBUG_MALLOC   enables malloc() / free() wrapper functions to detect memory leaks / buffer overflows / etc
  * MEMORY_USAGE   allows you to monitor the internal memory usage (needs DEBUG_MALLOC to work)
  * PROFILE_DATA   allows you to monitor the cpu usage for each function
  *
- */
+ ***/
 
 
 #ifndef REVISION_VERSION
