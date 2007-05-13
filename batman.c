@@ -193,7 +193,7 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 		netmask = ( uint32_t )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
 
 		if ( ( netmask > 0 ) && ( netmask < 33 ) )
-			add_del_route( hna, netmask, orig_node->router->addr, del, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+			add_del_route( hna, netmask, orig_node->router->addr, del, orig_node->batman_if->if_index, orig_node->batman_if->dev );
 
 		hna_buff_count++;
 
@@ -370,7 +370,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 			if ( orig_node->hna_buff_len > 0 )
 				add_del_hna( orig_node, 1 );
 
-			add_del_route( orig_node->orig, 32, orig_node->router->addr, 1, orig_node->batman_if->dev, orig_node->batman_if->udp_send_sock );
+			add_del_route( orig_node->orig, 32, orig_node->router->addr, 1, orig_node->batman_if->if_index, orig_node->batman_if->dev );
 
 		}
 
@@ -383,7 +383,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 				debug_output( 4, "Route changed\n" );
 			}
 
-			add_del_route( orig_node->orig, 32, neigh_node->addr, 0, neigh_node->if_incoming->dev, neigh_node->if_incoming->udp_send_sock );
+			add_del_route( orig_node->orig, 32, neigh_node->addr, 0, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev );
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
@@ -527,7 +527,7 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 
-	if ( ( if_incoming->out.seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] ) <=  BIDIRECT_TIMEOUT )
+	if ( ( if_incoming->out.seqno - 2 - orig_neigh_node->bidirect_link[if_incoming->if_num] ) < BIDIRECT_TIMEOUT )
 		return 1;
 
 	return 0;
@@ -628,7 +628,7 @@ int8_t batman() {
 
 		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
 		batman_if->out.flags = 0x00;
-		batman_if->out.ttl = ( batman_if->if_num == 0 ? TTL : 2 );
+		batman_if->out.ttl = TTL;
 		batman_if->out.seqno = 1;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = COMPAT_VERSION;
@@ -734,8 +734,8 @@ int8_t batman() {
 				orig_neigh_node->last_aware = get_time();
 
 				/* neighbour has to indicate direct link and it has to come via the corresponding interface */
-				/* if received seqno bigger than last received seqno save new seqno for bidirectional check */
-				if ( ( ((struct packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct packet *)&in)->orig ) && ( ((struct packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] < SEQ_RANGE ) ) {
+				/* if received seqno equals last send seqno save new seqno for bidirectional check */
+				if ( ( ((struct packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct packet *)&in)->orig ) && ( ((struct packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
 					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct packet *)&in)->seqno;
 

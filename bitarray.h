@@ -32,4 +32,5 @@ void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n );
 void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n );
 char bit_get_packet( TYPE_OF_WORD *seq_bits, int16_t seq_num_diff, int8_t set_mark );
 int  bit_packet_count( TYPE_OF_WORD *seq_bits );
+uint8_t bit_count( int32_t to_count );
 

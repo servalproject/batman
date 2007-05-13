@@ -17,6 +17,8 @@
  *
  */
 
+
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -42,6 +44,8 @@
 #include "os.h"
 #include "batman-specific.h"
 
+
+
 void set_rp_filter(int32_t state, char* dev)
 {
 	FILE *f;
@@ -62,6 +66,8 @@ void set_rp_filter(int32_t state, char* dev)
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 }
+
+
 
 int32_t get_rp_filter(char *dev)
 {
@@ -87,6 +93,8 @@ int32_t get_rp_filter(char *dev)
 	return state;
 }
 
+
+
 void set_forwarding(int32_t state)
 {
 	FILE *f;
@@ -97,6 +105,8 @@ void set_forwarding(int32_t state)
 	fprintf(f, "%d", state);
 	fclose(f);
 }
+
+
 
 int32_t get_forwarding(void)
 {
@@ -111,6 +121,8 @@ int32_t get_forwarding(void)
 
 	return state;
 }
+
+
 
 int8_t bind_to_iface( int32_t sock, char *dev ) {
 
@@ -133,3 +145,5 @@ int8_t bind_to_iface( int32_t sock, char *dev ) {
 	return 1;
 
 }
+
+

@@ -39,11 +39,10 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 /* returns true if corresponding bit in given seq_bits indicates so and curr_seqno is within range of last_seqno */
 uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno ) {
 
-	int word_offset,word_num;
-	int16_t diff;
-	
+	int16_t diff, word_offset, word_num;
+
 	diff= last_seqno- curr_seqno;
-	if ( diff < 0 || diff >= SEQ_RANGE  ) {
+	if ( diff < 0 || diff >= SEQ_RANGE ) {
 		return 0;
 
 	} else {
@@ -205,3 +204,19 @@ int bit_packet_count( TYPE_OF_WORD *seq_bits ) {
 	return(hamming);
 
 }
+
+uint8_t bit_count( int32_t to_count ) {
+
+	uint8_t hamming = 0;
+
+	while ( to_count ) {
+
+		to_count &= to_count-1;   /* see http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetKernighan */
+		hamming++;
+
+	}
+
+	return(hamming);
+
+}
+

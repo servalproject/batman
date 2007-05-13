@@ -46,6 +46,10 @@
 
 /* #define PROFILE_DATA */
 
+#ifndef REVISION_VERSION
+#define REVISION_VERSION "0"
+#endif
+
 
 /*
  * No configuration files or fancy command line switches yet
@@ -59,6 +63,8 @@
 #define BIDIRECT_TIMEOUT 2
 #define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
 #define SEQ_RANGE 64       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
+#define BATMAN_RT_TABLE_DEFAULT 66
+#define BATMAN_RT_TABLE_TUNNEL 67
 
 
 
@@ -137,7 +143,7 @@ struct hna_node
 {
 	struct list_head list;
 	uint32_t addr;
-	uint16_t netmask;
+	uint8_t netmask;
 };
 
 struct forw_node                 /* structure for forw_list maintaining packets to be send/forwarded */
@@ -168,10 +174,13 @@ struct batman_if
 	int32_t tcp_gw_sock;
 	int32_t tunnel_sock;
 	int16_t if_num;
+	int32_t if_index;
 	int16_t if_rp_filter_old;
 	pthread_t listen_thread_id;
 	struct sockaddr_in addr;
 	struct sockaddr_in broad;
+	uint32_t netaddr;
+	uint8_t netmask;
 	struct packet out;
 	struct list_head_first client_list;
 };

@@ -31,7 +31,8 @@ int32_t get_forwarding(void);
 void set_rp_filter(int32_t state, char* dev);
 int32_t get_rp_filter(char *dev);
 
-void add_del_route( uint32_t dest, uint16_t netmask, uint32_t router, int8_t del, char *dev, int32_t sock );
+void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int8_t del, int ifi, char *dev );
+void add_del_rule( uint32_t src_network, uint8_t src_netmask, uint32_t dst_network, uint8_t dst_netmask, int8_t del, int8_t rt_table );
 int8_t is_aborted();
 void handler( int32_t sig );
 void segmentation_fault( int32_t sig );

@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <paths.h>
 
 #include "os.h"
 #include "originator.h"
@@ -60,6 +61,50 @@ int8_t is_aborted() {
 void handler( int32_t sig ) {
 
 	stop = 1;
+
+}
+
+
+
+int my_daemon() {
+
+	int fd;
+
+	switch( fork() ) {
+
+		case -1:
+			return(-1);
+
+		case 0:
+			break;
+
+		default:
+			exit(EXIT_SUCCESS);
+
+	}
+
+	if ( setsid() == -1 )
+		return(-1);
+
+	/* Make certain we are not a session leader, or else we
+	* might reacquire a controlling terminal */
+	if ( fork() )
+		exit(EXIT_SUCCESS);
+
+	chdir("/");
+
+	if ( ( fd = open(_PATH_DEVNULL, O_RDWR, 0) ) != -1 ) {
+
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+
+		if (fd > 2)
+			close(fd);
+
+	}
+
+	return(0);
 
 }
 
@@ -645,7 +690,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		/* daemonize */
 		if ( debug_level == 0 ) {
 
-			if ( daemon( 0, 0 ) < 0 ) {
+			if ( my_daemon() < 0 ) {
 
 				printf( "Error - can't fork to background: %s\n", strerror(errno) );
 				restore_defaults();
@@ -898,7 +943,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
 
-		debug_output( 0, "Error - can't get IP address of interface %s\n", batman_if->dev );
+		debug_output( 0, "Error - can't get IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -910,7 +955,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
 
-		debug_output( 0, "Error - can't get broadcast IP address of interface %s\n", batman_if->dev );
+		debug_output( 0, "Error - can't get broadcast IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -927,6 +972,29 @@ void init_interface ( struct batman_if *batman_if ) {
 		exit(EXIT_FAILURE);
 
 	}
+
+	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFINDEX, &int_req ) < 0 ) {
+
+		debug_output( 0, "Error - can't get index of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		restore_defaults();
+		exit(EXIT_FAILURE);
+
+	}
+
+	batman_if->if_index = int_req.ifr_ifindex;
+
+	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFNETMASK, &int_req ) < 0 ) {
+
+		debug_output( 0, "Error - can't get netmask address of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		restore_defaults();
+		exit(EXIT_FAILURE);
+
+	}
+
+	batman_if->netaddr = ( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr & batman_if->addr.sin_addr.s_addr );
+	batman_if->netmask = bit_count( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr );
+
+	add_del_rule( batman_if->netaddr, batman_if->netmask, batman_if->netaddr, batman_if->netmask, 0, BATMAN_RT_TABLE_DEFAULT );
 
 	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
 
@@ -1121,7 +1189,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( add_dev_tun( curr_gw_data->batman_if, curr_gw_data->batman_if->addr.sin_addr.s_addr, curr_gateway_tun_if, sizeof(curr_gateway_tun_if), &curr_gateway_tun_fd ) > 0 ) {
 
-		add_del_route( 0, 0, 0, 0, curr_gateway_tun_if, curr_gw_data->batman_if->udp_send_sock );
+		add_del_route( 0, 0, 0, 0, curr_gw_data->batman_if->if_index, curr_gateway_tun_if );
 
 	} else {
 
@@ -1260,7 +1328,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-	add_del_route( 0, 0, 0, 1, curr_gateway_tun_if, curr_gw_data->batman_if->udp_send_sock );
+	add_del_route( 0, 0, 0, 1, curr_gw_data->batman_if->if_index, curr_gateway_tun_if );
 
 	close( curr_gateway_tcp_sock );
 	close( curr_gateway_tun_sock );
@@ -1332,6 +1400,9 @@ void restore_defaults() {
 
 		close( batman_if->udp_recv_sock );
 		close( batman_if->udp_send_sock );
+
+		if ( ( batman_if->netaddr > 0 ) && ( batman_if->netmask > 0 ) )
+			add_del_rule( batman_if->netaddr, batman_if->netmask, batman_if->netaddr, batman_if->netmask, 1, BATMAN_RT_TABLE_DEFAULT );
 
 		list_del( (struct list_head *)&if_list, if_pos, &if_list );
 		debugFree( if_pos, 1214 );

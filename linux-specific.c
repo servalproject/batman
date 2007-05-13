@@ -17,90 +17,250 @@
  *
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/time.h>
+
+
 #include <sys/ioctl.h>
-#include <arpa/inet.h>
-#include <net/route.h>
-#include <stdio.h>
-#include <time.h>
-#include <string.h>
+#include <arpa/inet.h>    /* inet_ntop() */
 #include <errno.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <linux/if.h>
-#include <netinet/ip.h>
-#include <asm/types.h>
-#include <linux/if_tun.h>
-#include <linux/if_tunnel.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <unistd.h>       /* close() */
+#include <linux/if.h>     /* ifr_if, ifr_tun */
+#include <netinet/ip.h>   /* iph */
+#include <linux/if_tun.h> /* TUNSETPERSIST, ... */
+#include <fcntl.h>        /* open(), O_RDWR */
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 
 #include "os.h"
 #include "batman-specific.h"
 
 
-void add_del_route( uint32_t dest, uint16_t netmask, uint32_t router, int8_t del, char *dev, int32_t sock ) {
 
-	struct rtentry route;
-	char str1[16], str2[16];
-	struct sockaddr_in *addr;
+void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int8_t del, int ifi, char *dev ) {
 
-	inet_ntop(AF_INET, &dest, str1, sizeof (str1));
-	inet_ntop(AF_INET, &router, str2, sizeof (str2));
+	int netlink_sock, len, my_router;
+	char buf[4096], str1[16], str2[16];
+	struct rtattr *rta;
+	struct sockaddr_nl nladdr;
+	struct iovec iov = { buf, sizeof(buf) };
+	struct msghdr msg;
+	struct nlmsghdr *nh;
+	struct {
+		struct nlmsghdr nlh;
+		struct rtmsg rtm;
+		char buff[3 * sizeof(struct rtattr) + 12];
+	} req;
 
-	memset(&route, 0, sizeof (struct rtentry));
 
-	addr = (struct sockaddr_in *)&route.rt_dst;
+	inet_ntop( AF_INET, &dest, str1, sizeof (str1) );
+	inet_ntop( AF_INET, &router, str2, sizeof (str2) );
 
-	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = dest;
+	if ( router == dest ) {
 
-	addr = (struct sockaddr_in *)&route.rt_genmask;
+		if ( dest == 0 ) {
 
-	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = ( netmask == 32 ? 0xffffffff : htonl( ~ ( 0xffffffff >> netmask ) ) );
-
-	route.rt_flags = ( netmask == 32 ? ( RTF_HOST | RTF_UP ) : RTF_UP );
-	route.rt_metric = 1;
-
-	if ( (dest != router) || ( ( dest == 0 ) && ( router == 0 ) ) )
-	{
-		addr = (struct sockaddr_in *)&route.rt_gateway;
-
-		addr->sin_family = AF_INET;
-		addr->sin_addr.s_addr = router;
-
-		if ( ( dest == 0 ) && ( router == 0 ) ) {
-
-			route.rt_metric = 0;
-
-			if ( debug_level > 2 )
-				debug_output( debug_level, "%s default route via %s\n", del ? "Deleting" : "Adding", dev );
+			debug_output( 3, "%s default route via %s\n", del ? "Deleting" : "Adding", dev );
+			debug_output( 4, "%s default route via %s\n", del ? "Deleting" : "Adding", dev );
+			my_router = router;
 
 		} else {
 
-			route.rt_flags |= RTF_GATEWAY;
-
-			if ( debug_level > 2 )
-				debug_output( debug_level, "%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev );
+			debug_output( 3, "%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev );
+			debug_output( 4, "%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev );
+			my_router = 0;
 
 		}
 
 	} else {
 
-		if ( debug_level > 2 )
-			debug_output( debug_level, "%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev );
+		debug_output( 3, "%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev );
+		debug_output( 4, "%s route to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", str1, netmask, str2, dev );
+		my_router = router;
 
 	}
 
-	route.rt_dev = dev;
 
-	if ( ioctl( sock, del ? SIOCDELRT : SIOCADDRT, &route ) < 0 )
-		debug_output( 0, "Error - can't %s route to %s/%i via %s: %s\n", del ? "delete" : "add", str1, netmask, str2, strerror(errno) );
+	memset( &nladdr, 0, sizeof(struct sockaddr_nl) );
+	memset( &req, 0, sizeof(req) );
+	memset( &msg, 0, sizeof(struct msghdr) );
+
+	nladdr.nl_family = AF_NETLINK;
+
+	req.nlh.nlmsg_len = NLMSG_LENGTH( sizeof(struct rtmsg) + 3 * sizeof(struct rtattr) + 12 );
+	req.nlh.nlmsg_pid = getpid();
+	req.rtm.rtm_family = AF_INET;
+	req.rtm.rtm_table = ( dest == 0 ? BATMAN_RT_TABLE_TUNNEL : BATMAN_RT_TABLE_DEFAULT );
+	req.rtm.rtm_dst_len = netmask;
+
+	if ( del ) {
+
+		req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+		req.nlh.nlmsg_type = RTM_DELROUTE;
+		req.rtm.rtm_scope = RT_SCOPE_NOWHERE;
+
+	} else {
+
+		req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL;
+		req.nlh.nlmsg_type = RTM_NEWROUTE;
+		req.rtm.rtm_scope = RT_SCOPE_UNIVERSE;
+		req.rtm.rtm_protocol = RTPROT_STATIC;
+		req.rtm.rtm_type = RTN_UNICAST;
+
+	}
+
+	rta = (struct rtattr *)req.buff;
+	rta->rta_type = RTA_DST;
+	rta->rta_len = sizeof(struct rtattr) + 4;
+	memcpy( ((char *)&req.buff) + sizeof(struct rtattr), (char *)&dest, 4 );
+
+	rta = (struct rtattr *)(req.buff + sizeof(struct rtattr) + 4);
+	rta->rta_type = RTA_GATEWAY;
+	rta->rta_len = sizeof(struct rtattr) + 4;
+	memcpy( ((char *)&req.buff) + 2 * sizeof(struct rtattr) + 4, (char *)&my_router, 4 );
+
+	rta = (struct rtattr *)(req.buff + 2 * sizeof(struct rtattr) + 8);
+	rta->rta_type = RTA_OIF;
+	rta->rta_len = sizeof(struct rtattr) + 4;
+	memcpy( ((char *)&req.buff) + 3 * sizeof(struct rtattr) + 8, (char *)&ifi, 4 );
+
+	if ( ( netlink_sock = socket( PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE ) ) < 0 ) {
+
+		debug_output( 0, "Error - can't create netlink socket for routing table manipulation: %s", strerror(errno) );
+		return;
+
+	}
+
+
+	if ( sendto( netlink_sock, &req, req.nlh.nlmsg_len, 0, (struct sockaddr *)&nladdr, sizeof(struct sockaddr_nl) ) < 0 ) {
+
+		debug_output( 0, "Error - can't send message to kernel via netlink socket for routing table manipulation: %s", strerror(errno) );
+		return;
+
+	}
+
+
+	msg.msg_name = (void *)&nladdr;
+	msg.msg_namelen = sizeof(nladdr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = NULL;
+
+	len = recvmsg( netlink_sock, &msg, 0 );
+	nh = (struct nlmsghdr *)buf;
+
+	while ( NLMSG_OK(nh, len) ) {
+
+		if ( nh->nlmsg_type == NLMSG_DONE )
+			return;
+
+		if ( ( nh->nlmsg_type == NLMSG_ERROR ) && ( ((struct nlmsgerr*)NLMSG_DATA(nh))->error != 0 ) )
+			debug_output( 0, "Error - can't %s route to %s/%i via %s: %s\n", del ? "delete" : "add", str1, netmask, str2, strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
+
+		nh = NLMSG_NEXT( nh, len );
+
+	}
+
+}
+
+
+
+
+void add_del_rule( uint32_t src_network, uint8_t src_netmask, uint32_t dst_network, uint8_t dst_netmask, int8_t del, int8_t rt_table ) {
+
+	int netlink_sock,len;
+	char buf[4096], str1[16], str2[16];
+	struct rtattr *rta;
+	struct sockaddr_nl nladdr;
+	struct iovec iov = { buf, sizeof(buf) };
+	struct msghdr msg;
+	struct nlmsghdr *nh;
+	struct {
+		struct nlmsghdr nlh;
+		struct rtmsg rtm;
+		char buff[2 * sizeof(struct rtattr) + 8];
+	} req;
+
+
+	memset( &nladdr, 0, sizeof(struct sockaddr_nl) );
+	memset( &req, 0, sizeof(req) );
+	memset( &msg, 0, sizeof(struct msghdr) );
+
+	nladdr.nl_family = AF_NETLINK;
+
+	req.nlh.nlmsg_len = NLMSG_LENGTH( sizeof(struct rtmsg) + 2 * sizeof(struct rtattr) + 8 );
+	req.nlh.nlmsg_pid = getpid();
+	req.rtm.rtm_family = AF_INET;
+	req.rtm.rtm_table = rt_table;
+	req.rtm.rtm_src_len = src_netmask;
+	req.rtm.rtm_dst_len = dst_netmask;
+
+	if ( del ) {
+
+		req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+		req.nlh.nlmsg_type = RTM_DELRULE;
+		req.rtm.rtm_scope = RT_SCOPE_NOWHERE;
+
+	} else {
+
+		req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL;
+		req.nlh.nlmsg_type = RTM_NEWRULE;
+		req.rtm.rtm_scope = RT_SCOPE_UNIVERSE;
+		req.rtm.rtm_protocol = RTPROT_STATIC;
+		req.rtm.rtm_type = RTN_UNICAST;
+
+	}
+
+	rta = (struct rtattr *)req.buff;
+	rta->rta_type = RTA_SRC;
+	rta->rta_len = sizeof(struct rtattr) + 4;
+	memcpy( ((char *)&req.buff) + sizeof(struct rtattr), (char *)&src_network, 4 );
+
+	rta = (struct rtattr *)(req.buff + sizeof(struct rtattr) + 4);
+	rta->rta_type = RTA_DST;
+	rta->rta_len = sizeof(struct rtattr) + 4;
+	memcpy( ((char *)&req.buff) + 2 * sizeof(struct rtattr) + 4, (char *)&dst_network, 4 );
+
+	if ( ( netlink_sock = socket( PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE ) ) < 0 ) {
+
+		debug_output( 0, "Error - can't create netlink socket for routing rule manipulation: %s", strerror(errno) );
+		return;
+
+	}
+
+
+	if ( sendto( netlink_sock, &req, req.nlh.nlmsg_len, 0, (struct sockaddr *)&nladdr, sizeof(struct sockaddr_nl) ) < 0 ) {
+
+		debug_output( 0, "Error - can't send message to kernel via netlink socket for routing rule manipulation: %s", strerror(errno) );
+		return;
+
+	}
+
+
+	msg.msg_name = (void *)&nladdr;
+	msg.msg_namelen = sizeof(nladdr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = NULL;
+
+	len = recvmsg( netlink_sock, &msg, 0 );
+	nh = (struct nlmsghdr *)buf;
+
+	while ( NLMSG_OK(nh, len) ) {
+
+		if ( nh->nlmsg_type == NLMSG_DONE )
+			return;
+
+		if ( ( nh->nlmsg_type == NLMSG_ERROR ) && ( ((struct nlmsgerr*)NLMSG_DATA(nh))->error != 0 ) ) {
+
+			inet_ntop( AF_INET, &src_network, str1, sizeof (str1) );
+			inet_ntop( AF_INET, &dst_network, str2, sizeof (str2) );
+
+			debug_output( 0, "Error - can't %s rule from %s/%i to %s/%i: %s\n", del ? "delete" : "add", str1, src_netmask, str2, dst_netmask, strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
+
+		}
+
+		nh = NLMSG_NEXT( nh, len );
+
+	}
 
 }
 
@@ -124,6 +284,8 @@ int8_t probe_tun() {
 
 }
 
+
+
 int8_t del_dev_tun( int32_t fd ) {
 
 	if ( ioctl( fd, TUNSETPERSIST, 0 ) < 0 ) {
@@ -138,6 +300,7 @@ int8_t del_dev_tun( int32_t fd ) {
 	return 1;
 
 }
+
 
 
 int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd ) {

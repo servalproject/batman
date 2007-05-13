@@ -341,7 +341,7 @@ void debug_orig() {
 	struct neigh_node *neigh_node;
 	struct gw_node *gw_node;
 	uint16_t batman_count = 0;
-	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN];
+	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN];
 
 
 	if ( debug_clients.clients_num[1] > 0 ) {
@@ -387,8 +387,10 @@ void debug_orig() {
 
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
 
+		addr_to_string( ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr, orig_str, sizeof(orig_str) );
+
 		debug_output( 1, "BOD \n" );
-		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s\n", "Orginator", "Router", "#", SEQ_RANGE, "potential routers" );
+		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s]\n", "Orginator", "Router", "#", SEQ_RANGE, "potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
