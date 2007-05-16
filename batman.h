@@ -74,7 +74,10 @@
 #define TTL 50             /* Time To Live of broadcast messages */
 #define BIDIRECT_TIMEOUT 2
 #define TIMEOUT 60000      /* sliding window size of received orginator messages in ms */
-#define SEQ_RANGE 64       /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
+#define SEQ_RANGE 128      /* sliding packet range of received orginator messages in squence numbers (should be a multiple of our word size) */
+
+
+
 #define BATMAN_RT_TABLE_DEFAULT 66
 #define BATMAN_RT_TABLE_TUNNEL 67
 
@@ -226,9 +229,9 @@ struct unix_client {
 };
 
 struct debug_clients {
-	void *fd_list[5];
-	int16_t clients_num[5];
-	pthread_mutex_t *mutex[5];
+	void **fd_list;
+	int16_t *clients_num;
+	pthread_mutex_t **mutex;
 };
 
 struct debug_level_info {

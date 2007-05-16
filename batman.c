@@ -795,7 +795,7 @@ int8_t batman() {
 				if ( ( is_bidirectional ) && ( !is_duplicate ) )
 					update_orig( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
 
-				is_bntog = isBntog(neigh, orig_node );
+				is_bntog = isBntog( neigh, orig_node );
 
 				/* is single hop (direct) neighbour */
 				if ( ((struct packet *)&in)->orig == neigh ) {

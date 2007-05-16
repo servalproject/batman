@@ -263,7 +263,7 @@ void *unix_listen( void *arg ) {
 
 							/* debug_output( 3, "gateway: client sent data via unix socket: %s\n", buff ); */
 
-							if ( ( status > 2 ) && ( ( buff[2] == '1' ) || ( buff[2] == '2' ) || ( buff[2] == '3' ) || ( buff[2] == '4' ) || ( buff[2] == '5' ) ) ) {
+							if ( ( status > 2 ) && ( ( buff[2] > 48 ) && ( buff[2] <= debug_level_max + 48 ) ) ) {
 
 								if ( unix_client->debug_level != 0 ) {
 
@@ -675,6 +675,10 @@ void apply_init_args( int argc, char *argv[] ) {
 		signal( SIGTERM, handler );
 		signal( SIGSEGV, segmentation_fault );
 
+		debug_clients.fd_list = debugMalloc( sizeof(struct list_head_first *) * debug_level_max, 203 );
+		debug_clients.mutex = debugMalloc( sizeof(pthread_mutex_t *) * debug_level_max, 209 );
+		debug_clients.clients_num = debugMalloc( sizeof(int16_t) * debug_level_max, 209 );
+
 		for ( res = 0; res < debug_level_max; res++ ) {
 
 			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head_first), 204 );
@@ -684,9 +688,9 @@ void apply_init_args( int argc, char *argv[] ) {
 			debug_clients.mutex[res] = debugMalloc( sizeof(pthread_mutex_t), 209 );
 			pthread_mutex_init( (pthread_mutex_t *)debug_clients.mutex[res], NULL );
 
-		}
+			debug_clients.clients_num[res] = 0;
 
-		memset( &debug_clients.clients_num, 0, sizeof(debug_clients.clients_num) );
+		}
 
 		/* daemonize */
 		if ( debug_level == 0 ) {
@@ -1838,6 +1842,10 @@ void cleanup() {
 		debugFree( debug_clients.mutex[i], 1220 );
 
 	}
+
+	debugFree( debug_clients.fd_list, 1221 );
+	debugFree( debug_clients.mutex, 1222 );
+	debugFree( debug_clients.clients_num, 1223 );
 
 }
 
