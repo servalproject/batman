@@ -237,6 +237,10 @@ void *unix_listen( void *arg ) {
 				if ( unix_client->sock > max_sock )
 					max_sock = unix_client->sock;
 
+				/* make unix socket non blocking */
+				unix_opts = fcntl( unix_client->sock, F_GETFL, 0 );
+				fcntl( unix_client->sock, F_SETFL, unix_opts | O_NONBLOCK );
+
 				list_add_tail( &unix_client->list, &unix_if.client_list );
 
 				debug_output( 3, "Unix socket: got connection\n" );
@@ -308,10 +312,6 @@ void *unix_listen( void *arg ) {
 									debug_clients.clients_num[(int)buff[2] - '1']++;
 
 									unix_client->debug_level = (int)buff[2];
-
-									/* make unix socket non blocking */
-									unix_opts = fcntl( debug_level_info->fd, F_GETFL, 0 );
-									fcntl( debug_level_info->fd, F_SETFL, unix_opts | O_NONBLOCK );
 
 									if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)buff[2] - '1'] ) != 0 )
 										debug_output( 0, "Error - could not unlock mutex (unix_listen => 2): %s \n", strerror( errno ) );
@@ -673,6 +673,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		signal( SIGINT, handler );
 		signal( SIGTERM, handler );
+		signal( SIGTERM, SIG_IGN );
 		signal( SIGSEGV, segmentation_fault );
 
 		debug_clients.fd_list = debugMalloc( sizeof(struct list_head_first *) * debug_level_max, 203 );
@@ -837,7 +838,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			}
 
-			unix_buff = debugMalloc( 1500, 5001 );
+			unix_buff = debugMalloc( 1501, 5001 );
 			snprintf( unix_buff, 10, "d:%i", debug_level );
 
 			if ( write( unix_if.unix_sock, unix_buff, 10 ) < 0 ) {
@@ -1764,10 +1765,12 @@ void *gw_listen( void *arg ) {
 
 
 
-void restore_and_exit() {
+void restore_and_exit( uint8_t is_sigsegv ) {
 
 	struct list_head *if_pos;
 	struct batman_if *batman_if;
+	struct orig_node *orig_node;
+	struct hash_it_t *hashit = NULL;
 
 
 	if ( !unix_client ) {
@@ -1792,13 +1795,28 @@ void restore_and_exit() {
 		if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 			del_default_route();
 
-		purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+		if ( !is_sigsegv ) {
+
+			purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+
+		} else {
+
+			 while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
+
+				orig_node = hashit->bucket->data;
+
+				update_routes( orig_node, NULL, NULL, 0 );
+
+			}
+
+		}
 
 		restore_defaults();
 
 	}
 
-	exit(EXIT_FAILURE);
+	if ( !is_sigsegv )
+		exit(EXIT_FAILURE);
 
 }
 
@@ -1808,9 +1826,11 @@ void segmentation_fault( int32_t sig ) {
 
 	signal( SIGSEGV, SIG_DFL );
 
-	debug_output( 0, "Error - SIGSEGV received !\n" );
+	debug_output( 0, "Error - SIGSEGV received, trying to clean up ... \n" );
 
-	restore_and_exit();
+	restore_and_exit(1);
+
+	raise( SIGSEGV );
 
 }
 

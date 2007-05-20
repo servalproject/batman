@@ -102,7 +102,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 		if ( swaphash == NULL ) {
 
 			debug_output( 0, "Couldn't resize hash table \n" );
-			restore_and_exit();
+			restore_and_exit(0);
 
 		}
 
@@ -219,7 +219,7 @@ void purge_orig( uint32_t curr_time ) {
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
 	uint8_t gw_purged = 0, neigh_purged;
-	static char orig_str[ADDR_STR_LEN];
+	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 
 
 	/* for all origins... */
@@ -282,6 +282,25 @@ void purge_orig( uint32_t curr_time ) {
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 				if ( (int)( ( neigh_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
+
+					addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
+					addr_to_string( neigh_node->addr, neigh_str, ADDR_STR_LEN );
+					debug_output( 4, "Neighbour timeout: originator %s, neighbour: %s, last_aware %u \n", orig_str, neigh_str, neigh_node->last_aware );
+
+					if ( orig_node->router == neigh_node ) {
+
+						/* we have to delete the route towards this node before it gets purged */
+						debug_output( 4, "Deleting previous route \n" );
+
+						/* remove old announced network(s) */
+						if ( orig_node->hna_buff_len > 0 )
+							add_del_hna( orig_node, 1 );
+
+						add_del_route( orig_node->orig, 32, orig_node->router->addr, 1, orig_node->batman_if->if_index, orig_node->batman_if->dev );
+
+						orig_node->router = NULL;
+
+					}
 
 					neigh_purged = 1;
 					list_del( prev_list_head, neigh_pos, &orig_node->neigh_list );
