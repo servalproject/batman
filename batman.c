@@ -101,7 +101,7 @@ uint8_t gateway_class = 0;
 uint8_t routing_class = 0;
 
 
-int16_t orginator_interval = 1000;   /* orginator message interval in miliseconds */
+int16_t originator_interval = 1000;   /* originator message interval in miliseconds */
 
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
@@ -142,7 +142,7 @@ void usage( void ) {
 	fprintf( stderr, "       -g gateway class\n" );
 	fprintf( stderr, "       -h this help\n" );
 	fprintf( stderr, "       -H verbose help\n" );
-	fprintf( stderr, "       -o orginator interval in ms\n" );
+	fprintf( stderr, "       -o originator interval in ms\n" );
 	fprintf( stderr, "       -p preferred gateway\n" );
 	fprintf( stderr, "       -r routing class\n" );
 	fprintf( stderr, "       -s visualisation server\n" );
@@ -180,7 +180,7 @@ void verbose_usage( void ) {
 	fprintf( stderr, "                          11 -> >6 MBit\n\n" );
 	fprintf( stderr, "       -h shorter help\n" );
 	fprintf( stderr, "       -H this help\n" );
-	fprintf( stderr, "       -o orginator interval in ms\n" );
+	fprintf( stderr, "       -o originator interval in ms\n" );
 	fprintf( stderr, "          default: 1000, allowed values: >0\n\n" );
 	fprintf( stderr, "       -p preferred gateway\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
@@ -621,7 +621,7 @@ int8_t batman() {
 	prof_init( PROF_is_duplicate, "isDuplicate" );
 	prof_init( PROF_get_orig_node, "get_orig_node" );
 	prof_init( PROF_update_originator, "update_orig" );
-	prof_init( PROF_purge_orginator, "purge_orig" );
+	prof_init( PROF_purge_originator, "purge_orig" );
 	prof_init( PROF_schedule_forward_packet, "schedule_forward_packet" );
 	prof_init( PROF_send_outstanding_packets, "send_outstanding_packets" );
 
@@ -682,6 +682,8 @@ int8_t batman() {
 			return -1;
 
 		if ( res > 0 ) {
+
+			curr_time = get_time();
 
 			addr_to_string( ((struct packet *)&in)->orig, orig_str, sizeof(orig_str) );
 			addr_to_string( neigh, neigh_str, sizeof(neigh_str) );
@@ -757,8 +759,6 @@ int8_t batman() {
 
 				orig_neigh_node = get_orig_node( neigh );
 
-				orig_neigh_node->last_aware = get_time();
-
 				debug_output( 4, "received my own OGM via NB lastTxIfSeqno: %d, currRxSeqno: %d, prevRxSeqno: %d, currRxSeqno-prevRxSeqno %d \n", ( if_incoming->out.seqno - 2 ), ((struct packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], ((struct packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] );
 
 				/* neighbour has to indicate direct link and it has to come via the corresponding interface */
@@ -784,7 +784,6 @@ int8_t batman() {
 			} else {
 
 				orig_node = get_orig_node( ((struct packet *)&in)->orig );
-				orig_node->last_aware = get_time();
 
 				orig_neigh_node = get_orig_node( neigh );
 
@@ -793,7 +792,7 @@ int8_t batman() {
 
 				/* update ranking */
 				if ( ( is_bidirectional ) && ( !is_duplicate ) )
-					update_orig( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
+					update_orig( orig_node, (struct packet *)&in, neigh, if_incoming, hna_recv_buff, hna_buff_len, curr_time );
 
 				is_bntog = isBntog( neigh, orig_node );
 
@@ -818,7 +817,7 @@ int8_t batman() {
 
 					}
 
-				/* multihop orginator */
+				/* multihop originator */
 				} else {
 
 					if ( is_bidirectional && is_bntog ) {
@@ -827,9 +826,9 @@ int8_t batman() {
 
 							schedule_forward_packet( (struct packet *)&in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
 
-							debug_output( 4, "Forward packet: rebroadcast orginator packet \n" );
+							debug_output( 4, "Forward packet: rebroadcast originator packet \n" );
 
-						} else if ( ( orig_node->router != NULL ) && ( orig_node->router->addr == neigh ) ) {
+						} else { /* is_bntog anyway */
 
 							list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
@@ -837,8 +836,15 @@ int8_t batman() {
 
 								if ( ( neigh_node->addr == neigh ) && ( neigh_node->if_incoming == if_incoming ) ) {
 
-									if ( neigh_node->last_ttl == ((struct packet *)&in)->ttl )
+									if ( neigh_node->last_ttl == ((struct packet *)&in)->ttl ) {
+
 										forward_duplicate_packet = 1;
+
+										/* also update only last_valid time if arrived (and rebroadcasted because best neighbor) */
+										orig_node->last_valid = curr_time;
+										neigh_node->last_valid = curr_time;
+
+									}
 
 									break;
 
@@ -859,10 +865,6 @@ int8_t batman() {
 
 							}
 
-						} else {
-
-							debug_output( 4, "Drop packet: duplicate packet (not received via best neighbour) \n" );
-
 						}
 
 					} else {
@@ -881,11 +883,11 @@ int8_t batman() {
 		send_outstanding_packets();
 
 
-		if ( debug_timeout + 1000 < get_time() ) {
+		if ( debug_timeout + 1000 < curr_time ) {
 
-			debug_timeout = get_time();
+			debug_timeout = curr_time;
 
-			purge_orig( get_time() );
+			purge_orig( curr_time );
 
 			debug_orig();
 
@@ -908,7 +910,7 @@ int8_t batman() {
 	if ( debug_level > 0 )
 		printf( "Deleting all BATMAN routes\n" );
 
-	purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+	purge_orig( get_time() + ( 5 * PURGE_TIMEOUT ) + originator_interval );
 
 	hash_destroy( orig_hash );
 

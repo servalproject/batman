@@ -328,46 +328,41 @@ void *unix_listen( void *arg ) {
 
 						} else {
 
-							if ( status < 0 ) {
-
+							if ( status < 0 )
 								debug_output( 0, "Error - can't read unix message: %s\n", strerror(errno) );
 
-							} else {
+							if ( unix_client->debug_level != 0 ) {
 
-								if ( unix_client->debug_level != 0 ) {
+								prev_list_head = (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'];
 
-									prev_list_head = (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'];
+								if ( pthread_mutex_lock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
+									debug_output( 0, "Error - could not lock mutex (unix_listen => 3): %s \n", strerror( errno ) );
 
-									if ( pthread_mutex_lock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
-										debug_output( 0, "Error - could not lock mutex (unix_listen => 3): %s \n", strerror( errno ) );
+								list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
-									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
+									debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
-										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+									if ( debug_level_info->fd == unix_client->sock ) {
 
-										if ( debug_level_info->fd == unix_client->sock ) {
+										list_del( prev_list_head, debug_pos, debug_clients.fd_list[(int)unix_client->debug_level - '1'] );
+										debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
-											list_del( prev_list_head, debug_pos, debug_clients.fd_list[(int)unix_client->debug_level - '1'] );
-											debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
+										debugFree( debug_pos, 1202 );
 
-											debugFree( debug_pos, 1202 );
-
-											break;
-
-										}
-
-										prev_list_head = &debug_level_info->list;
+										break;
 
 									}
 
-									if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
-										debug_output( 0, "Error - could not unlock mutex (unix_listen => 3): %s \n", strerror( errno ) );
+									prev_list_head = &debug_level_info->list;
 
 								}
 
-								debug_output( 3, "Unix client closed connection ...\n" );
+								if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[(int)unix_client->debug_level - '1'] ) != 0 )
+									debug_output( 0, "Error - could not unlock mutex (unix_listen => 3): %s \n", strerror( errno ) );
 
 							}
+
+							debug_output( 3, "Unix client closed connection ...\n" );
 
 							FD_CLR(unix_client->sock, &wait_sockets);
 							close( unix_client->sock );
@@ -559,11 +554,11 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'o':
 
 				errno = 0;
-				orginator_interval = strtol (optarg, NULL , 10);
+				originator_interval = strtol (optarg, NULL , 10);
 
-				if ( orginator_interval < 1 ) {
+				if ( originator_interval < 1 ) {
 
-					printf( "Invalid orginator interval specified: %i.\nThe Interval has to be greater than 0.\n", orginator_interval );
+					printf( "Invalid originator interval specified: %i.\nThe Interval has to be greater than 0.\n", originator_interval );
 					exit(EXIT_FAILURE);
 
 				}
@@ -619,14 +614,14 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'v':
 
-				printf( "B.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
+				printf( "B.A.T.M.A.N.-III v%s%s (compability version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
 				exit(EXIT_SUCCESS);
 
 			case 'V':
 
 				print_animation();
 
-				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
+				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s%s (compability version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
 				printf( "\x1B[9;0H \t May the bat guide your path ...\n\n\n" );
 
 				exit(EXIT_SUCCESS);
@@ -708,7 +703,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		} else {
 
-			printf( "B.A.T.M.A.N.-III v%s (compability version %i)\n", SOURCE_VERSION, COMPAT_VERSION );
+			printf( "B.A.T.M.A.N.-III v%s%s (compability version %i)\n", ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), SOURCE_VERSION, COMPAT_VERSION );
 
 			debug_clients.clients_num[ debug_level - 1 ]++;
 			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 205 );
@@ -795,8 +790,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			printf( "debug level: %i\n", debug_level );
 
-			if ( orginator_interval != 1000 )
-				printf( "orginator interval: %i\n", orginator_interval );
+			if ( originator_interval != 1000 )
+				printf( "originator interval: %i\n", originator_interval );
 
 			if ( gateway_class > 0 )
 				printf( "gateway class: %i\n", gateway_class );
@@ -1795,19 +1790,11 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 		if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 			del_default_route();
 
-		if ( !is_sigsegv ) {
+		while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
 
-			purge_orig( get_time() + ( 5 * TIMEOUT ) + orginator_interval );
+			orig_node = hashit->bucket->data;
 
-		} else {
-
-			 while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
-
-				orig_node = hashit->bucket->data;
-
-				update_routes( orig_node, NULL, NULL, 0 );
-
-			}
+			update_routes( orig_node, NULL, NULL, 0 );
 
 		}
 

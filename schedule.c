@@ -36,7 +36,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 	INIT_LIST_HEAD( &forw_node_new->list );
 
-	forw_node_new->send_time = get_time() + orginator_interval - JITTER + rand_num( 2 * JITTER );
+	forw_node_new->send_time = get_time() + originator_interval - JITTER + rand_num( 2 * JITTER );
 	forw_node_new->if_outgoing = batman_if;
 	forw_node_new->own = 1;
 

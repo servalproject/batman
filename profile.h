@@ -27,7 +27,7 @@ enum {
 	PROF_is_duplicate,
 	PROF_get_orig_node,
 	PROF_update_originator,
-	PROF_purge_orginator,
+	PROF_purge_originator,
 	PROF_schedule_forward_packet,
 	PROF_send_outstanding_packets,
 	PROF_COUNT

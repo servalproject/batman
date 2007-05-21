@@ -47,8 +47,8 @@ ifeq ($(UNAME),OpenBSD)
 OS_C=	bsd.c
 endif
 
-LINUX_SRC_C= batman.c originator.c schedule.c posix-specific.c posix.c allocate.c bitarray.c hash.c profile.c $(OS_C)
-LINUX_SRC_H= batman.h originator.h schedule.h batman-specific.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h
+LINUX_SRC_C= batman.c originator.c schedule.c list-batman.c posix-specific.c posix.c allocate.c bitarray.c hash.c profile.c $(OS_C)
+LINUX_SRC_H= batman.h originator.h schedule.h list-batman.h batman-specific.h os.h allocate.h bitarray.h hash.h profile.h
 
 
 CC_MIPS_KK_BC_PATH =	/usr/src/openWrt/build/kamikaze-brcm63xx-2.6/kamikaze/staging_dir_mipsel/bin

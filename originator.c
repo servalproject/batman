@@ -117,7 +117,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
+void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *neigh_pos;
@@ -184,7 +184,8 @@ void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh
 	}
 
 
-	neigh_node->last_aware = get_time();
+	orig_node->last_valid = rcvd_time;
+	neigh_node->last_valid = rcvd_time;
 
 	if ( is_new_seqno ) {
 
@@ -211,7 +212,7 @@ void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh
 
 void purge_orig( uint32_t curr_time ) {
 
-	prof_start( PROF_purge_orginator );
+	prof_start( PROF_purge_originator );
 	struct hash_it_t *hashit = NULL;
 	struct list_head *neigh_pos, *neigh_temp, *prev_list_head;
 	struct list_head *gw_pos, *gw_pos_tmp;
@@ -227,14 +228,14 @@ void purge_orig( uint32_t curr_time ) {
 
 		orig_node = hashit->bucket->data;
 
-		if ( (int)( ( orig_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
+		if ( (int)( ( orig_node->last_valid + PURGE_TIMEOUT ) < curr_time ) ) {
 
 			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 4, "Orginator timeout: originator %s, last_aware %u) \n", orig_str, orig_node->last_aware );
+			debug_output( 4, "Originator timeout: originator %s, last_valid %u \n", orig_str, orig_node->last_valid );
 
 			hash_remove_bucket( orig_hash, hashit );
 
-			/* for all neighbours towards this orginator ... */
+			/* for all neighbours towards this originator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
 				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
@@ -276,16 +277,16 @@ void purge_orig( uint32_t curr_time ) {
 			neigh_purged = 0;
 			prev_list_head = (struct list_head *)&orig_node->neigh_list;
 
-			/* for all neighbours towards this orginator ... */
+			/* for all neighbours towards this originator ... */
 			list_for_each_safe( neigh_pos, neigh_temp, &orig_node->neigh_list ) {
 
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
-				if ( (int)( ( neigh_node->last_aware + ( 2 * TIMEOUT ) ) < curr_time ) ) {
+				if ( (int)( ( neigh_node->last_valid + PURGE_TIMEOUT ) < curr_time ) ) {
 
 					addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 					addr_to_string( neigh_node->addr, neigh_str, ADDR_STR_LEN );
-					debug_output( 4, "Neighbour timeout: originator %s, neighbour: %s, last_aware %u \n", orig_str, neigh_str, neigh_node->last_aware );
+					debug_output( 4, "Neighbour timeout: originator %s, neighbour: %s, last_valid %u \n", orig_str, neigh_str, neigh_node->last_valid );
 
 					if ( orig_node->router == neigh_node ) {
 
@@ -332,7 +333,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		gw_node = list_entry(gw_pos, struct gw_node, list);
 
-		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + 3 * TIMEOUT) < curr_time) ) ) {
+		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + (2 * PURGE_TIMEOUT)) < curr_time) ) ) {
 
 			list_del( prev_list_head, gw_pos, &gw_list );
 			debugFree( gw_pos, 1405 );
@@ -343,7 +344,7 @@ void purge_orig( uint32_t curr_time ) {
 
 	}
 
-	prof_stop( PROF_purge_orginator );
+	prof_stop( PROF_purge_originator );
 
 	if ( gw_purged )
 		choose_gw();
@@ -361,6 +362,7 @@ void debug_orig() {
 	struct neigh_node *neigh_node;
 	struct gw_node *gw_node;
 	uint16_t batman_count = 0;
+	uint32_t uptime_sec;
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN];
 
 
@@ -408,9 +410,10 @@ void debug_orig() {
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
 
 		addr_to_string( ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr, orig_str, sizeof(orig_str) );
+		uptime_sec = get_time_sec();
 
 		debug_output( 1, "BOD \n" );
-		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s]\n", "Orginator", "Router", "#", SEQ_RANGE, "potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str );
+		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im]]\n", "Originator", "Router", "#", SEQ_RANGE, "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
@@ -424,7 +427,7 @@ void debug_orig() {
 			}
 
 			debug_output( 4, "Originator list \n" );
-			debug_output( 4, "  %-12s %''14s (%s/%i): %''20s\n", "Orginator", "Router", "#", SEQ_RANGE, "potential gateways" );
+			debug_output( 4, "  %-12s %''14s (%s/%i): %''20s\n", "Originator", "Router", "#", SEQ_RANGE, "Potential routers" );
 
 		}
 
@@ -441,7 +444,7 @@ void debug_orig() {
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
 			debug_output( 1, "%-15s %''15s (%3i):", str, str2, orig_node->router->packet_count );
-			debug_output( 4, "%''15s %''15s (%3i), last_aware:%u: \n", str, str2, orig_node->router->packet_count, orig_node->last_aware );
+			debug_output( 4, "%''15s %''15s (%3i), last_valid: %u: \n", str, str2, orig_node->router->packet_count, orig_node->last_valid );
 
 			list_for_each( neigh_pos, &orig_node->neigh_list ) {
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
