@@ -67,8 +67,11 @@ CC_ARM_OE_PATH =	/usr/src/openEmbedded/stuff/build/akita/tmp/cross/bin
 CC_ARM_OE =		$(CC_ARM_OE_PATH)/arm-linux-gcc
 STRIP_ARM_OE =		$(CC_ARM_OE_PATH)/arm-linux-strip
 
+CC_N770_OE_PATH =	/usr/src/openEmbedded/stuff/build/nokia770/tmp/cross/bin
+CC_N770_OE =		$(CC_N770_OE_PATH)/arm-linux-gcc
+STRIP_N770_OE =		$(CC_N770_OE_PATH)/arm-linux-strip
 
-REVISION=		$(shell svn info | grep Revision | sed -e '1p' -n | awk '{print $$2}')
+REVISION=		$(shell svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}')
 REVISION_VERSION=	\"\ rv$(REVISION)\"
 IPKG_BUILD_PATH=	/home/batman/build/ipkg-build
 
@@ -81,7 +84,7 @@ BATMAN_STRING=		begin:$(BATMAN_GENERATION):$(BATMAN_VERSION):$(BATMAN_RELEASE):$
 IPKG_VERSION=		$(BATMAN_VERSION)$(BATMAN_RELEASE)-rv$(REVISION)
 
 FILE_NAME=		batmand_$(BATMAN_VERSION)$(BATMAN_RELEASE)-rv$(REVISION)_$@
-CURRENT=		batmand_$(BATMAN_VERSION)$(BATMAN_RELEASE)-current_$@
+FILE_CURRENT=		batmand_$(BATMAN_VERSION)$(BATMAN_RELEASE)-current_$@
 
 IPKG_DEPENDS=		"kmod-tun libpthread"
 
@@ -89,10 +92,14 @@ IPKG_BUILD=		ln -f $(FILE_NAME) $(IPKG_BUILD_PATH)/ipkg-target/usr/sbin/batmand 
 			$(IPKG_BUILD_PATH)/ipkg-make-control.sh   $(IPKG_BUILD_PATH)/ipkg-target $(FILE_NAME).ipk  batmand  $(IPKG_VERSION)
 
 
-LINK_AND_TAR=		tar czvf $(FILE_NAME).tgz $(FILE_NAME) && \
-			mkdir -p dl/misc && \
-			ln -f $(FILE_NAME)* dl/misc/
 
+LINK_AND_TAR=		tar czvf $(FILE_NAME).tgz $(FILE_NAME) && \
+			ln -f $(FILE_NAME).tgz $(FILE_CURRENT).tgz && \
+			ln -f $(FILE_NAME).ipk $(FILE_CURRENT).ipk && \
+			ln -f $(FILE_NAME) $(FILE_CURRENT) && \
+			mkdir -p dl/misc && \
+			ln -f $(FILE_NAME)* dl/misc/ && \
+			ln -f $(FILE_CURRENT)* dl/misc/
 
 all:	batmand
 
@@ -109,7 +116,7 @@ test:
 	echo $(BATMAN_STRING)
 	echo IPKG_VERSION: $(IPKG_VERSION)
 
-long:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe
+long:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe nokia770-oe
 
 axel:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe
 
@@ -135,13 +142,20 @@ i386-gc-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 	mkdir -p dl/i386
 	ln -f $(FILE_NAME).tgz dl/i386/
+	ln -f $(FILE_CURRENT).tgz dl/i386/
 
 
 i386-gc-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS)
 	$(STRIP) $(FILE_NAME)
-	$(IPKG_BUILD) i386 $(IPKG_DEPENDS)
+	$(IPKG_BUILD) i386
 	$(LINK_AND_TAR)
+
+	mkdir -p dl/i386
+	ln -f $(FILE_NAME) batmand
+	ln -f $(FILE_NAME).tgz dl/i386/
+	ln -f $(FILE_CURRENT).tgz dl/i386/
+
 
 
 mipsel-kk-bc:	mipsel-kk-elf-32-lsb-static mipsel-kk-elf-32-lsb-dynamic
@@ -154,6 +168,7 @@ mipsel-kk-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 	mkdir -p dl/meshcube
 	ln -f $(FILE_NAME).ipk dl/meshcube/
+	ln -f $(FILE_CURRENT).ipk dl/meshcube/
 
 
 mipsel-kk-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
@@ -162,8 +177,9 @@ mipsel-kk-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(IPKG_BUILD) mipsel $(IPKG_DEPENDS)
 	$(LINK_AND_TAR)
 
-	mkdir -p dl/netgear
-	ln -f $(FILE_NAME).ipk dl/netgear/
+	mkdir -p dl/netgear-kamikaze
+	ln -f $(FILE_NAME).ipk dl/netgear-kamikaze/
+	ln -f $(FILE_CURRENT).ipk dl/netgear-kamikaze/
 
 
 mips-kk-at:	mips-kk-elf-32-msb-static mips-kk-elf-32-msb-dynamic
@@ -174,8 +190,9 @@ mips-kk-elf-32-msb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(IPKG_BUILD) mips
 	$(LINK_AND_TAR)
 
-	mkdir -p dl/fonera-freifunk
-	ln -f $(FILE_NAME).tgz dl/fonera-freifunk/
+	mkdir -p dl/fonera
+	ln -f $(FILE_NAME).tgz dl/fonera/
+	ln -f $(FILE_CURRENT).tgz dl/fonera/
 
 
 mips-kk-elf-32-msb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
@@ -186,6 +203,7 @@ mips-kk-elf-32-msb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 	mkdir -p dl/fonera-kamikaze
 	ln -f $(FILE_NAME).ipk dl/fonera-kamikaze/
+	ln -f $(FILE_CURRENT).ipk dl/fonera-kamikaze/
 
 
 mipsel-wr:	mipsel-wr-elf-32-lsb-static mipsel-wr-elf-32-lsb-dynamic
@@ -202,31 +220,52 @@ mipsel-wr-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(IPKG_BUILD) mipsel $(IPKG_DEPENDS)
 	$(LINK_AND_TAR)
 
-	mkdir -p dl/wrt
-	ln -f $(FILE_NAME).ipk dl/wrt/
-	mkdir -p dl/buffalo
-	ln -f $(FILE_NAME).ipk dl/buffalo/
+	mkdir -p dl/wrt-freifunk
+	ln -f $(FILE_NAME).ipk dl/wrt-freifunk/
+	ln -f $(FILE_CURRENT).ipk dl/wrt-freifunk/
+	mkdir -p dl/buffalo-freifunk
+	ln -f $(FILE_NAME).ipk dl/buffalo-freifunk/
+	ln -f $(FILE_CURRENT).ipk dl/buffalo-freifunk/
 
-arm-oe:		arm-oe-elf-32-lsb-static arm-oe-elf-32-lsb-dynamic
+arm-oe:		armv5te-oe-elf-32-lsb-static armv5te-oe-elf-32-lsb-dynamic 
 
-arm-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+armv5te-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_ARM_OE) $(FILE_NAME)
-	$(IPKG_BUILD) arm
-	$(LINK_AND_TAR)
+	$(IPKG_BUILD) armv5te
+	$(LINK_AND_TAR)	
 
-	mkdir -p dl/arm
-	ln -f $(FILE_NAME).ipk dl/arm/
-	ln -f $(FILE_NAME).tgz dl/arm/
+	mkdir -p dl/armv5te
+	ln -f $(FILE_NAME).ipk dl/armv5te/
+	ln -f $(FILE_NAME).tgz dl/armv5te/
+	ln -f $(FILE_CURRENT).ipk dl/armv5te/
+	ln -f $(FILE_CURRENT).tgz dl/armv5te/
 
-arm-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+armv5te-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_ARM_OE) $(FILE_NAME)
-	$(IPKG_BUILD) arm kernel-module-tun
-	$(LINK_AND_TAR)
+	$(IPKG_BUILD) armv5te kernel-module-tun
+	$(LINK_AND_TAR)	
 
 	mkdir -p dl/zaurus-akita
 	ln -f $(FILE_NAME).ipk dl/zaurus-akita/
+	ln -f $(FILE_CURRENT).ipk dl/zaurus-akita/
+
+nokia770-oe:	nokia770-oe-elf-32-lsb-static nokia770-oe-elf-32-lsb-dynamic
+
+nokia770-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+	$(STRIP_N770_OE) $(FILE_NAME)
+	$(IPKG_BUILD) arm-nokia770
+	$(LINK_AND_TAR)	
+
+nokia770-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+	$(STRIP_N770_OE) $(FILE_NAME)
+	$(IPKG_BUILD) arm-nokia770 kernel-module-tun
+	$(LINK_AND_TAR)	
+
+
 
 clean:
 		rm -f batmand *.o
