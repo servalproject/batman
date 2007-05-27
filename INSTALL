@@ -9,7 +9,8 @@ Corinna 'Elektra' Aichele (onelektra-at-gmx.net)
 Thomas Lopatic  (thomas-at-lopatic.de)
 Felix Fietkau (nbd-at-nbd.name)
 Ludger Schmudde (lui-at-schmudde.com)
-
+Simon Wunderlich (siwu-at-hrz.tu-chemnitz.de)
+Andreas Langer (a.langer-at-q-dsl.de)
 
 -------
 Preface
@@ -19,7 +20,7 @@ This is still a experimental piece of code to test the viability of the
 B.A.T.M.A.N. routing algorithm based on initial ideas of Thomas Lopatic
 and Corinna 'Elektra' Aichele.
 
-This is implementation 0.11 of the improved B.A.T.M.A.N.-III algorithm. It
+This is the improved B.A.T.M.A.N.-III algorithm. It
 is not unlikely that we still have to fix some bugs, though.
 
 Use - like always - at your own risk!
@@ -76,8 +77,24 @@ Strip it by performing:
 strip batmand <press enter>
 
 Note there is no installation script at the moment. If you want to install
-it, copy the deamon to a location somewhere in your path, for example
+it, copy the deamon (batmand) to a location somewhere in your path, for example
 /usr/sbin or /usr/local/bin.
+
+
+---------------------------------
+Installation on a Freifunk Router
+---------------------------------
+
+  Just to be sure, there has been some confusion with outdated batman packages
+  so its a good idea to check for any old package using:
+
+  ipkg status | grep batman
+
+  and then remove everything related to that by doing for example:
+
+  ipkg remove batman-iii freifunk-batman-de ...
+
+  then continue with the installation of a fresh and stable batman packages!
 
 If you use a wireless router based on Freifunk-Firmware or OpenWRT you can
 use the ipkg-package management system. Add the line:
@@ -89,18 +106,28 @@ executing:
 
 ipkg update
 
-ipkg install batman-iii
+ipkg install batmand-iii
+
+  alternatively you can get the latest stable release from 
+  http://downloads.open-mesh.net/batman/stable/
+  for example to install batmand-0.2.0rc2 on a freifunk WRT do:
+
+  ipkg install http://downloads.open-mesh.net/batman/stable/wrt-freifunk/batmand_0.2.0rc2-current_mipsel-wr-elf-32-lsb-dynamic.ipk
+
+  But be aware that, a recent batmand-...ipk from open-mesh.net should be equal to the 
+  batman-iii-...ipk from freifunk.schmudde.com/ipkg. Both packages install /usr/sbin/batmand 
+  and the last installed one will overwrite the previous one.
 
 If you use Freifunk-Firmware you can use the web user-interface for
 B.A.T.M.A.N.:
 
-ipkg install freifunk-batman-de
+ipkg install freifunk-batman
 
 
 
----
-Use
----
+------
+Useage
+------
 
 Make sure you have no firewall running that is blocking UDP port 1966.
 

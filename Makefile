@@ -50,6 +50,7 @@ endif
 LINUX_SRC_C= batman.c originator.c schedule.c list-batman.c posix-specific.c posix.c allocate.c bitarray.c hash.c profile.c $(OS_C)
 LINUX_SRC_H= batman.h originator.h schedule.h list-batman.h batman-specific.h os.h allocate.h bitarray.h hash.h profile.h
 
+LOG_BRANCH= trunk/batman
 
 CC_MIPS_KK_BC_PATH =	/usr/src/openWrt/build/kamikaze-brcm63xx-2.6/kamikaze/staging_dir_mipsel/bin
 CC_MIPS_KK_BC =		$(CC_MIPS_KK_BC_PATH)/mipsel-linux-uclibc-gcc
@@ -73,7 +74,8 @@ STRIP_N770_OE =		$(CC_N770_OE_PATH)/arm-linux-strip
 
 REVISION=		$(shell svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}')
 REVISION_VERSION=	\"\ rv$(REVISION)\"
-IPKG_BUILD_PATH=	/home/batman/build/ipkg-build
+BUILD_PATH=		/home/batman/build
+IPKG_BUILD_PATH=	$(BUILD_PATH)/ipkg-build
 
 BATMAN_GENERATION=	$(shell grep "^\#define SOURCE_VERSION " batman.h | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
 BATMAN_VERSION=		$(shell grep "^\#define SOURCE_VERSION " batman.h | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$2}')
@@ -123,13 +125,18 @@ axel:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe
 sources:
 	mkdir -p $(FILE_NAME)
 	cp $(LINUX_SRC_H) $(LINUX_SRC_C) Makefile $(FILE_NAME)/
+	$(BUILD_PATH)/wget --no-check-certificate -O changelog.html  https://dev.open-mesh.net/batman/log/$(LOG_BRANCH)/
+	html2text -o changelog.txt -nobs -ascii changelog.html
+	awk '/View revision/,/10\/01\/06 20:23:03/' changelog.txt > $(FILE_NAME)/CHANGELOG
 	tar czvf $(FILE_NAME).tgz $(FILE_NAME)
 
 	mkdir -p dl/misc
 	ln -f $(FILE_NAME).tgz dl/misc/
+	ln -f $(FILE_NAME).tgz dl/misc/$(FILE_CURRENT).tgz
 
 	mkdir -p dl/sources
 	ln -f $(FILE_NAME).tgz dl/sources/
+	ln -f $(FILE_NAME).tgz dl/sources/$(FILE_CURRENT).tgz
 
 
 i386: i386-gc-elf-32-lsb-static i386-gc-elf-32-lsb-dynamic
