@@ -614,14 +614,14 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'v':
 
-				printf( "B.A.T.M.A.N.-III v%s%s (compability version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
+				printf( "B.A.T.M.A.N. %s%s (compability version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
 				exit(EXIT_SUCCESS);
 
 			case 'V':
 
 				print_animation();
 
-				printf( "\x1B[0;0HB.A.T.M.A.N.-III v%s%s (compability version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
+				printf( "\x1B[0;0HB.A.T.M.A.N. %s%s (compability version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
 				printf( "\x1B[9;0H \t May the bat guide your path ...\n\n\n" );
 
 				exit(EXIT_SUCCESS);
@@ -703,7 +703,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		} else {
 
-			printf( "B.A.T.M.A.N.-III v%s%s (compability version %i)\n", ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), SOURCE_VERSION, COMPAT_VERSION );
+			printf( "B.A.T.M.A.N. %s%s (compability version %i)\n", ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), SOURCE_VERSION, COMPAT_VERSION );
 
 			debug_clients.clients_num[ debug_level - 1 ]++;
 			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 205 );
@@ -748,6 +748,13 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			found_ifs++;
 			found_args++;
+
+		}
+
+		if ( add_del_interface_rules( 0 ) < 0 ) {
+
+			restore_defaults();
+			exit(EXIT_FAILURE);
 
 		}
 
@@ -994,8 +1001,8 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	batman_if->netaddr = ( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr & batman_if->addr.sin_addr.s_addr );
 	batman_if->netmask = bit_count( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr );
-
-	add_del_rule( batman_if->netaddr, batman_if->netmask, batman_if->netaddr, batman_if->netmask, 0, BATMAN_RT_TABLE_DEFAULT );
+	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 0 );
+	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 1, 1, 0 );
 
 	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
 
@@ -1190,7 +1197,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( add_dev_tun( curr_gw_data->batman_if, curr_gw_data->batman_if->addr.sin_addr.s_addr, curr_gateway_tun_if, sizeof(curr_gateway_tun_if), &curr_gateway_tun_fd ) > 0 ) {
 
-		add_del_route( 0, 0, 0, 0, curr_gw_data->batman_if->if_index, curr_gateway_tun_if );
+		add_del_route( 0, 0, 0, curr_gw_data->batman_if->if_index, curr_gateway_tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
 
 	} else {
 
@@ -1329,7 +1336,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-	add_del_route( 0, 0, 0, 1, curr_gw_data->batman_if->if_index, curr_gateway_tun_if );
+	add_del_route( 0, 0, 0, curr_gw_data->batman_if->if_index, curr_gateway_tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
 
 	close( curr_gateway_tcp_sock );
 	close( curr_gateway_tun_sock );
@@ -1388,6 +1395,8 @@ void restore_defaults() {
 
 	stop = 1;
 
+	add_del_interface_rules( 1 );
+
 	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 
 		batman_if = list_entry( if_pos, struct batman_if, list );
@@ -1402,8 +1411,12 @@ void restore_defaults() {
 		close( batman_if->udp_recv_sock );
 		close( batman_if->udp_send_sock );
 
-		if ( ( batman_if->netaddr > 0 ) && ( batman_if->netmask > 0 ) )
-			add_del_rule( batman_if->netaddr, batman_if->netmask, batman_if->netaddr, batman_if->netmask, 1, BATMAN_RT_TABLE_DEFAULT );
+		if ( ( batman_if->netaddr > 0 ) && ( batman_if->netmask > 0 ) ) {
+
+			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 1 );
+			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 1, 1, 1 );
+
+		}
 
 		list_del( (struct list_head *)&if_list, if_pos, &if_list );
 		debugFree( if_pos, 1214 );
@@ -1480,7 +1493,7 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 			if ( *hna_buff_len < sizeof(struct packet) )
 				return 0;
 
-			((struct packet *)packet_buff)->seqno = ntohs( ((struct packet *)packet_buff)->seqno ); /* network to host order for our 16bit seqno.*/
+			((struct packet *)packet_buff)->seqno = ntohs( ((struct packet *)packet_buff)->seqno ); /* network to host order for our 16bit seqno. */
 
 			(*if_incoming) = batman_if;
 			break;

@@ -76,14 +76,34 @@
 #define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on SEQ_RANGE */
 #define SEQ_RANGE 128         /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
 
-
-
-#define BATMAN_RT_TABLE_DEFAULT 66
-#define BATMAN_RT_TABLE_TUNNEL 67
-
-
-
 #define NUM_WORDS ( SEQ_RANGE / WORD_BIT_SIZE )
+
+
+
+/***
+ *
+ * Things you should leave as is unless your know what you are doing !
+ *
+ * BATMAN_RT_TABLE_NETWORKS  routing table for announced networks
+ * BATMAN_RT_TABLE_HOST      routing table for routes towards originators
+ * BATMAN_RT_TABLE_TUNNEL    routing table for the tunnel towards the internet gateway
+ * BATMAN_RT_PRIO_DEFAULT    standard priority for routing rules
+ * BATMAN_RT_PRIO_UNREACH    standard priority for unreable routing rules
+ * BATMAN_RT_PRIO_TUNNEL     standard priority for tunnel routing rules
+ *
+ ***/
+
+
+#define BATMAN_RT_TABLE_NETWORKS 65
+#define BATMAN_RT_TABLE_HOST 66
+#define BATMAN_RT_TABLE_TUNNEL 67
+#define BATMAN_RT_PRIO_DEFAULT 6600
+#define BATMAN_RT_PRIO_UNREACH BATMAN_RT_PRIO_DEFAULT + 100
+#define BATMAN_RT_PRIO_TUNNEL BATMAN_RT_PRIO_UNREACH + 100
+
+
+
+
 
 
 
@@ -249,6 +269,7 @@ struct curr_gw_data {
 int8_t batman( void );
 void usage( void );
 void verbose_usage( void );
+int is_batman_if( char *dev );
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
 void choose_gw();

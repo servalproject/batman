@@ -32,14 +32,6 @@
 #include <errno.h>  /* should be removed together with tcp control channel */
 
 
-/* "-d" is the command line switch for the debug level,
- * specify it multiple times to increase verbosity
- * 0 gives a minimum of messages to save CPU-Power
- * 1 normal
- * 2 verbose
- * 3 very verbose
- * Beware that high debugging levels eat a lot of CPU-Power
- */
 
 uint8_t debug_level = 0;
 
@@ -197,11 +189,34 @@ void verbose_usage( void ) {
 
 
 
+int is_batman_if( char *dev ) {
+
+	struct list_head *if_pos;
+	struct batman_if *batman_if;
+
+
+	list_for_each( if_pos, &if_list ) {
+
+		batman_if = list_entry( if_pos, struct batman_if, list );
+
+		if ( strcmp( batman_if->dev, dev ) == 0 )
+			return 1;
+
+	}
+
+	return 0;
+
+}
+
+
+
 void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 
 	uint16_t hna_buff_count = 0;
 	uint32_t hna, netmask;
 
+	/* deactivate unreachable rule - needed for inserting / deleting networks */
+	add_del_rule( orig_node->batman_if->netaddr, orig_node->batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + orig_node->batman_if->if_num, 1, 1, 1 );
 
 	while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
 
@@ -210,14 +225,17 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 
 		if ( ( netmask > 0 ) && ( netmask < 33 ) ) {
 
-			add_del_route( hna, netmask, orig_node->router->addr, del, orig_node->batman_if->if_index, orig_node->batman_if->dev );
-			add_del_rule( 0, 0, hna, netmask, del, BATMAN_RT_TABLE_DEFAULT );
+			add_del_route( hna, netmask, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, del );
+			add_del_rule( hna, netmask, BATMAN_RT_TABLE_NETWORKS, 0, 0, 1, del );
 
 		}
 
 		hna_buff_count++;
 
 	}
+
+	/* reactivate unreachable rule */
+	add_del_rule( orig_node->batman_if->netaddr, orig_node->batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + orig_node->batman_if->if_num, 1, 1, 0 );
 
 	if ( del ) {
 
@@ -390,7 +408,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 			if ( orig_node->hna_buff_len > 0 )
 				add_del_hna( orig_node, 1 );
 
-			add_del_route( orig_node->orig, 32, orig_node->router->addr, 1, orig_node->batman_if->if_index, orig_node->batman_if->dev );
+			add_del_route( orig_node->orig, 32, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOST, 0, 1 );
 
 		}
 
@@ -403,7 +421,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 				debug_output( 4, "Route changed\n" );
 			}
 
-			add_del_route( orig_node->orig, 32, neigh_node->addr, 0, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev );
+			add_del_route( orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOST, 0, 0 );
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
