@@ -389,10 +389,6 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 
 	if ( ( orig_node != NULL ) && ( orig_node->router != neigh_node ) ) {
 
-		/* deactivate unreachable rule - needed for inserting / deleting networks */
-		if ( orig_node->batman_if != NULL )
-			add_del_rule( orig_node->batman_if->netaddr, orig_node->batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + orig_node->batman_if->if_num, 1, 1, 1 );
-
 		if ( ( orig_node != NULL ) && ( neigh_node != NULL ) ) {
 			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 			addr_to_string( neigh_node->addr, next_str, ADDR_STR_LEN );
@@ -425,7 +421,13 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 				debug_output( 4, "Route changed\n" );
 			}
 
+			/* deactivate unreachable rule - needed for inserting / deleting networks */
+			add_del_rule( neigh_node->if_incoming->netaddr, neigh_node->if_incoming->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + neigh_node->if_incoming->if_num, 1, 1, 1 );
+
 			add_del_route( orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOST, 0, 0 );
+
+			/* reactivate unreachable rule */
+			add_del_rule( neigh_node->if_incoming->netaddr, neigh_node->if_incoming->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + neigh_node->if_incoming->if_num, 1, 1, 0 );
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
@@ -445,10 +447,6 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 		}
 
 		orig_node->router = neigh_node;
-
-		/* reactivate unreachable rule */
-		if ( orig_node->batman_if != NULL )
-			add_del_rule( orig_node->batman_if->netaddr, orig_node->batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + orig_node->batman_if->if_num, 1, 1, 0 );
 
 	} else if ( orig_node != NULL ) {
 
