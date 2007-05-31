@@ -17,19 +17,15 @@
 #
 
 
+CC =			gcc
+CFLAGS =		-Wall -O0 -g3
+STRIP=			strip
+LDFLAGS =		-lpthread
 
 CFLAGS_MIPS =	-Wall -O0 -g3
 LDFLAGS_MIPS =	-lpthread
 
-CC =			gcc
-STRIP=			strip
-#CC =			mipsel-linux-uclibc-gcc
-CFLAGS =		-Wall -O0 -g3
-LDFLAGS =		-lpthread
-#LDFLAGS =		-static -lpthread
-
-UNAME=			$(shell uname)
-
+UNAME=		$(shell uname)
 
 ifeq ($(UNAME),Linux)
 OS_C=	 linux-specific.c linux.c
@@ -47,10 +43,32 @@ ifeq ($(UNAME),OpenBSD)
 OS_C=	bsd.c
 endif
 
+LOG_BRANCH= trunk/batman
+
 LINUX_SRC_C= batman.c originator.c schedule.c list-batman.c posix-specific.c posix.c allocate.c bitarray.c hash.c profile.c $(OS_C)
 LINUX_SRC_H= batman.h originator.h schedule.h list-batman.h batman-specific.h os.h allocate.h bitarray.h hash.h profile.h
 
-LOG_BRANCH= trunk/batman
+BINARY_NAME=	batmand
+SOURCE_VERSION_HEADER= batman.h
+
+REVISION=		$(shell svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}')
+REVISION_VERSION=	\"\ rv$(REVISION)\"
+BUILD_PATH=		/home/batman/build
+IPKG_BUILD_PATH=	$(BUILD_PATH)/ipkg-build
+
+BAT_GENERATION=		$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
+BAT_VERSION=		$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$2}')
+BAT_RELEASE=		$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$3}')
+BAT_TRAILER=		$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$4}')
+BAT_STRING=		begin:$(BATMAN_GENERATION):$(BATMAN_VERSION):$(BATMAN_RELEASE):$(BATMAN_TRAILER):end
+
+IPKG_VERSION=		$(BAT_VERSION)$(BAT_RELEASE)-rv$(REVISION)
+
+FILE_NAME=		$(BINARY_NAME)_$(BAT_VERSION)$(BAT_RELEASE)-rv$(REVISION)_$@
+FILE_CURRENT=		$(BINARY_NAME)_$(BAT_VERSION)$(BAT_RELEASE)-current_$@
+
+IPKG_DEPENDS=		"kmod-tun libpthread"
+
 
 CC_MIPS_KK_BC_PATH =	/usr/src/openWrt/build/kamikaze-brcm63xx-2.6/kamikaze/staging_dir_mipsel/bin
 CC_MIPS_KK_BC =		$(CC_MIPS_KK_BC_PATH)/mipsel-linux-uclibc-gcc
@@ -72,27 +90,9 @@ CC_N770_OE_PATH =	/usr/src/openEmbedded/stuff/build/nokia770/tmp/cross/bin
 CC_N770_OE =		$(CC_N770_OE_PATH)/arm-linux-gcc
 STRIP_N770_OE =		$(CC_N770_OE_PATH)/arm-linux-strip
 
-REVISION=		$(shell svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}')
-REVISION_VERSION=	\"\ rv$(REVISION)\"
-BUILD_PATH=		/home/batman/build
-IPKG_BUILD_PATH=	$(BUILD_PATH)/ipkg-build
 
-BATMAN_GENERATION=	$(shell grep "^\#define SOURCE_VERSION " batman.h | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
-BATMAN_VERSION=		$(shell grep "^\#define SOURCE_VERSION " batman.h | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$2}')
-BATMAN_RELEASE=		$(shell grep "^\#define SOURCE_VERSION " batman.h | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$3}')
-BATMAN_TRAILER=		$(shell grep "^\#define SOURCE_VERSION " batman.h | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$4}')
-BATMAN_STRING=		begin:$(BATMAN_GENERATION):$(BATMAN_VERSION):$(BATMAN_RELEASE):$(BATMAN_TRAILER):end
-
-IPKG_VERSION=		$(BATMAN_VERSION)$(BATMAN_RELEASE)-rv$(REVISION)
-
-FILE_NAME=		batmand_$(BATMAN_VERSION)$(BATMAN_RELEASE)-rv$(REVISION)_$@
-FILE_CURRENT=		batmand_$(BATMAN_VERSION)$(BATMAN_RELEASE)-current_$@
-
-IPKG_DEPENDS=		"kmod-tun libpthread"
-
-IPKG_BUILD=		ln -f $(FILE_NAME) $(IPKG_BUILD_PATH)/ipkg-target/usr/sbin/batmand && \
-			$(IPKG_BUILD_PATH)/ipkg-make-control.sh   $(IPKG_BUILD_PATH)/ipkg-target $(FILE_NAME).ipk  batmand  $(IPKG_VERSION)
-
+IPKG_BUILD=		ln -f $(FILE_NAME) $(IPKG_BUILD_PATH)/ipkg-target/usr/sbin/$(BINARY_NAME) && \
+			$(IPKG_BUILD_PATH)/ipkg-make-control.sh   $(IPKG_BUILD_PATH)/ipkg-target $(FILE_NAME).ipk  $(BINARY_NAME)  $(IPKG_VERSION)
 
 
 LINK_AND_TAR=		tar czvf $(FILE_NAME).tgz $(FILE_NAME) && \
@@ -103,20 +103,13 @@ LINK_AND_TAR=		tar czvf $(FILE_NAME).tgz $(FILE_NAME) && \
 			ln -f $(FILE_NAME)* dl/misc/ && \
 			ln -f $(FILE_CURRENT)* dl/misc/
 
-all:	batmand
+all:		$(BINARY_NAME)
 
-
-batmand:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
+$(BINARY_NAME):	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	$(CC) $(CFLAGS) -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
-#	$(CC) $(CFLAGS) -o $@ $(LINUX_SRC_C) $(LDFLAGS) -static
+#	$(CC) $(CFLAGS)  -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
 
 
-
-test:
-	$(HELLO_WORLD)
-	echo $(BATMAN_VERSION)
-	echo $(BATMAN_STRING)
-	echo IPKG_VERSION: $(IPKG_VERSION)
 
 long:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe nokia770-oe
 
