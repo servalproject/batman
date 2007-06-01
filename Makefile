@@ -29,7 +29,7 @@ UNAME=		$(shell uname)
 POSIX_C=	posix/init.c posix/posix.c posix/tunnel.c posix/unix_socket.c
 
 ifeq ($(UNAME),Linux)
-OS_C=	 linux/linux-specific.c linux/tun.c linux/kernel.c $(POSIX_C)
+OS_C=	 linux/route.c linux/tun.c linux/kernel.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),Darwin)
