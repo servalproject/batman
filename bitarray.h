@@ -21,7 +21,7 @@
 
 #define TYPE_OF_WORD unsigned long /* you should choose something big, if you don't want to waste cpu */
 #define WORD_BIT_SIZE ( sizeof(TYPE_OF_WORD) * 8 )
-#include "batman-specific.h"
+#include "batman.h"
 
 
 

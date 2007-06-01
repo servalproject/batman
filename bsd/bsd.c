@@ -41,7 +41,7 @@
 #include <stdarg.h>
 
 #include "os.h"
-#include "batman-specific.h"
+#include "../batman.h"
 
 /* Adapted from busybox */
 int vdprintf(int d, const char *format, va_list ap)

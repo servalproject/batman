@@ -37,7 +37,7 @@
 #include <syslog.h>
 
 #include "os.h"
-#include "batman-specific.h"
+#include "batman.h"
 
 
 

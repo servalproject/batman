@@ -20,7 +20,7 @@
 #ifndef _BATMAN_OS_H
 #define _BATMAN_OS_H
 
-#include "batman-specific.h"
+#include "batman.h"
 
 uint32_t get_time( void );
 uint32_t get_time_sec( void );

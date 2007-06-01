@@ -32,7 +32,7 @@
 #include <sys/socket.h>
 
 #include "os.h"
-#include "batman-specific.h"
+#include "batman.h"
 
 
 

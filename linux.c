@@ -42,7 +42,7 @@
 #include <fcntl.h>
 
 #include "os.h"
-#include "batman-specific.h"
+#include "batman.h"
 
 
 
