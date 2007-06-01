@@ -19,6 +19,17 @@
 
 
 
+#include <errno.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+
+
+#include "os.h"
+#include "batman.h"
+
+
 
 void *client_to_gw_tun( void *arg ) {
 

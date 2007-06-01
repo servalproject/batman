@@ -19,27 +19,9 @@
 
 
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <arpa/inet.h>
-#include <net/route.h>
 #include <stdio.h>
-#include <time.h>
-#include <string.h>
 #include <errno.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <linux/if.h>
-#include <netinet/ip.h>
-#include <asm/types.h>
-#include <linux/if_tun.h>
-#include <linux/if_tunnel.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+
 
 #include "os.h"
 #include "batman.h"

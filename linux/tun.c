@@ -19,10 +19,16 @@
 
 
 
-#include <linux/if.h>     /* ifr_if, ifr_tun */
+#include <unistd.h>       /* close() */
+#include <fcntl.h>        /* open(), O_RDWR */
+#include <errno.h>
+#include <sys/ioctl.h>
 #include <netinet/ip.h>   /* iph */
 #include <linux/if_tun.h> /* TUNSETPERSIST, ... */
+#include <linux/if.h>     /* ifr_if, ifr_tun */
 
+
+#include "os.h"
 #include "batman.h"
 
 

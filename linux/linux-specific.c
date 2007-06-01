@@ -24,11 +24,11 @@
 #include <errno.h>
 #include <unistd.h>       /* close() */
 #include <linux/if.h>     /* ifr_if, ifr_tun */
-#include <fcntl.h>        /* open(), O_RDWR */
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <sys/socket.h>
 
+
+#include "os.h"
 #include "batman.h"
 
 

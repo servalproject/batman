@@ -26,7 +26,7 @@ CFLAGS_MIPS =	-Wall -O0 -g3
 LDFLAGS_MIPS =	-lpthread
 
 UNAME=		$(shell uname)
-POSIX_C=	posix/init.c posix/posix.c posix/posix-specific.c posix/tunnel.c posix/unix_socket.c
+POSIX_C=	posix/init.c posix/posix.c posix/tunnel.c posix/unix_socket.c
 
 ifeq ($(UNAME),Linux)
 OS_C=	 linux/linux-specific.c linux/tun.c linux/kernel.c $(POSIX_C)
@@ -228,13 +228,13 @@ mipsel-wr-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
 	ln -f $(FILE_NAME).ipk dl/buffalo-freifunk/
 	ln -f $(FILE_CURRENT).ipk dl/buffalo-freifunk/
 
-arm-oe:		armv5te-oe-elf-32-lsb-static armv5te-oe-elf-32-lsb-dynamic 
+arm-oe:		armv5te-oe-elf-32-lsb-static armv5te-oe-elf-32-lsb-dynamic
 
 armv5te-oe-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
 	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_ARM_OE) $(FILE_NAME)
 	$(IPKG_BUILD) armv5te
-	$(LINK_AND_TAR)	
+	$(LINK_AND_TAR)
 
 	mkdir -p dl/armv5te
 	ln -f $(FILE_NAME).ipk dl/armv5te/
@@ -246,7 +246,7 @@ armv5te-oe-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
 	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_ARM_OE) $(FILE_NAME)
 	$(IPKG_BUILD) armv5te kernel-module-tun
-	$(LINK_AND_TAR)	
+	$(LINK_AND_TAR)
 
 	mkdir -p dl/zaurus-akita
 	ln -f $(FILE_NAME).ipk dl/zaurus-akita/
@@ -258,13 +258,13 @@ nokia770-oe-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
 	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_N770_OE) $(FILE_NAME)
 	$(IPKG_BUILD) arm-nokia770
-	$(LINK_AND_TAR)	
+	$(LINK_AND_TAR)
 
 nokia770-oe-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
 	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_N770_OE) $(FILE_NAME)
 	$(IPKG_BUILD) arm-nokia770 kernel-module-tun
-	$(LINK_AND_TAR)	
+	$(LINK_AND_TAR)
 
 
 

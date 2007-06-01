@@ -114,6 +114,8 @@ extern uint8_t num_hna;
 extern int16_t originator_interval;
 extern uint32_t pref_gateway;
 
+extern int8_t stop;
+
 extern unsigned char *hna_buff;
 
 extern struct gw_node *curr_gateway;

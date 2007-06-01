@@ -19,6 +19,28 @@
 
 
 
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <syslog.h>
+#include <errno.h>
+#include <signal.h>
+#include <paths.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+
+
+#include "os.h"
+#include "batman.h"
+
+
+
+int8_t stop;
+
+
+
 int my_daemon() {
 
 	int fd;

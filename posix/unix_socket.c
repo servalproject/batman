@@ -19,6 +19,22 @@
 
 
 
+#define _GNU_SOURCE
+#include <sys/time.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <syslog.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+
+#include "os.h"
+#include "batman.h"
+
+
+
 void debug_output( int8_t debug_prio, char *format, ... ) {
 
 	struct list_head *debug_pos;
