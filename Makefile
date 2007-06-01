@@ -18,7 +18,7 @@
 
 
 CC =			gcc
-CFLAGS =		-Wall -O0 -g3
+CFLAGS =		-Wall -O0 -g3 -I.
 STRIP=			strip
 LDFLAGS =		-lpthread
 
@@ -26,27 +26,28 @@ CFLAGS_MIPS =	-Wall -O0 -g3
 LDFLAGS_MIPS =	-lpthread
 
 UNAME=		$(shell uname)
+POSIX_C=	posix/init.c posix/posix.c posix/posix-specific.c posix/tunnel.c posix/unix_socket.c
 
 ifeq ($(UNAME),Linux)
-OS_C=	 linux-specific.c linux.c
+OS_C=	 linux/linux-specific.c linux/tun.c linux/kernel.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),Darwin)
-OS_C=	bsd.c
+OS_C=	bsd/bsd.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),FreeBSD)
-OS_C=	bsd.c
+OS_C=	bsd/bsd.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),OpenBSD)
-OS_C=	bsd.c
+OS_C=	bsd/bsd.c $(POSIX_C)
 endif
 
 LOG_BRANCH= trunk/batman
 
-LINUX_SRC_C= batman.c originator.c schedule.c list-batman.c posix-specific.c posix.c allocate.c bitarray.c hash.c profile.c $(OS_C)
-LINUX_SRC_H= batman.h originator.h schedule.h list-batman.h batman-specific.h os.h allocate.h bitarray.h hash.h profile.h
+SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c $(OS_C)
+SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h
 
 BINARY_NAME=	batmand
 SOURCE_VERSION_HEADER= batman.h
@@ -105,9 +106,9 @@ LINK_AND_TAR=		tar czvf $(FILE_NAME).tgz $(FILE_NAME) && \
 
 all:		$(BINARY_NAME)
 
-$(BINARY_NAME):	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC) $(CFLAGS) -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
-#	$(CC) $(CFLAGS)  -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(LINUX_SRC_C) $(LDFLAGS)
+$(BINARY_NAME):	$(SRC_C) $(SRC_H) Makefile
+	$(CC) $(CFLAGS) -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(SRC_C) $(LDFLAGS)
+#	$(CC) $(CFLAGS)  -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -o $@ $(SRC_C) $(LDFLAGS)
 
 
 
@@ -117,7 +118,7 @@ axel:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe
 
 sources:
 	mkdir -p $(FILE_NAME)
-	cp $(LINUX_SRC_H) $(LINUX_SRC_C) Makefile $(FILE_NAME)/
+	cp $(SRC_H) $(SRC_C) Makefile $(FILE_NAME)/
 	$(BUILD_PATH)/wget --no-check-certificate -O changelog.html  https://dev.open-mesh.net/batman/log/$(LOG_BRANCH)/
 	html2text -o changelog.txt -nobs -ascii changelog.html
 	awk '/View revision/,/10\/01\/06 20:23:03/' changelog.txt > $(FILE_NAME)/CHANGELOG
@@ -134,8 +135,8 @@ sources:
 
 i386: i386-gc-elf-32-lsb-static i386-gc-elf-32-lsb-dynamic
 
-i386-gc-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS) -static
+i386-gc-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
+	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS) -static
 	$(STRIP) $(FILE_NAME)
 	$(IPKG_BUILD) i386
 	$(LINK_AND_TAR)
@@ -145,8 +146,8 @@ i386-gc-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	ln -f $(FILE_CURRENT).tgz dl/i386/
 
 
-i386-gc-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS)
+i386-gc-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
+	$(CC) $(CFLAGS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS)
 	$(STRIP) $(FILE_NAME)
 	$(IPKG_BUILD) i386
 	$(LINK_AND_TAR)
@@ -160,8 +161,8 @@ i386-gc-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 mipsel-kk-bc:	mipsel-kk-elf-32-lsb-static mipsel-kk-elf-32-lsb-dynamic
 
-mipsel-kk-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS_KK_BC) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+mipsel-kk-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_MIPS_KK_BC) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_MIPS_KK_BC) $(FILE_NAME)
 	$(IPKG_BUILD) mipsel
 	$(LINK_AND_TAR)
@@ -171,8 +172,8 @@ mipsel-kk-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	ln -f $(FILE_CURRENT).ipk dl/meshcube/
 
 
-mipsel-kk-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS_KK_BC) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+mipsel-kk-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_MIPS_KK_BC) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_MIPS_KK_BC) $(FILE_NAME)
 	$(IPKG_BUILD) mipsel $(IPKG_DEPENDS)
 	$(LINK_AND_TAR)
@@ -184,8 +185,8 @@ mipsel-kk-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 mips-kk-at:	mips-kk-elf-32-msb-static mips-kk-elf-32-msb-dynamic
 
-mips-kk-elf-32-msb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS_KK_AT) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+mips-kk-elf-32-msb-static:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_MIPS_KK_AT) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_MIPS_KK_AT) $(FILE_NAME)
 	$(IPKG_BUILD) mips
 	$(LINK_AND_TAR)
@@ -195,8 +196,8 @@ mips-kk-elf-32-msb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	ln -f $(FILE_CURRENT).tgz dl/fonera/
 
 
-mips-kk-elf-32-msb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS_KK_AT) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+mips-kk-elf-32-msb-dynamic:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_MIPS_KK_AT) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_MIPS_KK_AT) $(FILE_NAME)
 	$(IPKG_BUILD) mips $(IPKG_DEPENDS)
 	$(LINK_AND_TAR)
@@ -208,14 +209,14 @@ mips-kk-elf-32-msb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 mipsel-wr:	mipsel-wr-elf-32-lsb-static mipsel-wr-elf-32-lsb-dynamic
 
-mipsel-wr-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS_WR) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+mipsel-wr-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_MIPS_WR) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_MIPS_WR) $(FILE_NAME)
 	$(IPKG_BUILD) mipsel
 	$(LINK_AND_TAR)
 
-mipsel-wr-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_MIPS_WR) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+mipsel-wr-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_MIPS_WR) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_MIPS_WR) $(FILE_NAME)
 	$(IPKG_BUILD) mipsel $(IPKG_DEPENDS)
 	$(LINK_AND_TAR)
@@ -229,8 +230,8 @@ mipsel-wr-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 arm-oe:		armv5te-oe-elf-32-lsb-static armv5te-oe-elf-32-lsb-dynamic 
 
-armv5te-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+armv5te-oe-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_ARM_OE) $(FILE_NAME)
 	$(IPKG_BUILD) armv5te
 	$(LINK_AND_TAR)	
@@ -241,8 +242,8 @@ armv5te-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 	ln -f $(FILE_CURRENT).ipk dl/armv5te/
 	ln -f $(FILE_CURRENT).tgz dl/armv5te/
 
-armv5te-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+armv5te-oe-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_ARM_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_ARM_OE) $(FILE_NAME)
 	$(IPKG_BUILD) armv5te kernel-module-tun
 	$(LINK_AND_TAR)	
@@ -253,14 +254,14 @@ armv5te-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
 
 nokia770-oe:	nokia770-oe-elf-32-lsb-static nokia770-oe-elf-32-lsb-dynamic
 
-nokia770-oe-elf-32-lsb-static:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS) -static
+nokia770-oe-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS) -static
 	$(STRIP_N770_OE) $(FILE_NAME)
 	$(IPKG_BUILD) arm-nokia770
 	$(LINK_AND_TAR)	
 
-nokia770-oe-elf-32-lsb-dynamic:	$(LINUX_SRC_C) $(LINUX_SRC_H) Makefile
-	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(LINUX_SRC_C) $(LDFLAGS_MIPS)
+nokia770-oe-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
+	$(CC_N770_OE) $(CFLAGS_MIPS) -DREVISION_VERSION=$(REVISION_VERSION) -o $(FILE_NAME) $(SRC_C) $(LDFLAGS_MIPS)
 	$(STRIP_N770_OE) $(FILE_NAME)
 	$(IPKG_BUILD) arm-nokia770 kernel-module-tun
 	$(LINK_AND_TAR)	
