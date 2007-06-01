@@ -1001,8 +1001,8 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	batman_if->netaddr = ( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr & batman_if->addr.sin_addr.s_addr );
 	batman_if->netmask = bit_count( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr );
-	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 0 );
-	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 1, 1, 0 );
+	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 1, 0 );
+	add_del_route( batman_if->netaddr, batman_if->netmask, 0, batman_if->if_index, batman_if->dev, BATMAN_RT_TABLE_HOSTS, 2, 0 );
 
 	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof (int) ) < 0 ) {
 
@@ -1413,8 +1413,8 @@ void restore_defaults() {
 
 		if ( ( batman_if->netaddr > 0 ) && ( batman_if->netmask > 0 ) ) {
 
-			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 1 );
-			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOST, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 1, 1, 1 );
+			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 1, 1 );
+			add_del_route( batman_if->netaddr, batman_if->netmask, 0, batman_if->if_index, batman_if->dev, BATMAN_RT_TABLE_HOSTS, 2, 1 );
 
 		}
 

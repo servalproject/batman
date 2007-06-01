@@ -297,7 +297,7 @@ void purge_orig( uint32_t curr_time ) {
 						if ( orig_node->hna_buff_len > 0 )
 							add_del_hna( orig_node, 1 );
 
-						add_del_route( orig_node->orig, 32, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOST, 0, 1 );
+						add_del_route( orig_node->orig, 32, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
 
 						orig_node->router = NULL;
 

@@ -36,7 +36,13 @@
 
 
 
-void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, char *dev, int8_t rt_table, int8_t throw, int8_t del ) {
+/***
+ *
+ * route types: 0 = RTN_UNICAST, 1 = THROW, 2 = UNREACHABLE
+ *
+ ***/
+
+void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, char *dev, int8_t rt_table, int8_t route_type, int8_t del ) {
 
 	int netlink_sock, len;
 	uint32_t my_router;
@@ -61,22 +67,22 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, ch
 
 		if ( dest == 0 ) {
 
-			debug_output( 3, "%s default route via %s\n", del ? "Deleting" : "Adding", dev );
-			debug_output( 4, "%s default route via %s\n", del ? "Deleting" : "Adding", dev );
+			debug_output( 3, "%s default route via %s (table %i)\n", del ? "Deleting" : "Adding", dev, rt_table );
+			debug_output( 4, "%s default route via %s (table %i)\n", del ? "Deleting" : "Adding", dev, rt_table );
 			my_router = router;
 
 		} else {
 
-			debug_output( 3, "%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev );
-			debug_output( 4, "%s route to %s via 0.0.0.0 (%s)\n", del ? "Deleting" : "Adding", str1, dev );
+			debug_output( 3, "%s route to %s via 0.0.0.0 (table %i - %s)\n", del ? "Deleting" : "Adding", str1, rt_table, dev );
+			debug_output( 4, "%s route to %s via 0.0.0.0 (table %i - %s)\n", del ? "Deleting" : "Adding", str1, rt_table, dev );
 			my_router = 0;
 
 		}
 
 	} else {
 
-		debug_output( 3, "%s %s to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", throw ? "throw route" : "route", str1, netmask, str2, dev );
-		debug_output( 4, "%s %s to %s/%i via %s (%s)\n", del ? "Deleting" : "Adding", throw ? "throw route" : "route", str1, netmask, str2, dev );
+		debug_output( 3, "%s %s to %s/%i via %s (table %i - %s)\n", del ? "Deleting" : "Adding", ( route_type == 1 ? "throw route" : ( route_type == 2 ? "unreachable route" : "route" ) ), str1, netmask, str2, rt_table, dev );
+		debug_output( 4, "%s %s to %s/%i via %s (table %i - %s)\n", del ? "Deleting" : "Adding", ( route_type == 1 ? "throw route" : ( route_type == 2 ? "unreachable route" : "route" ) ), str1, netmask, str2, rt_table, dev );
 		my_router = router;
 
 	}
@@ -106,7 +112,7 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, ch
 		req.nlh.nlmsg_type = RTM_NEWROUTE;
 		req.rtm.rtm_scope = RT_SCOPE_UNIVERSE;
 		req.rtm.rtm_protocol = RTPROT_STATIC;          /* may be changed to some batman specific value - see <linux/rtnetlink.h> */
-		req.rtm.rtm_type = ( throw ? RTN_THROW : RTN_UNICAST );
+		req.rtm.rtm_type = ( route_type == 1 ? RTN_THROW : ( route_type == 2 ? RTN_UNREACHABLE : RTN_UNICAST ) );
 
 	}
 
@@ -115,7 +121,7 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, ch
 	rta->rta_len = sizeof(struct rtattr) + 4;
 	memcpy( ((char *)&req.buff) + sizeof(struct rtattr), (char *)&dest, 4 );
 
-	if ( !throw ) {
+	if ( route_type == 0 ) {
 
 		rta = (struct rtattr *)(req.buff + sizeof(struct rtattr) + 4);
 		rta->rta_type = RTA_GATEWAY;
@@ -160,7 +166,7 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, ch
 			return;
 
 		if ( ( nh->nlmsg_type == NLMSG_ERROR ) && ( ((struct nlmsgerr*)NLMSG_DATA(nh))->error != 0 ) )
-			debug_output( 0, "Error - can't %s %s to %s/%i via %s: %s\n", del ? "delete" : "add", throw ? "throw route" : "route", str1, netmask, str2, strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
+			debug_output( 0, "Error - can't %s %s to %s/%i via %s (table %i): %s\n", del ? "delete" : "add", ( route_type == 1 ? "throw route" : ( route_type == 2 ? "unreachable route" : "route" ) ), str1, netmask, str2, rt_table, strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
 
 		nh = NLMSG_NEXT( nh, len );
 
@@ -171,7 +177,7 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, ch
 
 
 
-void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, int8_t unreach, int8_t dst_rule, int8_t del ) {
+void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, int8_t dst_rule, int8_t del ) {
 
 	int netlink_sock, len;
 	char buf[4096], str1[16];
@@ -215,7 +221,7 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 		req.nlh.nlmsg_type = RTM_NEWRULE;
 		req.rtm.rtm_scope = RT_SCOPE_UNIVERSE;
 		req.rtm.rtm_protocol = RTPROT_STATIC;
-		req.rtm.rtm_type = ( unreach ? RTN_UNREACHABLE : RTN_UNICAST );
+		req.rtm.rtm_type = RTN_UNICAST;
 
 	}
 
@@ -379,7 +385,7 @@ int add_del_interface_rules( int8_t del ) {
 		if ( is_batman_if( ifr->ifr_name ) )
 			continue;
 
-		add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, 0, del );
+		add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, del );
 
 		if_count++;
 
