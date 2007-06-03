@@ -27,10 +27,11 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <sys/socket.h> 
 
 
-#include "os.h"
-#include "batman.h"
+#include "../os.h"
+#include "../batman.h"
 
 
 

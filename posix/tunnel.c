@@ -26,8 +26,8 @@
 #include <net/if.h>
 
 
-#include "os.h"
-#include "batman.h"
+#include "../os.h"
+#include "../batman.h"
 
 
 

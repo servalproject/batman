@@ -26,10 +26,10 @@
 #include <linux/if.h>     /* ifr_if, ifr_tun */
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <sys/socket.h> 
 
-
-#include "os.h"
-#include "batman.h"
+#include "../os.h"
+#include "../batman.h"
 
 
 

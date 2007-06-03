@@ -32,8 +32,8 @@
 #include <fcntl.h>
 
 
-#include "os.h"
-#include "batman.h"
+#include "../os.h"
+#include "../batman.h"
 
 
 

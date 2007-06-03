@@ -21,10 +21,10 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <sys/socket.h> 
 
-
-#include "os.h"
-#include "batman.h"
+#include "../os.h"
+#include "../batman.h"
 
 
 
