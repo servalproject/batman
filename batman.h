@@ -207,8 +207,7 @@ struct batman_if
 	char *dev;
 	int32_t udp_send_sock;
 	int32_t udp_recv_sock;
-	int32_t tcp_gw_sock;
-	int32_t tunnel_sock;
+	int32_t udp_tunnel_sock;
 	int16_t if_num;
 	int32_t if_index;
 	int16_t if_rp_filter_old;
@@ -218,16 +217,12 @@ struct batman_if
 	uint32_t netaddr;
 	uint8_t netmask;
 	struct packet out;
-	struct list_head_first client_list;
 };
 
 struct gw_client
 {
-	struct list_head list;
-	struct batman_if *batman_if;
-	int32_t sock;
+	uint32_t addr;
 	uint32_t last_keep_alive;
-	struct sockaddr_in addr;
 };
 
 struct vis_if {

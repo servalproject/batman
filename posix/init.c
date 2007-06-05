@@ -375,7 +375,6 @@ void apply_init_args( int argc, char *argv[] ) {
 			batman_if = debugMalloc( sizeof(struct batman_if), 206 );
 			memset( batman_if, 0, sizeof(struct batman_if) );
 			INIT_LIST_HEAD( &batman_if->list );
-			INIT_LIST_HEAD_FIRST( batman_if->client_list );
 
 			batman_if->dev = argv[found_args];
 			batman_if->if_num = found_ifs;
@@ -702,48 +701,26 @@ void init_interface ( struct batman_if *batman_if ) {
 
 
 
-void init_interface_gw ( struct batman_if *batman_if )
-{
-	short on = 1;
+void init_interface_gw ( struct batman_if *batman_if ) {
 
 	batman_if->addr.sin_port = htons(PORT + 1);
-	batman_if->tcp_gw_sock = socket(PF_INET, SOCK_STREAM, 0);
 
-	if ( batman_if->tcp_gw_sock < 0 ) {
-		debug_output( 0, "Error - can't create socket: %s", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
-	}
+	batman_if->udp_tunnel_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 
-	if ( setsockopt( batman_if->tcp_gw_sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int) ) < 0 ) {
-		debug_output( 0, "Error - can't enable reuse of address: %s\n", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
-	}
+	if ( batman_if->udp_tunnel_sock < 0 ) {
 
-	if ( bind( batman_if->tcp_gw_sock, (struct sockaddr*)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
-		debug_output( 0, "Error - can't bind socket: %s\n", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
-	}
-
-	if ( listen( batman_if->tcp_gw_sock, 10 ) < 0 ) {
-		debug_output( 0, "Error - can't listen socket: %s\n", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
-	}
-
-	batman_if->tunnel_sock = socket(PF_INET, SOCK_DGRAM, 0);
-	if ( batman_if->tunnel_sock < 0 ) {
 		debug_output( 0, "Error - can't create tunnel socket: %s", strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
+
 	}
 
-	if ( bind( batman_if->tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof (struct sockaddr_in) ) < 0 ) {
+	if ( bind( batman_if->udp_tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
+
 		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
+
 	}
 
 	batman_if->addr.sin_port = htons(PORT);

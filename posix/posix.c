@@ -359,7 +359,7 @@ void restore_defaults() {
 		if ( batman_if->listen_thread_id != 0 ) {
 
 			pthread_join( batman_if->listen_thread_id, NULL );
-			close( batman_if->tcp_gw_sock );
+			close( batman_if->udp_tunnel_sock );
 
 		}
 
@@ -417,7 +417,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 			if ( batman_if->listen_thread_id != 0 ) {
 
 				pthread_join( batman_if->listen_thread_id, NULL );
-				close( batman_if->tcp_gw_sock );
+				close( batman_if->udp_tunnel_sock );
 				batman_if->listen_thread_id = 0;
 
 			}

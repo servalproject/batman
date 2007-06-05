@@ -38,12 +38,11 @@ void handler( int32_t sig );
 void segmentation_fault( int32_t sig );
 void restore_and_exit( uint8_t is_sigsegv );
 
-
+/* tun.c */
 int8_t probe_tun();
 int8_t del_dev_tun( int32_t fd );
-int8_t add_dev_tun( struct batman_if *batman_if, uint32_t dest_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd );
-void   del_default_route();
-int8_t add_default_route();
+int8_t add_dev_tun( struct batman_if *batman_if, uint32_t dest_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd, int32_t *ifi );
+int8_t set_tun_addr( int32_t fd, uint32_t tun_addr, char *tun_dev );
 
 /* init.c */
 void apply_init_args( int argc, char *argv[] );
@@ -59,6 +58,8 @@ int8_t bind_to_iface( int32_t sock, char *dev );
 
 /* posix.c */
 void print_animation( void );
+void   del_default_route();
+int8_t add_default_route();
 int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming );
 int8_t send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
 void restore_defaults();

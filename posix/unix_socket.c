@@ -28,7 +28,7 @@
 #include <syslog.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h> 
+#include <sys/socket.h>
 
 
 #include "../os.h"
@@ -171,7 +171,7 @@ void *unix_listen( void *arg ) {
 
 				debug_output( 3, "Unix socket: got connection\n" );
 
-				/* client sent data */
+			/* client sent data */
 			} else {
 
 				max_sock = unix_if.unix_sock;

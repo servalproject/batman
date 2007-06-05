@@ -26,7 +26,7 @@
 #include <netinet/ip.h>   /* iph */
 #include <linux/if_tun.h> /* TUNSETPERSIST, ... */
 #include <linux/if.h>     /* ifr_if, ifr_tun */
-#include <sys/socket.h> 
+#include <sys/socket.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -70,7 +70,7 @@ int8_t del_dev_tun( int32_t fd ) {
 
 
 
-int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd ) {
+int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd, int32_t *ifi ) {
 
 	int32_t tmp_fd;
 	struct ifreq ifr_tun, ifr_if;
@@ -131,6 +131,17 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 	}
 
 
+	if ( ioctl( tmp_fd, SIOCGIFINDEX, &ifr_tun ) < 0 ) {
+
+		debug_output( 0, "Error - can't create tun device (SIOCGIFINDEX): %s\n", strerror(errno) );
+		del_dev_tun( *fd );
+		close( tmp_fd );
+		return -1;
+
+	}
+
+	*ifi = ifr_tun.ifr_ifindex;
+
 	if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr_tun) < 0 ) {
 
 		debug_output( 0, "Error - can't create tun device (SIOCGIFFLAGS): %s\n", strerror(errno) );
@@ -164,14 +175,14 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 
 	}
 
-	/* set MTU of tun interface: real MTU - 28 */
+	/* set MTU of tun interface: real MTU - 29 */
 	if ( ifr_if.ifr_mtu < 100 ) {
 
 		debug_output( 0, "Warning - MTU smaller than 100 -> can't reduce MTU anymore\n" );
 
 	} else {
 
-		ifr_tun.ifr_mtu = ifr_if.ifr_mtu - 28;
+		ifr_tun.ifr_mtu = ifr_if.ifr_mtu - 29;
 
 		if ( ioctl( tmp_fd, SIOCSIFMTU, &ifr_tun ) < 0 ) {
 
@@ -187,6 +198,33 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 
 	strncpy( tun_dev, ifr_tun.ifr_name, tun_dev_size - 1 );
 	close( tmp_fd );
+
+	return 1;
+
+}
+
+
+int8_t set_tun_addr( int32_t fd, uint32_t tun_addr, char *tun_dev ) {
+
+	struct sockaddr_in addr;
+	struct ifreq ifr_tun;
+
+
+	memset( &ifr_tun, 0, sizeof(ifr_tun) );
+	memset( &addr, 0, sizeof(addr) );
+
+	addr.sin_addr.s_addr = tun_addr;
+	addr.sin_family = AF_INET;
+	memcpy( &ifr_tun.ifr_addr, &addr, sizeof(struct sockaddr) );
+
+	strncpy( ifr_tun.ifr_name, tun_dev, IFNAMSIZ - 1 );
+
+	if ( ioctl( fd, SIOCSIFADDR, &ifr_tun) < 0 ) {
+
+		debug_output( 0, "Error - can't set tun address (SIOCSIFADDR): %s\n", strerror(errno) );
+		return -1;
+
+	}
 
 	return 1;
 
