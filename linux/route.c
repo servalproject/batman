@@ -26,7 +26,7 @@
 #include <linux/if.h>     /* ifr_if, ifr_tun */
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <sys/socket.h> 
+#include <sys/socket.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -39,7 +39,7 @@
  *
  ***/
 
-void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, char *dev, int8_t rt_table, int8_t route_type, int8_t del ) {
+void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del ) {
 
 	int netlink_sock, len;
 	uint32_t my_router;
@@ -91,7 +91,12 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int ifi, ch
 
 	nladdr.nl_family = AF_NETLINK;
 
-	req.nlh.nlmsg_len = NLMSG_LENGTH( sizeof(struct rtmsg) + 3 * ( sizeof(struct rtattr) + 4 ) );
+	len = sizeof(struct rtmsg) + sizeof(struct rtattr) + 4;
+
+	if ( route_type == 0 )
+		len += 2 * ( sizeof(struct rtattr) + 4 );
+
+	req.nlh.nlmsg_len = NLMSG_LENGTH(len);
 	req.nlh.nlmsg_pid = getpid();
 	req.rtm.rtm_family = AF_INET;
 	req.rtm.rtm_table = rt_table;
@@ -196,7 +201,12 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 
 	nladdr.nl_family = AF_NETLINK;
 
-	req.nlh.nlmsg_len = NLMSG_LENGTH( sizeof(struct rtmsg) + 2 * ( sizeof(struct rtattr) + 4 ));
+	len = sizeof(struct rtmsg) + sizeof(struct rtattr) + 4;
+
+	if ( prio != 0 )
+		len += sizeof(struct rtattr) + 4;
+
+	req.nlh.nlmsg_len = NLMSG_LENGTH(len);
 	req.nlh.nlmsg_pid = getpid();
 	req.rtm.rtm_family = AF_INET;
 	req.rtm.rtm_table = rt_table;
@@ -291,6 +301,7 @@ int add_del_interface_rules( int8_t del ) {
 	char *buf, *buf_ptr;
 	struct ifconf ifc;
 	struct ifreq *ifr, ifr_tmp;
+	struct batman_if *batman_if;
 
 
 	tmp_fd = socket( AF_INET, SOCK_DGRAM, 0 );
@@ -379,10 +390,10 @@ int add_del_interface_rules( int8_t del ) {
 
 		add_del_route( netaddr, netmask, 0, 0, ifr->ifr_name, BATMAN_RT_TABLE_TUNNEL, 1, del );
 
-		if ( is_batman_if( ifr->ifr_name ) )
-			continue;
-
-		add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, del );
+		if ( is_batman_if( ifr->ifr_name, &batman_if ) )
+			add_del_rule( batman_if->addr.sin_addr.s_addr, 32, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, del );
+		else
+			add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, del );
 
 		if_count++;
 

@@ -72,7 +72,7 @@ int8_t del_dev_tun( int32_t fd ) {
 
 int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd, int32_t *ifi ) {
 
-	int32_t tmp_fd;
+	int32_t tmp_fd, sock_opts;
 	struct ifreq ifr_tun, ifr_if;
 	struct sockaddr_in addr;
 
@@ -194,6 +194,11 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 		}
 
 	}
+
+
+	/* make tun socket non blocking */
+	sock_opts = fcntl( *fd, F_GETFL, 0 );
+	fcntl( *fd, F_SETFL, sock_opts | O_NONBLOCK );
 
 
 	strncpy( tun_dev, ifr_tun.ifr_name, tun_dev_size - 1 );

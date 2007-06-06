@@ -350,7 +350,8 @@ void restore_defaults() {
 
 	stop = 1;
 
-	add_del_interface_rules( 1 );
+	if ( routing_class > 0 )
+		add_del_interface_rules( 1 );
 
 	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 

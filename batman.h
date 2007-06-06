@@ -96,8 +96,8 @@
 #define BATMAN_RT_TABLE_NETWORKS 65
 #define BATMAN_RT_TABLE_HOSTS 66
 #define BATMAN_RT_TABLE_TUNNEL 67
-#define BATMAN_RT_PRIO_DEFAULT 6600
-#define BATMAN_RT_PRIO_TUNNEL BATMAN_RT_PRIO_DEFAULT + 100
+#define BATMAN_RT_PRIO_TUNNEL 6600
+#define BATMAN_RT_PRIO_DEFAULT BATMAN_RT_PRIO_TUNNEL + 200
 
 
 
@@ -264,7 +264,7 @@ struct curr_gw_data {
 int8_t batman( void );
 void usage( void );
 void verbose_usage( void );
-int is_batman_if( char *dev );
+int is_batman_if( char *dev, struct batman_if **batman_if );
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
 void choose_gw();

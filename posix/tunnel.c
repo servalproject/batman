@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <fcntl.h>        /* open(), O_RDWR */
 
 
 #include "../os.h"
@@ -115,8 +116,8 @@ void *client_to_gw_tun( void *arg ) {
 	struct curr_gw_data *curr_gw_data = (struct curr_gw_data *)arg;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
-	int32_t res, max_sock, buff_len, curr_gateway_udp_sock, tun_fd, tun_ifi;
-	uint32_t addr_len, my_tun_addr = 0;
+	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts;
+	uint32_t addr_len, client_timeout, my_tun_addr = 0;
 	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN];
 	unsigned char buff[1501];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -137,7 +138,7 @@ void *client_to_gw_tun( void *arg ) {
 
 
 	/* connect to server (establish udp tunnel) */
-	if ( ( curr_gateway_udp_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
+	if ( ( udp_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
 
 		debug_output( 0, "Error - can't create udp socket: %s\n", strerror(errno) );
 		curr_gateway = NULL;
@@ -146,15 +147,20 @@ void *client_to_gw_tun( void *arg ) {
 
 	}
 
-	if ( bind( curr_gateway_udp_sock, (struct sockaddr *)&my_addr, sizeof (struct sockaddr_in) ) < 0 ) {
+	if ( bind( udp_sock, (struct sockaddr *)&my_addr, sizeof (struct sockaddr_in) ) < 0 ) {
 
 		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
-		close( curr_gateway_udp_sock );
+		close( udp_sock );
 		curr_gateway = NULL;
 		debugFree( arg, 1210 );
 		return NULL;
 
 	}
+
+
+	/* make udp socket non blocking */
+	sock_opts = fcntl( udp_sock, F_GETFL, 0 );
+	fcntl( udp_sock, F_SETFL, sock_opts | O_NONBLOCK );
 
 
 	if ( add_dev_tun( curr_gw_data->batman_if, 0, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0 ) {
@@ -163,7 +169,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	} else {
 
-		close( curr_gateway_udp_sock );
+		close( udp_sock );
 		curr_gateway = NULL;
 		debugFree( arg, 1211 );
 		return NULL;
@@ -175,10 +181,10 @@ void *client_to_gw_tun( void *arg ) {
 
 
 	FD_ZERO(&wait_sockets);
-	FD_SET(curr_gateway_udp_sock, &wait_sockets);
+	FD_SET(udp_sock, &wait_sockets);
 	FD_SET(tun_fd, &wait_sockets);
 
-	max_sock = ( curr_gateway_udp_sock > tun_fd ? curr_gateway_udp_sock : tun_fd );
+	max_sock = ( udp_sock > tun_fd ? udp_sock : tun_fd );
 
 	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( ! curr_gw_data->gw_node->deleted ) ) {
 
@@ -192,45 +198,67 @@ void *client_to_gw_tun( void *arg ) {
 		if ( res > 0 ) {
 
 			/* udp message (tunnel data) */
-			if ( FD_ISSET( curr_gateway_udp_sock, &tmp_wait_sockets ) ) {
+			if ( FD_ISSET( udp_sock, &tmp_wait_sockets ) ) {
 
-				if ( ( buff_len = recvfrom( curr_gateway_udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len ) ) < 0 ) {
+				while ( ( buff_len = recvfrom( udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len ) ) > 0 ) {
 
-					debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
+					if ( buff_len > 1 ) {
 
-				} else {
+						if ( buff[0] == 1 ) {
 
-					if ( write( tun_fd, buff, buff_len ) < 0 ) {
+							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
+								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
-						debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
+						}
+
+					} else {
+
+						addr_to_string( sender_addr.sin_addr.s_addr, my_str, sizeof(my_str) );
+						debug_output( 0, "Error - ignoring gateway packet from %s: packet too small (%i)\n", my_str, buff_len );
 
 					}
 
 				}
 
+				if ( errno != EWOULDBLOCK ) {
+
+					debug_output( 0, "Error - gateway client can't receive packet: %s\n", strerror(errno) );
+					break;
+
+				}
+
+				client_timeout = get_time();
+
 			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
 
-				if ( ( buff_len = read( tun_fd, buff, sizeof(buff) - 1 ) ) < 0 ) {
-
-					debug_output( 0, "Error - couldn't read data: %s\n", strerror(errno) );
-
-				} else {
+				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
 
 					if ( my_tun_addr == 0 ) {
 
-						if ( get_tun_ip( &gw_addr, curr_gateway_udp_sock, &my_tun_addr ) < 0 )
+						if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 )
 							break;
 
 						addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 						debug_output( 3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str );
 
-						if ( set_tun_addr( curr_gateway_udp_sock, my_tun_addr, tun_if ) < 0 )
+						if ( set_tun_addr( udp_sock, my_tun_addr, tun_if ) < 0 )
 							break;
+
+						client_timeout = get_time();
 
 					}
 
-					if ( sendto( curr_gateway_udp_sock, buff, buff_len, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 )
-						debug_output( 0, "Error - can't send to gateway: %s\n", strerror(errno) );
+					buff[0] = 1;
+
+					if ( sendto( udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 )
+						debug_output( 0, "Error - can't send data to gateway: %s\n", strerror(errno) );
+
+				}
+
+				if ( errno != EWOULDBLOCK ) {
+
+					debug_output( 0, "Error - gateway client can't read tun data: %s\n", strerror(errno) );
+					break;
 
 				}
 
@@ -243,12 +271,23 @@ void *client_to_gw_tun( void *arg ) {
 
 		}
 
+
+		/* drop unused IP */
+		if ( ( my_tun_addr != 0 ) && ( ( client_timeout + 100000 ) < get_time() ) ) {
+
+			my_tun_addr = 0;
+
+			if ( set_tun_addr( udp_sock, my_tun_addr, tun_if ) < 0 )
+				break;
+
+		}
+
 	}
 
 	/* cleanup */
 	add_del_route( 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
 
-	close( curr_gateway_udp_sock );
+	close( udp_sock );
 
 	del_dev_tun( tun_fd );
 
@@ -297,7 +336,7 @@ int8_t get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_cl
 	gw_client[first_free]->addr = client_addr;
 	gw_client[first_free]->last_keep_alive = get_time();
 
-	ip_buff[0] = i;
+	ip_buff[0] = first_free;
 
 	return 1;
 
@@ -309,12 +348,12 @@ void *gw_listen( void *arg ) {
 
 	struct batman_if *batman_if = (struct batman_if *)arg;
 	struct timeval tv;
-	struct sockaddr_in addr;
+	struct sockaddr_in addr, client_addr;
 	struct gw_client *gw_client[256];
 	char gw_addr[16], str[16], tun_dev[IFNAMSIZ], ip_buff[1];
 	unsigned char buff[1501];
 	int32_t res, max_sock, buff_len, tun_fd, tun_ifi;
-	uint32_t addr_len, client_timeout, my_tun_ip, tmp_client_ip;
+	uint32_t addr_len, client_timeout, current_time, my_tun_ip, tmp_client_ip;
 	uint8_t i;
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -329,8 +368,13 @@ void *gw_listen( void *arg ) {
 		gw_client[i] = NULL;
 	}
 
+	client_addr.sin_family = AF_INET;
+	client_addr.sin_port = htons(PORT + 1);
+
 	if ( add_dev_tun( batman_if, my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
 		return NULL;
+
+	add_del_route( my_tun_ip, 24, 0, tun_ifi, tun_dev, 254, 0, 0 );
 
 
 	FD_ZERO(&wait_sockets);
@@ -352,15 +396,16 @@ void *gw_listen( void *arg ) {
 			/* is udp packet */
 			if ( FD_ISSET( batman_if->udp_tunnel_sock, &tmp_wait_sockets ) ) {
 
-				if ( ( buff_len = recvfrom( batman_if->udp_tunnel_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
-
-					debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
-
-				} else {
+				while ( ( buff_len = recvfrom( batman_if->udp_tunnel_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) > 0 ) {
 
 					if ( buff_len > 1 ) {
 
-						if ( buff[0] == 2 ) {
+						if ( buff[0] == 1 ) {
+
+							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
+								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
+
+						} else if ( buff[0] == 2 ) {
 
 							if ( get_ip_addr( addr.sin_addr.s_addr, ip_buff, gw_client ) > 0 ) {
 
@@ -382,41 +427,62 @@ void *gw_listen( void *arg ) {
 
 							}
 
-						} else if ( buff[0] == 1 ) {
-
-							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 ) {
-
-								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
-
-							}
-
 						}
 
 					}
 
 				}
 
+				if ( errno != EWOULDBLOCK ) {
+
+					debug_output( 0, "Error - gateway can't receive packet: %s\n", strerror(errno) );
+					break;
+
+				}
+
 			/* /dev/tunX activity */
 			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
 
-				debug_output( 0, "Warning - data coming through tun device: %s\n", tun_dev );
+				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
 
-				/*if ( ( buff_len = read( tun_fd, buff, sizeof( buff ) ) ) < 0 ) {
+					ip_buff[0] = buff[20];
+					tmp_client_ip = my_tun_ip + ( buff[0]<<24 );
 
-				fprintf(stderr, "Could not read data from %s: %s\n", tun_dev, strerror(errno));
+					if ( gw_client[(uint8_t)ip_buff[0]] != NULL ) {
 
-			} else {
+						client_addr.sin_addr.s_addr = gw_client[(uint8_t)ip_buff[0]]->addr;
+						gw_client[(uint8_t)ip_buff[0]]->last_keep_alive = get_time();
 
-				if ( sendto(curr_gateway_tun_sock, buff, buff_len, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 ) {
-				fprintf(stderr, "Cannot send to client: %s\n", strerror(errno));
+						/* addr_to_string( client_addr.sin_addr.s_addr, str, sizeof(str) );
+						tmp_client_ip = buff[17] + ( buff[18]<<8 ) + ( buff[19]<<16 ) + ( buff[20]<<24 );
+						addr_to_string( tmp_client_ip, gw_addr, sizeof(gw_addr) );
+						debug_output( 3, "Gateway - packet resolved: %s for client %s \n", str, gw_addr ); */
+
+						buff[0] = 1;
+
+						if ( sendto( batman_if->udp_tunnel_sock, buff, buff_len + 1, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr_in) ) < 0 )
+							debug_output( 0, "Error - can't send data to client (%s): %s \n", str, strerror(errno) );
+
+					} else {
+
+						tmp_client_ip = buff[17] + ( buff[18]<<8 ) + ( buff[19]<<16 ) + ( buff[20]<<24 );
+						addr_to_string( tmp_client_ip, gw_addr, sizeof(gw_addr) );
+						debug_output( 3, "Gateway - could not resolve packet: %s \n", gw_addr );
+
+					}
+
+				}
+
+				if ( errno != EWOULDBLOCK ) {
+
+					debug_output( 0, "Error - gateway can't read tun data: %s\n", strerror(errno) );
+					break;
+
+				}
+
 			}
 
-			}*/
-
-				/* client sent keep alive */
-			}
-
-		} else if ( ( res < 0 ) && (errno != EINTR) ) {
+		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
 
 			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
 			break;
@@ -424,56 +490,45 @@ void *gw_listen( void *arg ) {
 		}
 
 
-		/* close unresponsive client connections */
-// 		if ( ( client_timeout + 59000 ) < get_time() ) {
-//
-// 			client_timeout = get_time();
-//
-// 			max_sock = max_sock_min;
-//
-// 			prev_list_head = (struct list_head *)&batman_if->client_list;
-//
-// 			list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
-//
-// 				gw_client = list_entry(client_pos, struct gw_client, list);
-//
-// 				if ( ( gw_client->last_keep_alive + 120000 ) < client_timeout ) {
-//
-// 					FD_CLR(gw_client->sock, &wait_sockets);
-// 					close( gw_client->sock );
-//
-// 					addr_to_string(gw_client->addr.sin_addr.s_addr, str2, sizeof (str2));
-// 					debug_output( 3, "gateway: client %s timeout on interface %s\n", str2, batman_if->dev );
-//
-// 					list_del( prev_list_head, client_pos, &batman_if->client_list );
-// 					debugFree( client_pos, 1216 );
-//
-// 				} else {
-//
-// 					if ( gw_client->sock > max_sock )
-// 						max_sock = gw_client->sock;
-//
-// 				}
-//
-// 				prev_list_head = &gw_client->list;
-//
-// 			}
-//
-// 		}
+		/* close unresponsive client connections (free unused IPs) */
+		current_time = get_time();
+
+		if ( ( client_timeout + 60000 ) < current_time ) {
+
+			client_timeout = get_time();
+
+			for ( i = 1; i < 255; i++ ) {
+
+				if ( gw_client[i] != NULL ) {
+
+					if ( ( gw_client[i]->last_keep_alive + 120000 ) < current_time ) {
+
+						debugFree( gw_client[i], 1216 );
+						gw_client[i] = NULL;
+
+					}
+
+				}
+
+			}
+
+		}
 
 	}
 
-	/* delete tun devices on exit */
+	/* delete tun device and routes on exit */
+	add_del_route( my_tun_ip, 24, 0, tun_ifi, tun_dev, 254, 0, 1 );
+
 	del_dev_tun( tun_fd );
 
-// 	list_for_each_safe(client_pos, client_pos_tmp, &batman_if->client_list) {
-//
-// 		gw_client = list_entry(client_pos, struct gw_client, list);
-//
-// 		list_del( (struct list_head *)&batman_if->client_list, client_pos, &batman_if->client_list );
-// 		debugFree( client_pos, 1217 );
-//
-// 	}
+
+	for ( i = 1; i < 255; i++ ) {
+
+		if ( gw_client[i] != NULL )
+			debugFree( gw_client[i], 1217 );
+
+	}
+
 
 	return NULL;
 

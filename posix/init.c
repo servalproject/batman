@@ -405,10 +405,14 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		if ( add_del_interface_rules( 0 ) < 0 ) {
+		if ( routing_class > 0 ) {
 
-			restore_defaults();
-			exit(EXIT_FAILURE);
+			if ( add_del_interface_rules( 0 ) < 0 ) {
+
+				restore_defaults();
+				exit(EXIT_FAILURE);
+
+			}
 
 		}
 
@@ -472,7 +476,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		/* connect to running batmand via unix socket */
+	/* connect to running batmand via unix socket */
 	} else {
 
 		if ( ( debug_level > 0 ) && ( debug_level <= debug_level_max ) ) {
@@ -703,6 +707,8 @@ void init_interface ( struct batman_if *batman_if ) {
 
 void init_interface_gw ( struct batman_if *batman_if ) {
 
+	int32_t sock_opts;
+
 	batman_if->addr.sin_port = htons(PORT + 1);
 
 	batman_if->udp_tunnel_sock = socket( PF_INET, SOCK_DGRAM, 0 );
@@ -722,6 +728,10 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 		exit(EXIT_FAILURE);
 
 	}
+
+	/* make udp socket non blocking */
+	sock_opts = fcntl( batman_if->udp_tunnel_sock, F_GETFL, 0 );
+	fcntl( batman_if->udp_tunnel_sock, F_SETFL, sock_opts | O_NONBLOCK );
 
 	batman_if->addr.sin_port = htons(PORT);
 
