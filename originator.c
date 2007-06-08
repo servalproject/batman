@@ -121,7 +121,7 @@ void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh
 
 	prof_start( PROF_update_originator );
 	struct list_head *neigh_pos;
-	struct neigh_node *neigh_node = NULL, *tmp_neigh_node, *best_neigh_node;
+	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
 	uint8_t max_packet_count = 0, is_new_seqno = 0;
 
 
