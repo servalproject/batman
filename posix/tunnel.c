@@ -117,7 +117,7 @@ void *client_to_gw_tun( void *arg ) {
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
 	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts;
-	uint32_t addr_len, client_timeout, my_tun_addr = 0;
+	uint32_t addr_len, client_timeout = 0, my_tun_addr = 0;
 	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN];
 	unsigned char buff[1501];
 	fd_set wait_sockets, tmp_wait_sockets;
