@@ -323,7 +323,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		signal( SIGINT, handler );
 		signal( SIGTERM, handler );
-		signal( SIGTERM, SIG_IGN );
+		signal( SIGPIPE, SIG_IGN );
 		signal( SIGSEGV, segmentation_fault );
 
 		debug_clients.fd_list = debugMalloc( sizeof(struct list_head_first *) * debug_level_max, 203 );

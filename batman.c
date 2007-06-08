@@ -99,7 +99,6 @@ int16_t originator_interval = 1000;   /* originator message interval in miliseco
 
 struct gw_node *curr_gateway = NULL;
 pthread_t curr_gateway_thread_id = 0;
-pthread_mutex_t curr_gw_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 uint32_t pref_gateway = 0;
 
@@ -334,34 +333,23 @@ void choose_gw() {
 
 	if ( curr_gateway != tmp_curr_gw ) {
 
-		if ( pthread_mutex_trylock( &curr_gw_mutex ) == 0 ) {
+		if ( curr_gateway != NULL ) {
 
-			if ( curr_gateway != NULL ) {
+			debug_output( 3, "Removing default route - better gateway found\n" );
 
-				debug_output( 3, "Removing default route - better gateway found\n" );
+			del_default_route();
 
-				del_default_route();
+		}
 
-			}
+		curr_gateway = tmp_curr_gw;
 
-			curr_gateway = tmp_curr_gw;
+		/* may be the last gateway is now gone */
+		if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
 
-			/* may be the last gateway is now gone */
-			if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
+			addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
+			debug_output( 3, "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
 
-				addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
-				debug_output( 3, "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
-
-				add_default_route();
-
-			}
-
-			if ( pthread_mutex_unlock( &curr_gw_mutex ) < 0 )
-				debug_output( 0, "Error - could not unlock mutex (choose_gw): %s \n", strerror( errno ) );
-
-		} else {
-
-			debug_output( 0, "Warning - could not change default route (mutex locked): %s \n", strerror( EBUSY ) );
+			add_default_route();
 
 		}
 
