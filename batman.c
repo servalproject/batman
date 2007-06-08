@@ -224,7 +224,7 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 		if ( ( netmask > 0 ) && ( netmask < 33 ) ) {
 
 			add_del_route( hna, netmask, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, del );
-			add_del_rule( hna, netmask, BATMAN_RT_TABLE_NETWORKS, 0, 1, del );
+			add_del_rule( hna, netmask, BATMAN_RT_TABLE_NETWORKS, 0, 0, 1, del );
 
 		}
 

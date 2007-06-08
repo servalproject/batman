@@ -202,12 +202,28 @@ void *client_to_gw_tun( void *arg ) {
 
 				while ( ( buff_len = recvfrom( udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len ) ) > 0 ) {
 
-					if ( buff_len > 1 ) {
+					if ( ( buff_len > 1 ) && ( sender_addr.sin_addr.s_addr == gw_addr.sin_addr.s_addr ) ) {
 
+						/* got data from gateway */
 						if ( buff[0] == 1 ) {
 
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
+
+						/* gateway told us that we have no valid ip */
+						} else if ( buff[0] == 3 ) {
+
+							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
+							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is expired \n", gw_str, my_str );
+
+							if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 )
+								break;
+
+							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
+							debug_output( 3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str );
+
+							if ( set_tun_addr( udp_sock, my_tun_addr, tun_if ) < 0 )
+								break;
 
 						}
 
@@ -273,7 +289,7 @@ void *client_to_gw_tun( void *arg ) {
 
 
 		/* drop unused IP */
-		if ( ( my_tun_addr != 0 ) && ( ( client_timeout + 100000 ) < get_time() ) ) {
+		if ( ( my_tun_addr != 0 ) && ( ( client_timeout + 120000 ) < get_time() ) ) {
 
 			my_tun_addr = 0;
 
@@ -402,6 +418,19 @@ void *gw_listen( void *arg ) {
 
 						if ( buff[0] == 1 ) {
 
+							/* check whether client IP is known */
+							if ( ( buff[13] != 169 ) || ( buff[14] != 254 ) || ( buff[15] != batman_if->if_num ) || ( gw_client[(uint8_t)buff[16]] == NULL ) || ( gw_client[(uint8_t)buff[16]]->addr != addr.sin_addr.s_addr ) ) {
+
+								buff[0] = 3;
+								addr_to_string( addr.sin_addr.s_addr, str, sizeof(str) );
+
+								if ( sendto( batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in) ) < 0 )
+									debug_output( 0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno) );
+
+								continue;
+
+							}
+
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
@@ -446,7 +475,6 @@ void *gw_listen( void *arg ) {
 				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
 
 					ip_buff[0] = buff[20];
-					tmp_client_ip = my_tun_ip + ( buff[0]<<24 );
 
 					if ( gw_client[(uint8_t)ip_buff[0]] != NULL ) {
 

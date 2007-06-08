@@ -178,8 +178,13 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi
 
 
 
+/***
+ *
+ * rule types: 0 = RTA_SRC, 1 = RTA_DST, 2 = RTA_IIF
+ *
+ ***/
 
-void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, int8_t dst_rule, int8_t del ) {
+void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, char *iif, int8_t rule_type, int8_t del ) {
 
 	int netlink_sock, len;
 	char buf[4096], str1[16];
@@ -211,10 +216,6 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 	req.rtm.rtm_family = AF_INET;
 	req.rtm.rtm_table = rt_table;
 
-	if ( dst_rule )
-		req.rtm.rtm_dst_len = netmask;
-	else
-		req.rtm.rtm_src_len = netmask;
 
 	if ( del ) {
 
@@ -232,10 +233,37 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 
 	}
 
-	rta = (struct rtattr *)req.buff;
-	rta->rta_type = ( dst_rule ? RTA_DST : RTA_SRC );
-	rta->rta_len = sizeof(struct rtattr) + 4;
-	memcpy( ((char *)&req.buff) + sizeof(struct rtattr), (char *)&network, 4 );
+
+	if ( rule_type != 2 ) {
+
+		rta = (struct rtattr *)req.buff;
+
+		if ( rule_type == 1 ) {
+
+			req.rtm.rtm_dst_len = netmask;
+
+			rta->rta_type = RTA_DST;
+
+		} else {
+
+			req.rtm.rtm_src_len = netmask;
+
+			rta->rta_type = RTA_SRC;
+
+		}
+
+		rta->rta_len = sizeof(struct rtattr) + 4;
+		memcpy( ((char *)&req.buff) + sizeof(struct rtattr), (char *)&network, 4 );
+
+	} else {
+
+		rta = (struct rtattr *)req.buff;
+		rta->rta_type = RTA_IIF;
+		rta->rta_len = sizeof(struct rtattr) + 4;
+		memcpy( ((char *)&req.buff) + sizeof(struct rtattr), iif, 4 );
+
+	}
+
 
 	if ( prio != 0 ) {
 
@@ -281,7 +309,7 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 
 			inet_ntop( AF_INET, &network, str1, sizeof (str1) );
 
-			debug_output( 0, "Error - can't %s rule %s %s/%i: %s\n", del ? "delete" : "add", ( dst_rule ? "to" : "from" ), str1, netmask, strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
+			debug_output( 0, "Error - can't %s rule %s %s/%i: %s\n", del ? "delete" : "add", ( rule_type == 1 ? "to" : "from" ), str1, netmask, strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
 
 		}
 
@@ -297,7 +325,7 @@ int add_del_interface_rules( int8_t del ) {
 
 	int32_t tmp_fd;
 	uint32_t len, addr, netaddr;
-	uint8_t netmask, if_count = 0;
+	uint8_t netmask, if_count = 1;
 	char *buf, *buf_ptr;
 	struct ifconf ifc;
 	struct ifreq *ifr, ifr_tmp;
@@ -391,9 +419,12 @@ int add_del_interface_rules( int8_t del ) {
 		add_del_route( netaddr, netmask, 0, 0, ifr->ifr_name, BATMAN_RT_TABLE_TUNNEL, 1, del );
 
 		if ( is_batman_if( ifr->ifr_name, &batman_if ) )
-			add_del_rule( batman_if->addr.sin_addr.s_addr, 32, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, del );
-		else
-			add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, del );
+			continue;
+
+		add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, 0, del );
+
+		if ( strncmp( ifr->ifr_name, "lo", IFNAMSIZ - 1 ) == 0 )
+			add_del_rule( 0, 0, BATMAN_RT_TABLE_TUNNEL, BATMAN_RT_PRIO_TUNNEL, "lo\0 ", 2, del );
 
 		if_count++;
 
