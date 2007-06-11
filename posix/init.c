@@ -303,11 +303,9 @@ void apply_init_args( int argc, char *argv[] ) {
 		exit(EXIT_FAILURE);
 	}
 
-	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) ) {
-		fprintf( stderr, "Error - preferred gateway can't be set without specifying routing class !\n" );
-		usage();
-		exit(EXIT_FAILURE);
-	}
+	/* use routing class 1 if none specified */
+	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) )
+		routing_class = 1;
 
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun() ) )
 		exit(EXIT_FAILURE);
@@ -315,10 +313,12 @@ void apply_init_args( int argc, char *argv[] ) {
 	if ( ! unix_client ) {
 
 		if ( argc <= found_args ) {
+
 			fprintf( stderr, "Error - no interface specified\n" );
 			usage();
 			restore_defaults();
 			exit(EXIT_FAILURE);
+
 		}
 
 		signal( SIGINT, handler );
@@ -340,6 +340,20 @@ void apply_init_args( int argc, char *argv[] ) {
 			pthread_mutex_init( (pthread_mutex_t *)debug_clients.mutex[res], NULL );
 
 			debug_clients.clients_num[res] = 0;
+
+		}
+
+		if ( flush_routes_rules(0) < 0 ) {
+
+			restore_defaults();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( flush_routes_rules(1) < 0 ) {
+
+			restore_defaults();
+			exit(EXIT_FAILURE);
 
 		}
 

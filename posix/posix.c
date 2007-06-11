@@ -428,11 +428,16 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 		if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 			del_default_route();
 
-		while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
+		/* all rules and routes were purged in segmentation_fault() */
+		if ( !is_sigsegv ) {
 
-			orig_node = hashit->bucket->data;
+			while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
 
-			update_routes( orig_node, NULL, NULL, 0 );
+				orig_node = hashit->bucket->data;
+
+				update_routes( orig_node, NULL, NULL, 0 );
+
+			}
 
 		}
 
@@ -452,6 +457,9 @@ void segmentation_fault( int32_t sig ) {
 	signal( SIGSEGV, SIG_DFL );
 
 	debug_output( 0, "Error - SIGSEGV received, trying to clean up ... \n" );
+
+	flush_routes_rules(0);
+	flush_routes_rules(1);
 
 	restore_and_exit(1);
 

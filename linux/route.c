@@ -148,6 +148,7 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi
 	if ( sendto( netlink_sock, &req, req.nlh.nlmsg_len, 0, (struct sockaddr *)&nladdr, sizeof(struct sockaddr_nl) ) < 0 ) {
 
 		debug_output( 0, "Error - can't send message to kernel via netlink socket for routing table manipulation: %s", strerror(errno) );
+		close( netlink_sock );
 		return;
 
 	}
@@ -173,6 +174,8 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi
 		nh = NLMSG_NEXT( nh, len );
 
 	}
+
+	close( netlink_sock );
 
 }
 
@@ -433,6 +436,141 @@ int add_del_interface_rules( int8_t del ) {
 	close( tmp_fd );
 	debugFree( buf, 1605 );
 
+	return 1;
+
+}
+
+
+
+int flush_routes_rules( int8_t is_rule ) {
+
+	int netlink_sock, len, rtl;
+	int32_t dest = 0, router = 0, ifi = 0;
+	uint32_t prio = 0;
+	int8_t rule_type = 0;
+	char buf[8192], *dev = NULL;
+	struct sockaddr_nl nladdr;
+	struct iovec iov = { buf, sizeof(buf) };
+	struct msghdr msg;
+	struct nlmsghdr *nh;
+	struct rtmsg *rtm;
+	struct {
+		struct nlmsghdr nlh;
+		struct rtmsg rtm;
+	} req;
+	struct rtattr *rtap;
+
+
+	memset( &nladdr, 0, sizeof(struct sockaddr_nl) );
+	memset( &req, 0, sizeof(req) );
+	memset( &msg, 0, sizeof(struct msghdr) );
+
+	nladdr.nl_family = AF_NETLINK;
+
+	req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(req));
+	req.nlh.nlmsg_pid = getpid();
+	req.rtm.rtm_family = AF_INET;
+
+	req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+	req.nlh.nlmsg_type = ( is_rule ? RTM_GETRULE : RTM_GETROUTE );
+	req.rtm.rtm_scope = RTN_UNICAST;
+
+	if ( ( netlink_sock = socket( PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE ) ) < 0 ) {
+
+		debug_output( 0, "Error - can't create netlink socket for flushing the routing table: %s", strerror(errno) );
+		return -1;
+
+	}
+
+
+	if ( sendto( netlink_sock, &req, req.nlh.nlmsg_len, 0, (struct sockaddr *)&nladdr, sizeof(struct sockaddr_nl) ) < 0 ) {
+
+		debug_output( 0, "Error - can't send message to kernel via netlink socket for flushing the routing table: %s", strerror(errno) );
+		close( netlink_sock );
+		return -1;
+
+	}
+
+	msg.msg_name = (void *)&nladdr;
+	msg.msg_namelen = sizeof(nladdr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = NULL;
+
+	len = recvmsg( netlink_sock, &msg, 0 );
+	nh = (struct nlmsghdr *)buf;
+
+	while ( NLMSG_OK(nh, len) ) {
+
+		if ( nh->nlmsg_type == NLMSG_DONE )
+			break;
+
+		if ( ( nh->nlmsg_type == NLMSG_ERROR ) && ( ((struct nlmsgerr*)NLMSG_DATA(nh))->error != 0 ) ) {
+
+			debug_output( 0, "Error - can't flush %s: %s \n", ( is_rule ? "routing rules" : "routing table" ), strerror(-((struct nlmsgerr*)NLMSG_DATA(nh))->error) );
+			close( netlink_sock );
+			return -1;
+
+		}
+
+		rtm = (struct rtmsg *)NLMSG_DATA(nh);
+		rtap = (struct rtattr *)RTM_RTA(rtm);
+		rtl = RTM_PAYLOAD(nh);
+
+		nh = NLMSG_NEXT( nh, len );
+
+		if ( ( rtm->rtm_table != BATMAN_RT_TABLE_NETWORKS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_HOSTS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_TUNNEL ) )
+			continue;
+
+		while ( RTA_OK(rtap, rtl) ) {
+
+			switch( rtap->rta_type ) {
+
+				case RTA_DST:
+					dest = *((int32_t *)RTA_DATA(rtap));
+					rule_type = 1;
+					break;
+
+				case RTA_SRC:
+					dest = *((int32_t *)RTA_DATA(rtap));
+					rule_type = 0;
+					break;
+
+				case RTA_GATEWAY:
+					router = *((int32_t *)RTA_DATA(rtap));
+					break;
+
+				case RTA_OIF:
+					ifi = *((int32_t *)RTA_DATA(rtap));
+					break;
+
+				case RTA_PRIORITY:
+					prio = *((uint32_t *)RTA_DATA(rtap));
+					break;
+
+				case RTA_IIF:
+					dev = ((char *)RTA_DATA(rtap));
+					rule_type = 2;
+					break;
+
+				default:
+					debug_output( 0, "Error - unknown rta type: %i \n", rtap->rta_type );
+					break;
+
+			}
+
+			rtap = RTA_NEXT(rtap,rtl);
+
+		}
+
+		if ( is_rule )
+			add_del_rule( ( rule_type == 2 ? 0 : dest ), ( rule_type == 2 ? 0 : ( rule_type == 1 ? rtm->rtm_dst_len : rtm->rtm_src_len ) ), rtm->rtm_table, prio, ( rule_type == 2 ? dev : 0 ) , rule_type, 1 );
+		else
+			add_del_route( dest, rtm->rtm_dst_len, router, ifi, "unknown", rtm->rtm_table, rtm->rtm_type, 1 );
+
+	}
+
+	close( netlink_sock );
 	return 1;
 
 }
