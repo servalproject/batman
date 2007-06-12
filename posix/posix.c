@@ -524,11 +524,12 @@ int main( int argc, char *argv[] ) {
 	INIT_LIST_HEAD_FIRST( hna_list );
 
 
-	apply_init_args( argc, argv );
-
-
 	start_time = times(NULL);
 	system_tick = (float)sysconf(_SC_CLK_TCK);
+
+
+	apply_init_args( argc, argv );
+
 
 	srand( getpid() );
 
