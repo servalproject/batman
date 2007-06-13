@@ -117,7 +117,7 @@ void *client_to_gw_tun( void *arg ) {
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
 	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts;
-	uint32_t addr_len, client_timeout = 0, my_tun_addr = 0;
+	uint32_t addr_len, client_timeout = 0, got_new_ip = 0, my_tun_addr = 0;
 	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN];
 	unsigned char buff[1501];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -261,10 +261,15 @@ void *client_to_gw_tun( void *arg ) {
 							break;
 
 						client_timeout = get_time();
+						got_new_ip = client_timeout;
 
 					}
 
 					buff[0] = 1;
+
+					/* fill in new ip - the packets in the buffer don't know it yet */
+					if ( got_new_ip + 1000 > client_timeout )
+						memcpy( buff + 13, (unsigned char *)&my_tun_addr, 4 );
 
 					if ( sendto( udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 )
 						debug_output( 0, "Error - can't send data to gateway: %s\n", strerror(errno) );
@@ -291,10 +296,16 @@ void *client_to_gw_tun( void *arg ) {
 		/* drop unused IP */
 		if ( ( my_tun_addr != 0 ) && ( ( client_timeout + 120000 ) < get_time() ) ) {
 
+			addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
+			debug_output( 3, "Gateway client - releasing unused IP after timeout: %s \n", my_str );
+
 			my_tun_addr = 0;
 
 			if ( set_tun_addr( udp_sock, my_tun_addr, tun_if ) < 0 )
 				break;
+
+			/* kernel deletes routes after setting the interface ip to 0 */
+			add_del_route( 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
 
 		}
 
@@ -423,6 +434,8 @@ void *gw_listen( void *arg ) {
 
 								buff[0] = 3;
 								addr_to_string( addr.sin_addr.s_addr, str, sizeof(str) );
+
+								debug_output( 0, "Error - got packet from unknown client: %s (virtual ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16] );
 
 								if ( sendto( batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in) ) < 0 )
 									debug_output( 0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno) );

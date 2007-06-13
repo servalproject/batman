@@ -335,7 +335,10 @@ void choose_gw() {
 
 		if ( curr_gateway != NULL ) {
 
-			debug_output( 3, "Removing default route - better gateway found\n" );
+			if ( tmp_curr_gw != NULL )
+				debug_output( 3, "Removing default route - better gateway found\n" );
+			else
+				debug_output( 3, "Removing default route - no gateway in range\n" );
 
 			del_default_route();
 
