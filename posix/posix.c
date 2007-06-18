@@ -258,10 +258,11 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 	struct batman_if *batman_if;
 	uint32_t addr_len;
 	int8_t res;
-	fd_set tmp_wait_set = receive_wait_set;
+	fd_set tmp_wait_set;
 
 
 	addr_len = sizeof(struct sockaddr_in);
+	memcpy( &tmp_wait_set, &receive_wait_set, sizeof(fd_set) );
 
 	while (1) {
 
