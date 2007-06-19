@@ -636,7 +636,7 @@ int8_t batman() {
 	unsigned char in[1501], *hna_recv_buff;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN];
 	int16_t hna_buff_count, hna_buff_len;
-	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old;
+	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old, if_send_redirects_all_old, if_send_redirects_default_old;
 	uint8_t is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, is_bntog, forward_duplicate_packet, has_unidirectional_flag, has_directlink_flag, has_version;
 	int8_t res;
 
@@ -684,8 +684,12 @@ int8_t batman() {
 		batman_if->out.seqno = 1;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = COMPAT_VERSION;
+
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
 		set_rp_filter( 0 , batman_if->dev );
+
+		batman_if->if_send_redirects_old = get_send_redirects( batman_if->dev );
+		set_send_redirects( 0 , batman_if->dev );
 
 		schedule_own_packet( batman_if );
 
@@ -694,8 +698,14 @@ int8_t batman() {
 	if_rp_filter_all_old = get_rp_filter( "all" );
 	if_rp_filter_default_old = get_rp_filter( "default" );
 
+	if_send_redirects_all_old = get_send_redirects( "all" );
+	if_send_redirects_default_old = get_send_redirects( "default" );
+
 	set_rp_filter( 0, "all" );
 	set_rp_filter( 0, "default" );
+
+	set_send_redirects( 0, "all" );
+	set_send_redirects( 0, "default" );
 
 	forward_old = get_forwarding();
 	set_forwarding(1);
@@ -941,7 +951,7 @@ int8_t batman() {
 			if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
 				choose_gw();
 
-			if ( ( vis_if.sock ) && ( vis_timeout + 10000 < curr_time ) ){
+			if ( ( vis_if.sock ) && ( vis_timeout + 10000 < curr_time ) ) {
 
 				vis_timeout = curr_time;
 				send_vis_packet();
@@ -988,13 +998,20 @@ int8_t batman() {
 
 	set_forwarding( forward_old );
 
-	list_for_each(if_pos, &if_list) {
+	list_for_each( if_pos, &if_list ) {
+
 		batman_if = list_entry(if_pos, struct batman_if, list);
+
 		set_rp_filter( batman_if->if_rp_filter_old , batman_if->dev );
+		set_send_redirects( batman_if->if_send_redirects_old , batman_if->dev );
+
 	}
 
 	set_rp_filter( if_rp_filter_all_old, "all" );
 	set_rp_filter( if_rp_filter_default_old, "default" );
+
+	set_send_redirects( if_send_redirects_all_old, "all" );
+	set_send_redirects( if_send_redirects_default_old, "default" );
 
 	return 0;
 

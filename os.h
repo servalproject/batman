@@ -54,10 +54,12 @@ void init_interface ( struct batman_if *batman_if );
 void init_interface_gw ( struct batman_if *batman_if );
 
 /* kernel.c */
-void set_forwarding(int32_t state);
-int32_t get_forwarding(void);
-void set_rp_filter(int32_t state, char* dev);
-int32_t get_rp_filter(char *dev);
+void set_rp_filter( int32_t state, char* dev );
+int32_t get_rp_filter( char *dev );
+void set_send_redirects( int32_t state, char* dev );
+int32_t get_send_redirects( char *dev );
+void set_forwarding( int32_t state );
+int32_t get_forwarding( void );
 int8_t bind_to_iface( int32_t sock, char *dev );
 
 /* posix.c */

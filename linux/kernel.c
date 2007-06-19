@@ -21,7 +21,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <sys/socket.h> 
+#include <sys/socket.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -73,6 +73,57 @@ int32_t get_rp_filter(char *dev)
 		*colon_ptr = ':';
 
 	return state;
+}
+
+
+
+void set_send_redirects( int32_t state, char* dev ) {
+
+	FILE *f;
+	char filename[100], *colon_ptr;
+
+	/* if given interface is an alias use parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
+
+	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
+
+	if((f = fopen(filename, "w")) == NULL)
+		return;
+
+	fprintf(f, "%d", state);
+	fclose(f);
+
+	if ( colon_ptr != NULL )
+		*colon_ptr = ':';
+
+}
+
+
+
+int32_t get_send_redirects( char *dev ) {
+
+	FILE *f;
+	int32_t state = 0;
+	char filename[100], *colon_ptr;
+
+	/* if given interface is an alias use parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
+
+	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
+
+	if((f = fopen(filename, "r")) == NULL)
+		return 0;
+
+	fscanf(f, "%d", &state);
+	fclose(f);
+
+	if ( colon_ptr != NULL )
+		*colon_ptr = ':';
+
+	return state;
+
 }
 
 
