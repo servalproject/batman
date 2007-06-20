@@ -35,7 +35,7 @@
 
 
 
-#define SOURCE_VERSION "0.3pre-alpha" //put exactly three distinct words inside the string, in the order of "generation version release"
+#define SOURCE_VERSION "0.3 alpha" //put exactly three distinct words inside the string, in the order of "generation version release"
 #define COMPAT_VERSION 3
 #define PORT 1966
 #define UNIDIRECTIONAL 0x80
