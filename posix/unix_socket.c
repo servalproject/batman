@@ -178,9 +178,9 @@ void *unix_listen( void *arg ) {
 
 				prev_list_head_unix = (struct list_head *)&unix_if.client_list;
 
-				list_for_each_safe(unix_pos, unix_pos_tmp, &unix_if.client_list) {
+				list_for_each_safe( unix_pos, unix_pos_tmp, &unix_if.client_list ) {
 
-					unix_client = list_entry(unix_pos, struct unix_client, list);
+					unix_client = list_entry( unix_pos, struct unix_client, list );
 
 					if ( FD_ISSET( unix_client->sock, &tmp_wait_sockets ) ) {
 
@@ -204,16 +204,16 @@ void *unix_listen( void *arg ) {
 
 									list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
-										debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+										debug_level_info = list_entry( debug_pos, struct debug_level_info, list );
 
 										if ( debug_level_info->fd == unix_client->sock ) {
 
-										list_del( prev_list_head, debug_pos, debug_clients.fd_list[(int)unix_client->debug_level - '1'] );
-										debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
+											list_del( prev_list_head, debug_pos, debug_clients.fd_list[(int)unix_client->debug_level - '1'] );
+											debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
 
-										debugFree( debug_pos, 1201 );
+											debugFree( debug_pos, 1201 );
 
-										break;
+											break;
 
 										}
 
@@ -266,7 +266,7 @@ void *unix_listen( void *arg ) {
 
 								list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
 
-									debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+									debug_level_info = list_entry( debug_pos, struct debug_level_info, list );
 
 									if ( debug_level_info->fd == unix_client->sock ) {
 
@@ -320,9 +320,9 @@ void *unix_listen( void *arg ) {
 
 	}
 
-	list_for_each_safe(unix_pos, unix_pos_tmp, &unix_if.client_list) {
+	list_for_each_safe( unix_pos, unix_pos_tmp, &unix_if.client_list ) {
 
-		unix_client = list_entry(unix_pos, struct unix_client, list);
+		unix_client = list_entry( unix_pos, struct unix_client, list );
 
 		if ( unix_client->debug_level != 0 ) {
 

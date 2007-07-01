@@ -984,6 +984,7 @@ int8_t batman() {
 
 
 	list_for_each_safe( forw_pos, forw_pos_tmp, &forw_list ) {
+
 		forw_node = list_entry( forw_pos, struct forw_node, list );
 
 		list_del( (struct list_head *)&forw_list, forw_pos, &forw_list );

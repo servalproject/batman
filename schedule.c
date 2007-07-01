@@ -161,6 +161,7 @@ void send_outstanding_packets() {
 	curr_time = get_time();
 
 	list_for_each_safe( forw_pos, temp, &forw_list ) {
+
 		forw_node = list_entry( forw_pos, struct forw_node, list );
 
 		if ( forw_node->send_time <= curr_time ) {
