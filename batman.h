@@ -24,6 +24,8 @@
 
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
 #include <pthread.h>
 #include <sys/un.h>
 #include <stdint.h>
@@ -139,7 +141,8 @@ extern struct debug_clients debug_clients;
 
 extern char *gw2string[];
 
-struct packet
+
+struct bat_packet
 {
 	uint32_t orig;
 	uint8_t  flags;    /* 0x80: UNIDIRECTIONAL link, 0x40: DIRECTLINK flag, ... */
@@ -147,6 +150,12 @@ struct packet
 	uint16_t seqno;
 	uint8_t  gwflags;  /* flags related to gateway functions: gateway class */
 	uint8_t  version;  /* batman version field */
+} __attribute__((packed));
+
+struct orig_packet {
+	struct iphdr ip;
+	struct udphdr udp;
+	struct bat_packet bat_packet;
 } __attribute__((packed));
 
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
@@ -216,7 +225,7 @@ struct batman_if
 	struct sockaddr_in broad;
 	uint32_t netaddr;
 	uint8_t netmask;
-	struct packet out;
+	struct orig_packet out;
 };
 
 struct gw_client

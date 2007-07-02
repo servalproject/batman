@@ -20,6 +20,7 @@
 
 
 #include <stdio.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <sys/socket.h>
 
@@ -176,6 +177,23 @@ int8_t bind_to_iface( int32_t sock, char *dev ) {
 		*colon_ptr = ':';
 
 	return 1;
+
+}
+
+
+
+int8_t use_kernel_module() {
+
+	int32_t sock;
+
+	if ( ( sock = open( "/dev/batman", O_WRONLY ) ) < 0 ) {
+
+		debug_output( 0, "Warning - batman kernel modul interface (/dev/batman) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
+		return -1;
+
+	}
+
+	return sock;
 
 }
 

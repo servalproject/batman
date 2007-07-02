@@ -299,10 +299,10 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 
 			}
 
-			if ( *hna_buff_len < sizeof(struct packet) )
+			if ( *hna_buff_len < sizeof(struct bat_packet) )
 				return 0;
 
-			((struct packet *)packet_buff)->seqno = ntohs( ((struct packet *)packet_buff)->seqno ); /* network to host order for our 16bit seqno. */
+			((struct bat_packet *)packet_buff)->seqno = ntohs( ((struct bat_packet *)packet_buff)->seqno ); /* network to host order for our 16bit seqno. */
 
 			(*if_incoming) = batman_if;
 			break;
@@ -319,17 +319,43 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 
 
 
-int8_t send_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock ) {
+int8_t send_udp_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock ) {
 
 	if ( sendto( send_sock, packet_buff, packet_buff_len, 0, (struct sockaddr *)broad, sizeof(struct sockaddr_in) ) < 0 ) {
 
 		if ( errno == 1 ) {
 
-			debug_output( 0, "Error - can't send packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs( broad->sin_port ) );
+			debug_output( 0, "Error - can't send udp packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs( broad->sin_port ) );
 
 		} else {
 
-			debug_output( 0, "Error - can't send packet: %s.\n", strerror(errno) );
+			debug_output( 0, "Error - can't send udp packet: %s.\n", strerror(errno) );
+
+		}
+
+		return -1;
+
+	}
+
+	return 0;
+
+}
+
+
+
+int8_t send_raw_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct batman_if *batman_if ) {
+
+	memcpy( packet_buff, (unsigned char *)&batman_if->out, sizeof(struct iphdr) + sizeof(struct udphdr) );
+
+	if ( write( batman_if->udp_send_sock, packet_buff, packet_buff_len ) < 0 ) {
+
+		if ( errno == 1 ) {
+
+			debug_output( 0, "Error - can't send raw packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs( batman_if->out.udp.dest ) );
+
+		} else {
+
+			debug_output( 0, "Error - can't send raw packet: %s.%i\n", strerror(errno), errno );
 
 		}
 

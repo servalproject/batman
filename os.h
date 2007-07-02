@@ -61,13 +61,15 @@ int32_t get_send_redirects( char *dev );
 void set_forwarding( int32_t state );
 int32_t get_forwarding( void );
 int8_t bind_to_iface( int32_t sock, char *dev );
+int8_t use_kernel_module();
 
 /* posix.c */
 void print_animation( void );
 void   del_default_route();
 int8_t add_default_route();
 int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming );
-int8_t send_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
+int8_t send_udp_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
+int8_t send_raw_packet( unsigned char *packet_buff, int packet_buff_len, struct batman_if *batman_if );
 void restore_defaults();
 void cleanup();
 

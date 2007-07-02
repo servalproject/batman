@@ -117,7 +117,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
+void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *neigh_pos;
@@ -424,7 +424,7 @@ void debug_orig() {
 
 			list_for_each( forw_pos, &forw_list ) {
 				forw_node = list_entry( forw_pos, struct forw_node, list );
-				addr_to_string( ((struct packet *)forw_node->pack_buff)->orig, str, sizeof (str) );
+				addr_to_string( ((struct orig_packet *)forw_node->pack_buff)->bat_packet.orig, str, sizeof (str) );
 				debug_output( 4, "    %s at %u \n", str, forw_node->send_time );
 			}
 

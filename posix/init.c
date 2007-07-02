@@ -602,13 +602,6 @@ void init_interface ( struct batman_if *batman_if ) {
 		exit(EXIT_FAILURE);
 	}
 
-	batman_if->udp_send_sock = socket( PF_INET, SOCK_DGRAM, 0 );
-	if (batman_if->udp_send_sock < 0) {
-		debug_output( 0, "Error - can't create send socket: %s", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
-	}
-
 	batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 	if ( batman_if->udp_recv_sock < 0 ) {
 
@@ -676,26 +669,47 @@ void init_interface ( struct batman_if *batman_if ) {
 	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 0 );
 	add_del_route( batman_if->netaddr, batman_if->netmask, 0, batman_if->if_index, batman_if->dev, BATMAN_RT_TABLE_HOSTS, 2, 0 );
 
-	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int) ) < 0 ) {
 
-		debug_output( 0, "Error - can't enable broadcasts: %s\n", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
+	if ( ( batman_if->udp_send_sock = use_kernel_module() ) < 0 ) {
 
-	}
+		if ( ( batman_if->udp_send_sock = socket( AF_INET, SOCK_RAW, IPPROTO_RAW ) ) < 0 ) {
 
-	if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
+			debug_output( 0, "Error - can't create send socket: %s", strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
 
-		restore_defaults();
-		exit(EXIT_FAILURE);
+		}
 
-	}
+		if ( setsockopt( batman_if->udp_send_sock, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on) ) < 0 ) {
 
-	if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
+			debug_output( 0, "Error - can't set IP_HDRINCL option on send socket: %s", strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
 
-		debug_output( 0, "Error - can't bind send socket: %s\n", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
+		}
+
+		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int) ) < 0 ) {
+
+			debug_output( 0, "Error - can't enable broadcasts: %s\n", strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( bind_to_iface( batman_if->udp_send_sock, batman_if->dev ) < 0 ) {
+
+			restore_defaults();
+			exit(EXIT_FAILURE);
+
+		}
+
+		if ( connect( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->broad, sizeof(struct sockaddr_in) ) < 0 ) {
+
+			debug_output( 0, "Error - can't bind send socket: %s\n", strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+
+		}
 
 	}
 
