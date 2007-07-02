@@ -30,14 +30,21 @@
 
 
 #include <linux/module.h>  /* needed by all modules */
+#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h>  /* KERN_ALERT */
 #include <linux/fs.h>      /* struct inode */
 #include <linux/socket.h>  /* sock_create(), sock_release() */
 #include <linux/net.h>     /* SOCK_RAW */
 #include <linux/in.h>      /* IPPROTO_RAW */
-#include <linux/ip.h>      /* ip */
+#include <linux/ip.h>      /* iphdr */
 #include <linux/udp.h>     /* udphdr */
 #include <asm/uaccess.h>   /* get_user() */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	#include <linux/devfs_fs_kernel.h>
+#else
+	static struct class *batman_class;
+#endif
 
 
 #include <linux/inet.h>     /* SOCK_RAW */
@@ -65,9 +72,11 @@ static struct file_operations fops = {
 
 static int Major;            /* Major number assigned to our device driver */
 struct socket *Raw_sock = NULL;
-static struct orig_packet orig_packet;
 struct kiocb Kiocb;
 struct sock_iocb Siocb;
+struct msghdr Msg;
+struct iovec Iov;
+struct sockaddr_in Addr_out;
 
 
 
@@ -83,6 +92,18 @@ int init_module( void ) {
 
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batman", 0 ) ) {
+		printk( "B.A.T.M.A.N.: Could not create /dev/batman \n" );
+#else
+	batman_class = class_create( THIS_MODULE, "batman" );
+
+	if ( IS_ERR(batman_class) )
+		printk( "B.A.T.M.A.N.: Could not register class 'batman' \n" );
+	else
+		class_device_create( batman_class, NULL, MKDEV( Major, 0 ), NULL, "batman" );
+#endif
+
 	if ( ( retval = sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &Raw_sock ) ) < 0 ) {
 
 		printk( "B.A.T.M.A.N.: Can't create raw socket: %i", retval );
@@ -96,8 +117,22 @@ int init_module( void ) {
 	init_sync_kiocb( &Kiocb, NULL );
 
 	Kiocb.private = &Siocb;
+
 	Siocb.sock = Raw_sock;
 	Siocb.scm = NULL;
+	Siocb.msg = &Msg;
+
+	memset( &Addr_out, 0, sizeof(Addr_out) );
+	Addr_out.sin_family = AF_INET;
+
+	memset( &Msg, 0, sizeof(struct msghdr) );
+	Msg.msg_iov = &Iov;
+	Msg.msg_iovlen = 1;
+	Msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+	Msg.msg_name = &Addr_out;
+	Msg.msg_namelen = sizeof(Addr_out);
+	Msg.msg_control = NULL;
+	Msg.msg_controllen = 0;
 
 	printk( "B.A.T.M.A.N.: I was assigned major number %d. To talk to\n", Major );
 	printk( "B.A.T.M.A.N.: the driver, create a dev file with 'mknod /dev/batman c %d 0'.\n", Major );
@@ -110,6 +145,13 @@ int init_module( void ) {
 
 
 void cleanup_module( void ) {
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	devfs_remove( "batman", 0 );
+#else
+	class_device_destroy( batman_class, MKDEV( Major, 0 ) );
+	class_destroy( batman_class );
+#endif
 
 	/* Unregister the device */
 	int ret = unregister_chrdev( Major, DRIVER_DEVICE );
@@ -128,8 +170,11 @@ void cleanup_module( void ) {
 static int device_open( struct inode *inode, struct file *file ) {
 
 	/* increment usage count */
-// 	MOD_INC_USE_COUNT;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	MOD_INC_USE_COUNT;
+#else
 	try_module_get(THIS_MODULE);
+#endif
 
 	return SUCCESS;
 
@@ -140,8 +185,11 @@ static int device_open( struct inode *inode, struct file *file ) {
 static int device_release( struct inode *inode, struct file *file ) {
 
 	/* decrement usage count */
-// 	MOD_DEC_USE_COUNT;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	MOD_DEC_USE_COUNT;
+#else
 	module_put(THIS_MODULE);
+#endif
 
 	return SUCCESS;
 
@@ -150,18 +198,7 @@ static int device_release( struct inode *inode, struct file *file ) {
 
 static ssize_t device_write( struct file *file, const char *buff, size_t len, loff_t *off ) {
 
-	int i;
-	struct msghdr msg;
-	struct iovec iov;
-	struct sockaddr_in addr_out;
-
-// 	printk( KERN_INFO "device_write \n" );
-
-
-	for ( i = 0; i < len && i <= sizeof(orig_packet); i++ )
-		get_user( ((unsigned char *)&orig_packet)[i], buff + i );
-
-	if ( len < sizeof(struct iphdr) + sizeof(struct udphdr) + 10 ) {
+	if ( len < sizeof(struct orig_packet) + 10 ) {
 
 		printk( KERN_INFO "B.A.T.M.A.N.: dropping data - packet too small (%i)\n", len );
 
@@ -169,30 +206,18 @@ static ssize_t device_write( struct file *file, const char *buff, size_t len, lo
 
 	}
 
+	if ( !access_ok( VERIFY_READ, buff, sizeof(struct orig_packet) ) )
+		return -EFAULT;
 
-	iov.iov_base = buff;
-	iov.iov_len = len;
+	Iov.iov_base = buff;
+	Iov.iov_len = len;
 
-	memset( &addr_out, 0, sizeof(struct sockaddr_in) );
-	addr_out.sin_family = AF_INET;
-	addr_out.sin_port = orig_packet.udp.dest;
-	addr_out.sin_addr.s_addr = orig_packet.ip.daddr;
+	__copy_from_user( &Addr_out.sin_port, &((struct orig_packet *)buff)->udp.dest, sizeof(Addr_out.sin_port) );
+	__copy_from_user( &Addr_out.sin_addr.s_addr, &((struct orig_packet *)buff)->ip.daddr, sizeof(Addr_out.sin_addr.s_addr) );
 
+	Siocb.size = len;
 
-	memset( &msg, 0, sizeof(struct msghdr) );
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-	msg.msg_name = &addr_out;
-	msg.msg_namelen = sizeof(addr_out);
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-
-
-	Siocb.msg = &msg;
-	Siocb.size = i;
-
-	return Raw_sock->ops->sendmsg( &Kiocb, Raw_sock, &msg, len );
+	return Raw_sock->ops->sendmsg( &Kiocb, Raw_sock, &Msg, len );
 
 }
 

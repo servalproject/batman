@@ -61,12 +61,11 @@ int my_daemon() {
 	if ( setsid() == -1 )
 		return(-1);
 
-	/* Make certain we are not a session leader, or else we
-	* might reacquire a controlling terminal */
+	/* Make certain we are not a session leader, or else we might reacquire a controlling terminal */
 	if ( fork() )
 		exit(EXIT_SUCCESS);
 
-	chdir("/");
+	chdir( "/" );
 
 	if ( ( fd = open(_PATH_DEVNULL, O_RDWR, 0) ) != -1 ) {
 
@@ -74,7 +73,7 @@ int my_daemon() {
 		dup2(fd, STDOUT_FILENO);
 		dup2(fd, STDERR_FILENO);
 
-		if (fd > 2)
+		if ( fd > 2 )
 			close(fd);
 
 	}
