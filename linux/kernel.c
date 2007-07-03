@@ -22,10 +22,15 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 
 #include "../os.h"
 #include "../batman.h"
+
+
+#define IOCGETNWDEV 1
 
 
 
@@ -166,7 +171,7 @@ int8_t bind_to_iface( int32_t sock, char *dev ) {
 	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
 		*colon_ptr = '\0';
 
-	if ( setsockopt( sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen ( dev ) + 1 ) < 0 ) {
+	if ( setsockopt( sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen( dev ) + 1 ) < 0 ) {
 
 		debug_output( 0, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
 		return -1;
@@ -182,9 +187,14 @@ int8_t bind_to_iface( int32_t sock, char *dev ) {
 
 
 
-int8_t use_kernel_module() {
+int8_t use_kernel_module( char *dev ) {
 
-	int32_t sock;
+	int32_t fd, sock, dummy = 0;
+	char *colon_ptr;
+
+	/* if given interface is an alias bind to parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
 
 	if ( ( sock = open( "/dev/batman", O_WRONLY ) ) < 0 ) {
 
@@ -193,7 +203,29 @@ int8_t use_kernel_module() {
 
 	}
 
-	return sock;
+	if ( ( fd = ioctl( sock, IOCGETNWDEV, dummy ) ) < 0 ) {
+
+		debug_output( 0, "Warning - can't get batman interface from kernel module: %s\n", strerror(errno) );
+		close( sock );
+		return -1;
+
+	}
+
+	if ( ioctl( fd, strlen( dev ) + 1, dev ) < 0 ) {
+
+		debug_output( 0, "Warning - can't bind batman kernel interface: %s\n", strerror(errno) );
+		close( sock );
+		close( fd );
+		return -1;
+
+	}
+
+	if ( colon_ptr != NULL )
+		*colon_ptr = ':';
+
+	close( sock );
+
+	return fd;
 
 }
 

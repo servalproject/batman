@@ -669,7 +669,7 @@ void init_interface ( struct batman_if *batman_if ) {
 	add_del_route( batman_if->netaddr, batman_if->netmask, 0, batman_if->if_index, batman_if->dev, BATMAN_RT_TABLE_HOSTS, 2, 0 );
 
 
-	if ( ( batman_if->udp_send_sock = use_kernel_module() ) < 0 ) {
+	if ( ( batman_if->udp_send_sock = use_kernel_module( batman_if->dev ) ) < 0 ) {
 
 		if ( ( batman_if->udp_send_sock = socket( AF_INET, SOCK_RAW, IPPROTO_RAW ) ) < 0 ) {
 
