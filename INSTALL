@@ -1,271 +1,179 @@
-#################################
-B.A.T.M.A.N. Installation and Use
-#################################
 
-Marek Lindner (lindner_marek-at-yahoo.de)
-Stefan Sperling (stsp-at-stsp.in-berlin.de
-Axel Neumann (neumann-at-notmail.org)
-Corinna 'Elektra' Aichele (onelektra-at-gmx.net)
-Thomas Lopatic  (thomas-at-lopatic.de)
-Felix Fietkau (nbd-at-nbd.name)
-Ludger Schmudde (lui-at-schmudde.com)
-Simon Wunderlich (siwu-at-hrz.tu-chemnitz.de)
-Andreas Langer (a.langer-at-q-dsl.de)
-
--------
-Preface
--------
-
-This is still a experimental piece of code to test the viability of the
-B.A.T.M.A.N. routing algorithm based on initial ideas of Thomas Lopatic
-and Corinna 'Elektra' Aichele.
-
-This is the improved B.A.T.M.A.N.-III algorithm. It
-is not unlikely that we still have to fix some bugs, though.
-
-Use - like always - at your own risk!
+###################################
+B.A.T.M.A.N. Installation and Usage
+###################################
 
 
---------
-Features
---------
-
-Improved B.A.T.M.A.N.-III algorithm
-IP-Tunnels via UDP
-Gateway classes
-Multiple Interfaces support
-Support for a server that collects link-state information from each node to generate two
-dimensional or three dimensional topology graphs.
+  ( This documentation is actually for the stable batman-0.2.x branch. 
+  However, the main steps described here for compilation and usage should 
+  be almost the same for the currently unstable 0.3.x branch )
 
 
--------
-Roadmap
--------
 
-Testing, improvements in the documentation.
+Compiling from source
+=====================
 
-Support for Free-BSD and Mac OS-X is broken at the moment since we
-introduced UDP-Tunnels - we hope this will be fixed in the near future.
+Pre-requirements
+---------------
 
-Develop B.A.T.M.A.N.-Advanced that routes on Layer 2 and creates a Link-Local-Illusion for higher
-OSI-Layers
+You need the usual compile environment and the libpthread-library
+and the kernel module "tun". Both should already be installed on 
+your machine, if you use a PC using Linux. On embedded devices 
+both may not be installed in order to save space.
 
-Read speed tables from WiFi-Cards to calculate the transfer speed of routes
-in B.A.T.M.A.N.-Advanced
+Compiling
+---------
+
+You don't necessarily need to compile. Our download.store at 
+downloads.open-mesh.net is likely to offer precompiled packages
+for your system.
+
+Download and compile the latest stable sources from the download 
+section http://open-mesh.net/batman/downloads by executing eg.:
+
+ $ wget http://downloads.open-mesh.net/batman/stable/sources/batmand_0.2-current_sources.tgz
+ $ tar xzvf batmand_0.2-current_sources.tgz
+ $ cd batmand_0.x-rvxyz_sources
+ $ make
+
+After the compilation process is finished you'll find a executable 
+file called 'batmand'. This executable is quite big because it is 
+not stripped. Don't strip it if you want to help us finding a bug
+in the daemon. Strip it by executing:
+
+ $ strip batmand
+
+Note there is no installation script at the moment. If you want to 
+install it, copy the daemon (batmand) to a location somewhere in 
+your path, for example
+
+ $ cp batmand /usr/sbin/
+
+Or start it right from the directory where you compiled it by 
+issuing:
+
+./batmand 
 
 
-------------
-Requirements
-------------
-
-Linux with kernel-module 'tun' loaded if you want to use/be a gateway
-
-------------
-Installation
-------------
-
-You need the usual working environment to compile software. In the
-B.A.T.M.A.N. directory type
-
-make <press enter>
-
-After the compilation process is finished you'll find a executable called 'batman'. This
-executable is quite big because it is not stripped.
-
-Strip it by performing:
-
-strip batmand <press enter>
-
-Note there is no installation script at the moment. If you want to install
-it, copy the deamon (batmand) to a location somewhere in your path, for example
-/usr/sbin or /usr/local/bin.
-
-
----------------------------------
 Installation on a Freifunk Router
----------------------------------
+=================================
 
-  Just to be sure, there has been some confusion with outdated batman packages
-  so its a good idea to check for any old package using:
+Just to be sure, there has been some confusion with outdated 
+batman(d) packages. So its a good idea to check for any old 
+package by login into your router and executing:
 
-  ipkg status | grep batman
+ $ ipkg status | grep batman
 
-  and then remove everything related to that by doing for example:
+Remove everything listed by doing for example:
 
-  ipkg remove batman-iii freifunk-batman-de ...
+ $ ipkg remove batman batman-iii freifunk-batman-de ...
 
-  then continue with the installation of a fresh and stable batman packages!
+Then continue with the installation of fresh and stable batman packages!
 
 If you use a wireless router based on Freifunk-Firmware or OpenWRT you can
 use the ipkg-package management system. Add the line:
 
-src lui http://freifunk.schmudde.com/ipkg
+  src lui http://freifunk.schmudde.com/ipkg
 
-to your package sources and update the list of available packages by
-executing:
+to your package sources file ( /etc/ipkg.conf ) and update the list of 
+available packages by executing:
 
-ipkg update
+ $ ipkg update
+ $ ipkg install batmand
+ $ ipkg install freifunk-batman
 
-ipkg install batmand-iii
+If not already installed (or automatically resolved) you may also need to 
+explicitly install the libpthread and kmod-tun package. Do this by executing:
 
-  alternatively you can get the latest stable release from 
-  http://downloads.open-mesh.net/batman/stable/
-  for example to install batmand-0.2.0rc2 on a freifunk WRT do:
+ $ ipkg install libpthread
+ $ ipkg install kmod-tun
 
-  ipkg install http://downloads.open-mesh.net/batman/stable/wrt-freifunk/batmand_0.2.0rc2-current_mipsel-wr-elf-32-lsb-dynamic.ipk
+Afterwards, reboot your WRT and check the web interface. You need to enable 
+batman for one (or several) interfaces and specify the netmask and IP address 
+as well as other optionally parameters.
 
-  But be aware that, a recent batmand-...ipk from open-mesh.net should be equal to the 
-  batman-iii-...ipk from freifunk.schmudde.com/ipkg. Both packages install /usr/sbin/batmand 
-  and the last installed one will overwrite the previous one.
+Alternatively you can get the latest stable release (as well as development) 
+versions from  http://open-mesh.net/batman/downoads/
 
-If you use Freifunk-Firmware you can use the web user-interface for
-B.A.T.M.A.N.:
+For example to install batmand-0.2 on a freifunk WRT do:
 
-ipkg install freifunk-batman
+ $ ipkg install http://downloads.open-mesh.net/batman/stable/wrt-freifunk/batmand_0.2-current_mipsel-wr-elf-32-lsb-dynamic.ipk
 
-
-
-------
-Useage
-------
-
-Make sure you have no firewall running that is blocking UDP port 1966.
-
-I like examples - so let's start with them. I'll assume you perform the
-following steps in the batman source directory after compilation.
-
-Typical client usage example:
-
-batmand -p <ip of preferred gateway> -r 2  -o 2000 -s <visualisation-server ip> wlan0 eth1 ath0
-
-
-Typical gateway usage example:
-
-batmand -g 7 -o 2000 -s <visualisation-server ip> ath0
-
-NOTE:
-
-You HAVE to select a routing class to connect to a gateway. The routing
-class will be used to look for a fallback gateway if the preferred gateway
-is unavailable. Level 2 or 3 is recommended. Level 1 is not really useable
-yet.
-
-Originator interval must be the same on all nodes in the mesh.
-
-Here's what you see if you start long help (with some extra comments)
-
-batmand -H
-
-Usage: batman [options] interface [interface interface]
-	
-       -a announce network(s)
-          network/netmask is expected
-	  Announce that this node is a gateway to this
-	  network
-
-	
-       -d debug level
-          default: 0, allowed values: 0 - 3
-
-       -g gateway class
-
-	  Use this feature if you want to offer a internet gateway and tell
-	  clients how much speed is available.
-
-          default:         0 -> this is not an internet gateway
-          allowed values:  1 -> modem line
-                           2 -> ISDN line
-                           3 -> double ISDN
-                           4 -> 256 KBit
-                           5 -> UMTS / 0.5 MBit
-                           6 -> 1 MBit
-                           7 -> 2 MBit
-                           8 -> 3 MBit
-                           9 -> 5 MBit
-                          10 -> 6 MBit
-                          11 -> >6 MBit
-
-       -h shorter help
-
-       -H this help
-
-       -o orginator interval in ms
-          default: 1000, allowed values: >0
-
-	Note: By default B.A.T.M.A.N. keeps track of packets received in the
-	last 60 seconds (this is called sliding window size). B.A.T.M.A.N
-	will perform it's routing decisions based on statistics about 60
-	packages for a node with an orginator interval of one second. If a
-	node manages to send us at least 1 message in 60 seconds, it will be
-	in our routing table. If the orginator interval is increased to 3
-	seconds only 20 packets will be kept in the B.A.T.M.A.N. statistic -
-	thus the node must manage to send us 1 out of 20 packets to be in
-	our routing table. If the sliding window size has more space for
-	orginator messages the range of multi-hop links will be longer and
-	therefore weaker routes will find their way into the routing table.
-	And vice versa.
-
-
-       -p preferred gateway
-
-	  This will set up an IP-Tunnel to the destination IP
-
-          default: none, allowed values: IP
-
-       -r routing class (only needed if gateway class = 0)
-
-	  If you are a gateway-client, this will select the way you choose an
-	  internet-gateway
-
-          default:         0 -> set no default route
-          allowed values:  1 -> use fast internet connection
-                           2 -> use stable internet connection
-                           3 -> use best statistic internet connection (olsr style)
-
-	  1 -> not really usable yet
-	  2 -> use best connection to gateway, faster gateway class will be
-	       preferred if connection quality is similar
-	  3 -> use nearest gateway
-
-       -s visualisation server
-
-	  The Server-IP that collects the topology information for
-	  topology-visualisation
-
-          default: none, allowed values: IP
+  Be aware that, a recent batmand-...ipk from open-mesh.net 
+  should be equal to the batmand-...ipk from freifunk.schmudde.com/ipkg.
+  Both packages install /usr/sbin/batmand and the last installed 
+  one will overwrite the previous one.
 
 
 
+Usage
+=====
 
-Switch the output of runtime debugging messages to a low level if you want
-to test the software on a slow - embedded - system.
+Make sure you have no firewall running that is blocking UDP 
+port 1966 (originator messages), port 1967 (HNA messages). 
+Port 1968 has to be open for incoming UDP traffic if you run the
+B.A.T.M.A.N. visualization server.
 
-We would love to see B.A.T.M.A.N. in a match against other routing protocols
-in existing mesh networks. You can set up a virtual interface on an
-interface that you run another mesh routing protocol on.
+First the network interfaces supposed to participate
+in the batman mesh must be configured properly. Assuming you 
+are already running olsr on interface eth1 with the IP address 
+104.1.12.123/8 and now want to run batman in parallel to olsr 
+on the same physical interface but with a 105.1.12.123/8 IP/netmask.
 
-If, for example, you have olsrd running on interface wlan0 with IP address
-104.30.30.30 you could set up a virtual interface wlan0:0 with another
-IP-address within another network:
+ $ ifconfig eth1:bat 105.1.12.123 netmask 255.0.0.0 broadcast 105.255.255.255
+ $ batmand -d 3 eth1:bat
+ 
+This will configure an alias interface on top of eth1 named eth1:bat and start
+the batman daemon with debug level 3 on that alias interface. As soon as
+another running batmand (with the same netmask and broadcast address) is 
+connected to that link (or within the range of the wireless link) 
+both batman daemons should see each other and indicate this in the debug output.
 
-ifconfig wlan0:0 103.30.30.30 netmask 255.0.0.0 broadcast 103.255.255.255
+The daemon started with debug level 3 can be terminated with ctrl-c.
+If no debuglevel is given at startup, using
+ 
+$ batmand eth1:bat
 
-The ifconfig command may not be available on your system. To perform the
-same operation using the command provided by iproute2:
+the daemon will immediateley fork to the background (as is the usual behavior 
+of a daemon). However you can always connect to the main daemon (running 
+in background) by launching a client-batmand process with the 
+-c and -d <number> option, where the number represents the desired 
+debug-level. The following command will connect to a running batmand 
+process providing debug-level 1 informations.
+ 
+$ batmand -c -d 1 # shows a list of other nodes in the mesh
 
-ip addr add 103.30.30.30/8 broadcast 103.255.255.255 dev wlan0 label wlan0:0
+$ batmand -c -d 2 # shows a list of nodes offering internet GW access
 
-batmand -o 2000 wlan0:0
+$ route -n # shows your current routing table as modified by batmand
 
-Now you can check out which protocol works better.
+For a full list of supported debug-levels and other startup options see
+
+ $ batmand -h # providing a brief summary of options and
+
+ $ batmand -H # for a more detailed list of options
+
+Use ctrl-c to terminate a process running in foreground and 
+ 
+$ killall batmand
+
+to terminate the main batmand daemon running in background.
+
+If you want to use one of the batman-internet gateways showed with 
+debug-level 2 launch the main batmand using:
+
+ $ batmand -r 3 eth1:bat # to automatically select a reasonable GW
+ 
+ $ batmand -r 3 -p <ip-of-batmand-gw-node> eth1:bat # to set a preferred GW
+
+In case of success this will setup a tunnel to a (preferred) batman-gw-node 
+and configure the routing table that all packets matching the default route 
+are forwarded (tunneled) respectively.
+More information is available using the -h and -H options.
+
+
+
 
 Happy routing!
 
 The B.A.T.M.A.N. contributors
-
-
-
-
-
-
-
