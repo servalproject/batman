@@ -52,7 +52,7 @@
 #include <net/udp.h>
 #include <net/ip.h>
 #include <net/sock.h>
-
+#include <asm-i386/checksum.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	#include <linux/devfs_fs_kernel.h>
@@ -250,6 +250,12 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	struct sk_buff *nskb;
 	struct iphdr *iph;
 	
+	unsigned short size;
+	int doff = 0;
+	int csum = 0;
+	int offset;
+	unsigned char dst_hw_addr[6];
+
 	if(skb->nh.iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 		r_uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
 		if(ntohs(r_uhdr->source) == 1967) {
@@ -257,6 +263,25 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			printk("%02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x\n", eth->h_source[0],eth->h_source[1],eth->h_source[2],
 				eth->h_source[3],eth->h_source[4],eth->h_source[5],eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
 			
+			iph = skb->nh.iph;
+			skb->pkt_type = PACKET_OUTGOING;
+			iph->saddr = skb->nh.iph->daddr;
+			iph->daddr = skb->nh.iph->saddr;
+
+			size = ntohs(iph->tot_len) - (iph->ihl*4);
+			skb->csum = 0;
+			csum = csum_partial(skb->h.raw + doff, size - doff, 0);
+			skb->csum = csum;
+
+			r_uhdr->check = 0;
+			r_uhdr->check = csum_tcpudp_magic( iph->saddr,iph->daddr,size,iph->protocol,csum_partial(skb->h.raw, doff, skb->csum));
+			ip_send_check(iph);
+
+			memcpy(dst_hw_addr, eth->h_source, 6);
+			if (skb->dev->hard_header)
+			skb->dev->hard_header(skb,skb->dev,ntohs(skb->protocol),dst_hw_addr,skb->dev->dev_addr,skb->len);
+			dev_queue_xmit(skb_clone(skb, GFP_ATOMIC));
+
 			/* attention !!!
 			nskb = dev_alloc_skb( sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(unsigned char) * 5 );
 			
