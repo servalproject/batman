@@ -263,18 +263,24 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			printk("%02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x\n", eth->h_source[0],eth->h_source[1],eth->h_source[2],
 				eth->h_source[3],eth->h_source[4],eth->h_source[5],eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
 			
+			buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
+			tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
+			memcpy( &buffer[1], &tmp , sizeof(unsigned int));
+			buffer[0] = 1;
 			iph = skb->nh.iph;
 			skb->pkt_type = PACKET_OUTGOING;
+			tmp = skb->nh.iph->saddr;
 			iph->saddr = skb->nh.iph->daddr;
-			iph->daddr = skb->nh.iph->saddr;
-
-			size = ntohs(iph->tot_len) - (iph->ihl*4);
-			skb->csum = 0;
-			csum = csum_partial(skb->h.raw + doff, size - doff, 0);
-			skb->csum = csum;
-
+			iph->daddr = tmp;
+			
+			size = skb->len - iph->ihl*4;
+			r_uhdr->len = htons(size);
+			
 			r_uhdr->check = 0;
-			r_uhdr->check = csum_tcpudp_magic( iph->saddr,iph->daddr,size,iph->protocol,csum_partial(skb->h.raw, doff, skb->csum));
+			r_uhdr->check = csum_tcpudp_magic(iph->saddr, iph->daddr,size, IPPROTO_UDP,csum_partial((char *)r_uhdr,size, 0));
+			if (!r_uhdr->check)
+				r_uhdr->check = CSUM_MANGLED_0;
+			
 			ip_send_check(iph);
 
 			memcpy(dst_hw_addr, eth->h_source, 6);
