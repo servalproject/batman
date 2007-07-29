@@ -28,31 +28,14 @@
 #define IOCSETDEV 1
 #define IOCREMDEV 2
 
-#include <asm/uaccess.h>
-
 #include <linux/module.h>
 #include <linux/version.h>
-
-#include <linux/byteorder/generic.h>
-#include <linux/netdevice.h>
 #include <linux/inet.h>
-#include <linux/if_ether.h>
-#include <linux/ip.h>
 #include <linux/skbuff.h>
-#include <linux/icmp.h>
 #include <linux/kernel.h>
-#include <linux/mm.h>
-#include <linux/file.h>
-#include <linux/stat.h>
 #include <linux/fs.h>
-#include <linux/skbuff.h>
-
-#include <net/protocol.h>
 #include <net/pkt_sched.h>
 #include <net/udp.h>
-#include <net/ip.h>
-#include <net/sock.h>
-#include <asm-i386/checksum.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	#include <linux/devfs_fs_kernel.h>
@@ -65,8 +48,7 @@ static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
 
-static unsigned int i2a(char* dest,unsigned int x);
-static char *inet_ntoa_r(struct in_addr in,char* buf);
+static int send_vip(struct sk_buff *skb);
 
 
 static int Major;            /* Major number assigned to our device driver */
@@ -234,241 +216,65 @@ batgat_release(struct inode *inode, struct file *file)
 static int
 batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
 {
-	struct udphdr *r_uhdr,*s_uhdr;
-	
-	unsigned char *buffer, n_buff[5], *buf;
-	int len;
-	unsigned int tmp;
-	struct msghdr msg;
-	struct iovec iov;
-	mm_segment_t oldfs;
-	struct sockaddr_in to;
-	struct socket *clientsocket=NULL;
-	
-	struct ethhdr *eth = (struct ethhdr*)skb->mac.raw;
-	struct ethhdr *eh;
-	struct sk_buff *nskb;
-	struct iphdr *iph;
-	
-	unsigned short size;
-	int doff = 0;
-	int csum = 0;
-	int offset;
-	unsigned char dst_hw_addr[6];
+	struct udphdr *uhdr;
+	unsigned char *buffer;
 
 	if(skb->nh.iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
-		r_uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
-		if(ntohs(r_uhdr->source) == 1967) {
-			
-			printk("%02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x\n", eth->h_source[0],eth->h_source[1],eth->h_source[2],
-				eth->h_source[3],eth->h_source[4],eth->h_source[5],eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
-			
-			buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
-			tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
-			memcpy( &buffer[1], &tmp , sizeof(unsigned int));
-			buffer[0] = 1;
-			iph = skb->nh.iph;
-			skb->pkt_type = PACKET_OUTGOING;
-			tmp = skb->nh.iph->saddr;
-			iph->saddr = skb->nh.iph->daddr;
-			iph->daddr = tmp;
-			
-			size = skb->len - iph->ihl*4;
-			r_uhdr->len = htons(size);
-			
-			r_uhdr->check = 0;
-			r_uhdr->check = csum_tcpudp_magic(iph->saddr, iph->daddr,size, IPPROTO_UDP,csum_partial((char *)r_uhdr,size, 0));
-			if (!r_uhdr->check)
-				r_uhdr->check = CSUM_MANGLED_0;
-			
-			ip_send_check(iph);
+		uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
+		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
 
-			memcpy(dst_hw_addr, eth->h_source, 6);
-			if (skb->dev->hard_header)
-			skb->dev->hard_header(skb,skb->dev,ntohs(skb->protocol),dst_hw_addr,skb->dev->dev_addr,skb->len);
-			dev_queue_xmit(skb_clone(skb, GFP_ATOMIC));
-
-			/* attention !!!
-			nskb = dev_alloc_skb( sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(unsigned char) * 5 );
+		if(ntohs(uhdr->source) == 1967 && buffer[0] == 2) {
 			
-			if(nskb == NULL)
-				return -ENOMEM;
-			
-			tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
-			memcpy( n_buff, "a", 1);
-			memcpy( &n_buff[1], &tmp , sizeof(unsigned int));
-			
-			buf = (unsigned char*)skb_put(skb, 5);
-			memset(buf, 0, 5);
-			memcpy(buf, n_buff, 5);
-			s_uhdr = (struct udphdr*)skb_put(skb, sizeof(struct udphdr));
-			memset(s_uhdr, 0, sizeof(struct udphdr));
-			s_uhdr->source = r_uhdr->dest;
-			s_uhdr->dest = r_uhdr->source;
-			s_uhdr->len = sizeof(struct udphdr);
-			s_uhdr->check = 0;
-			
-			iph = (struct iphdr*)skb_put(skb, sizeof(struct iphdr));
-			memset(iph,0,sizeof(struct iphdr));
-			iph->daddr = skb->nh.iph->saddr;
-			iph->saddr = skb->nh.iph->daddr;
-			iph->protocol = skb->nh.iph->protocol;
-			iph->check = 0;
-			iph->ttl = 50;
-			iph->version = skb->nh.iph->version;
-			eh = (struct ethhdr*)skb_put(skb, sizeof(struct ethhdr));
-			memset(eh, 0, sizeof(struct ethhdr));
-			memcpy(eh->h_source, eth->h_dest, ETH_ALEN);
-			memcpy(eh->h_dest, eth->h_source, ETH_ALEN);
-			eh->h_proto = eth->h_proto;
-			nskb->dev = orig_dev;
-			
-			// kernel freeze !!
-			//nskb->head = eh;
-			//nskb->data = iph;
-			//nskb->tail = buf;
-			//nskb->end = buf + 5;
-			
-			nskb->mac.raw = nskb->nh.raw = nskb->data;
-			if( dev_queue_xmit(nskb) < 0 )
-				printk("Error xmit\n");
-			else
-				printk("xmit correct\n");
-			*/
-			
-			/* the socket version runs !
-			if( sock_create( PF_INET,SOCK_DGRAM,IPPROTO_UDP,&clientsocket)<0 ) {
-				printk( KERN_ERR "server: Error creating clientsocket.n" );
-				return -EIO;
-			}
-
-			to.sin_family = AF_INET;
-			to.sin_addr.s_addr = skb->nh.iph->saddr;  
-			to.sin_port = htons( (unsigned short) 1967 );
-			tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
-
-			msg.msg_name = &to;
-			msg.msg_namelen = sizeof(to);
-			memcpy( n_buff, "a", 1);
-			memcpy( &n_buff[1], &tmp , sizeof(unsigned int));
-			
-			iov.iov_base = n_buff;
-			iov.iov_len  = 10;
-			msg.msg_control = NULL;
-			msg.msg_controllen = 0;
-			msg.msg_iov    = &iov;
-			msg.msg_iovlen = 1;
-
-			oldfs = get_fs();
-			set_fs( KERNEL_DS );
-			len = sock_sendmsg( clientsocket, &msg, 10 );
-			set_fs( oldfs );
-			
-			if( len < 0 )
-				printk( KERN_ERR "sock_sendmsg returned: %d\n", len);
-			else
-				printk("sock send %d\n", len);
-
-			if( clientsocket )
-				sock_release( clientsocket );
-			return 0;
-			*/
-			
-			
-			
-			/* snippets don't uncomment */
-			// nskb = dev_alloc_skb( sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(int) * 2 );
-			
-			// if(nskb == NULL)
-			//	return -ENOMEM;
-			
-			//iphdr = (struct iphdr *)skb_put(nskb, sizeof(struct iphdr));
-			//s_uhdr = (struct udphdr *)skb_put(nskb, sizeof(struct udphdr));
-			//memset(iphdr, 0, sizeof(struct iphdr));
-			//memset(s_uhdr, 0, sizeof(struct udphdr));
-			
-			/*
-			s_uhdr = (struct udphdr *)(nskb->data + (nskb->nh.iph->ihl * 4));
-			nskb->nh.iph->daddr = skb->nh.iph->saddr;
-			nskb->nh.iph->saddr = skb->nh.iph->daddr;
-			s_uhdr->source = r_uhdr->dest;
-			s_uhdr->dest = r_uhdr->source;
-			
-			nskb->dev = orig_dev;
-			nskb->mac.raw = nskb->nh.raw = nskb->data;
-			if( dev_queue_xmit(nskb) < 0 )
-				printk("Error xmit\n");
-			else
-				printk("xmit correct\n");
-			*/
-		}
-	}
-/*
-
-	struct udphdr *net_hdr;
-	char tmp_ip[16];
-	struct in_addr in;
-	unsigned char *buffer;
-	unsigned int tmp;
-	unsigned int adr;
-
-	if(skb->nh.iph->protocol == IPPROTO_UDP) {
-
-		net_hdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
-		in.s_addr = skb->nh.iph->saddr;
-		inet_ntoa_r(in, tmp_ip);
-		// printk("%s %u %u\n", tmp_ip,ntohs(net_hdr->source),ntohs(net_hdr->dest) == 1967);
-		
-		if( (unsigned short)ntohs(net_hdr->source) == 1967 && skb->len == 128) {
-
-			buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
-			printk("%u %u %u\n", (unsigned int)skb->data_len, skb->len, (unsigned int)buffer[0]);
-			tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
-			memcpy( &buffer[1], &tmp, sizeof(unsigned int));
-			
-			adr = skb->nh.iph->daddr;
-			skb->nh.iph->daddr = skb->nh.iph->saddr;
-			skb->nh.iph->saddr = adr;
-			adr = net_hdr->source;
-			net_hdr->source = net_hdr->dest;
-			net_hdr->dest = adr;
-			skb->pkt_type = PACKET_OUTGOING;
-
-		} else if ( (unsigned short)ntohs(net_hdr->source) == 1966 ) {
-
-			//printk("%x\n",(unsigned int)skb->data[0]);
+			send_vip(skb);
 
 		}
 	}
-*/
 	kfree_skb(skb);
     return 0;
-
 }
 
-static unsigned int 
-i2a(char* dest,unsigned int x)
+/* helpers */
+
+static int
+send_vip(struct sk_buff *skb)
 {
-	register unsigned int tmp=x;
-	register unsigned int len=0;
-	if (x>=100) { *dest++=tmp/100+'0'; tmp=tmp%100; ++len; }
-	if (x>=10) { *dest++=tmp/10+'0'; tmp=tmp%10; ++len; }
-	*dest++=tmp+'0';
-	return len+1;
-}
+	unsigned char *buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
+	struct udphdr *uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
+	struct ethhdr *eth = (struct ethhdr*)skb->mac.raw;
+	unsigned int tmp,size;
+	unsigned char dst_hw_addr[6];
 
-static char 
-*inet_ntoa_r(struct in_addr in,char* buf)
-{
-	unsigned int len;
-	unsigned char *ip=(unsigned char*)&in;
-	len=i2a(buf,ip[0]); buf[len]='.'; ++len;
-	len+=i2a(buf+ len,ip[1]); buf[len]='.'; ++len;
-	len+=i2a(buf+ len,ip[2]); buf[len]='.'; ++len;
-	len+=i2a(buf+ len,ip[3]); buf[len]=0;
-	return buf;
+	
+	/* TODO: address handling */
+	tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
+	/* TODO: memset buffer */	
+	buffer[0] = 1;
+	memcpy( &buffer[1], &tmp , sizeof(unsigned int));
+	
+	skb->pkt_type = PACKET_OUTGOING;
+	/* replace source and destination address */
+	tmp = skb->nh.iph->saddr;
+	skb->nh.iph->saddr = skb->nh.iph->daddr;
+	skb->nh.iph->daddr = tmp;
+	
+	/* change checksum */
+	size = skb->len - skb->nh.iph->ihl*4;
+	uhdr->len = htons(size);
+	
+	uhdr->check = 0;
+	uhdr->check = csum_tcpudp_magic(skb->nh.iph->saddr, skb->nh.iph->daddr,size, IPPROTO_UDP,csum_partial((char *)uhdr,size, 0));
+	if (!uhdr->check)
+		uhdr->check = CSUM_MANGLED_0;
+	
+	ip_send_check(skb->nh.iph);
+	
+	/* replace mac address for destination */
+	memcpy(dst_hw_addr, eth->h_source, 6);
+	if (skb->dev->hard_header)
+		skb->dev->hard_header(skb,skb->dev,ntohs(skb->protocol),dst_hw_addr,skb->dev->dev_addr,skb->len);
+	dev_queue_xmit(skb_clone(skb, GFP_ATOMIC));
+	return 0;
 }
-
 
 MODULE_LICENSE("GPL");
 
