@@ -567,41 +567,101 @@ void generate_vis_packet() {
 
 	struct hash_it_t *hashit = NULL;
 	struct orig_node *orig_node;
+	struct vis_data *vis_data;
+	struct list_head *list_pos;
+	struct batman_if *batman_if;
+	struct hna_node *hna_node;
 
 
-	if ( vis_packet != NULL )
+	if ( vis_packet != NULL ) {
+
 		debugFree( vis_packet, 1102 );
+		vis_packet = NULL;
+		vis_packet_size = 0;
 
-	/* sender ip and gateway class */
-	vis_packet_size = 6;
+	}
+
+	vis_packet_size = sizeof(struct vis_packet);
 	vis_packet = debugMalloc( vis_packet_size, 104 );
 
-	memcpy( vis_packet, (unsigned char *)&(((struct batman_if *)if_list.next)->addr.sin_addr.s_addr), 4 );
-	vis_packet[4] = gateway_class;
-	vis_packet[5] = SEQ_RANGE;
+	memcpy( &((struct vis_packet *)vis_packet)->sender_ip, (unsigned char *)&(((struct batman_if *)if_list.next)->addr.sin_addr.s_addr), 4 );
 
+	((struct vis_packet *)vis_packet)->version = VIS_COMPAT_VERSION;
+	((struct vis_packet *)vis_packet)->gw_class = gateway_class;
+	((struct vis_packet *)vis_packet)->seq_range = SEQ_RANGE;
 
+	/* neighbor list */
 	while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
 
 		orig_node = hashit->bucket->data;
 
 		/* we interested in 1 hop neighbours only */
-		if ( ( orig_node->router != NULL ) && ( orig_node->orig == orig_node->router->addr ) ) {
+		if ( ( orig_node->router != NULL ) && ( orig_node->orig == orig_node->router->addr ) && ( orig_node->router->packet_count > 0 ) ) {
 
-			/* neighbour ip and packet count */
-			vis_packet_size += 5;
+			vis_packet_size += sizeof(struct vis_data);
 
 			vis_packet = debugRealloc( vis_packet, vis_packet_size, 105 );
 
-			memcpy( vis_packet + vis_packet_size - 5, (unsigned char *)&orig_node->orig, 4 );
+			vis_data = (struct vis_data *)(vis_packet + vis_packet_size - sizeof(struct vis_data));
 
-			vis_packet[vis_packet_size - 1] = orig_node->router->packet_count;
+			memcpy( &vis_data->ip, (unsigned char *)&orig_node->orig, 4 );
+
+			vis_data->data = orig_node->router->packet_count;
+			vis_data->type = DATA_TYPE_NEIGH;
 
 		}
 
 	}
 
-	if ( vis_packet_size == 6 ) {
+	/* secondary interfaces */
+	if ( found_ifs > 1 ) {
+
+		list_for_each( list_pos, &if_list ) {
+
+			batman_if = list_entry( list_pos, struct batman_if, list );
+
+			if ( ((struct vis_packet *)vis_packet)->sender_ip == batman_if->addr.sin_addr.s_addr )
+				continue;
+
+			vis_packet_size += sizeof(struct vis_data);
+
+			vis_packet = debugRealloc( vis_packet, vis_packet_size, 106 );
+
+			vis_data = (struct vis_data *)(vis_packet + vis_packet_size - sizeof(struct vis_data));
+
+			memcpy( &vis_data->ip, (unsigned char *)&batman_if->addr.sin_addr.s_addr, 4 );
+
+			vis_data->data = 0;
+			vis_data->type = DATA_TYPE_SEC_IF;
+
+		}
+
+	}
+
+	/* hna announcements */
+	if ( num_hna > 0 ) {
+
+		list_for_each( list_pos, &hna_list ) {
+
+			hna_node = list_entry( list_pos, struct hna_node, list );
+
+			vis_packet_size += sizeof(struct vis_data);
+
+			vis_packet = debugRealloc( vis_packet, vis_packet_size, 107 );
+
+			vis_data = (struct vis_data *)(vis_packet + vis_packet_size - sizeof(struct vis_data));
+
+			memcpy( &vis_data->ip, (unsigned char *)&hna_node->addr, 4 );
+
+			vis_data->data = hna_node->netmask;
+			vis_data->type = DATA_TYPE_HNA;
+
+		}
+
+	}
+
+
+	if ( vis_packet_size == sizeof(struct vis_packet) ) {
 
 		debugFree( vis_packet, 1107 );
 		vis_packet = NULL;
@@ -661,7 +721,7 @@ int8_t batman() {
 
 		list_for_each( hna_pos, &hna_list ) {
 
-			hna_node = list_entry(hna_pos, struct hna_node, list);
+			hna_node = list_entry( hna_pos, struct hna_node, list );
 
 			hna_buff = debugRealloc( hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 15 );
 

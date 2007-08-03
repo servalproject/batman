@@ -34,6 +34,7 @@
 #include "hash.h"
 #include "allocate.h"
 #include "profile.h"
+#include "vis-types.h"
 
 
 
@@ -45,6 +46,8 @@
 #define ADDR_STR_LEN 16
 
 #define UNIX_PATH "/var/run/batmand.socket"
+
+#define VIS_COMPAT_VERSION 20
 
 
 
