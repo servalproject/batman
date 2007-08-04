@@ -142,8 +142,6 @@ extern struct vis_if vis_if;
 extern struct unix_if unix_if;
 extern struct debug_clients debug_clients;
 
-extern char *gw2string[];
-
 
 struct bat_packet
 {
@@ -279,6 +277,8 @@ void verbose_usage( void );
 int is_batman_if( char *dev, struct batman_if **batman_if );
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
+void get_gw_speeds( unsigned char class, int *down, int *up );
+unsigned char get_gw_class( int down, int up );
 void choose_gw();
 
 

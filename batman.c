@@ -53,34 +53,9 @@ uint8_t debug_level_max = 4;
 #endif
 
 
-/* "-g" is the command line switch for the gateway class,
- * 0 no gateway
- * 1 modem
- * 2 ISDN
- * 3 Double ISDN
- * 3 256 KBit
- * 5 UMTS/ 0.5 MBit
- * 6 1 MBit
- * 7 2 MBit
- * 8 3 MBit
- * 9 5 MBit
- * 10 6 MBit
- * 11 >6 MBit
- * this option is used to determine packet path
+/*
+ * "-g" is the command line switch for the gateway class,
  */
-
-char *gw2string[] = { "No Gateway",
-                      "56 KBit (e.g. Modem)",
-                      "64 KBit (e.g. ISDN)",
-                      "128 KBit (e.g. double ISDN)",
-                      "256 KBit",
-                      "512 KBit (e.g. UMTS)",
-                      "1 MBit",
-                      "2 MBit",
-                      "3 MBit",
-                      "5 MBit",
-                      "6 MBit",
-                      ">6 MBit" };
 
 uint8_t gateway_class = 0;
 
@@ -161,19 +136,19 @@ void verbose_usage( void ) {
 	fprintf( stderr, "                           2 -> list gateways\n" );
 	fprintf( stderr, "                           3 -> observe batman\n" );
 	fprintf( stderr, "                           4 -> observe batman (very verbose)\n\n" );
+
+	if ( debug_level_max == 5  )
+		fprintf( stderr, "                           5 -> memory debug / cpu usage\n\n" );
+
 	fprintf( stderr, "       -g gateway class\n" );
 	fprintf( stderr, "          default:         0 -> this is not an internet gateway\n" );
-	fprintf( stderr, "          allowed values:  1 -> modem line\n" );
-	fprintf( stderr, "                           2 -> ISDN line\n" );
-	fprintf( stderr, "                           3 -> double ISDN\n" );
-	fprintf( stderr, "                           4 -> 256 KBit\n" );
-	fprintf( stderr, "                           5 -> UMTS / 0.5 MBit\n" );
-	fprintf( stderr, "                           6 -> 1 MBit\n" );
-	fprintf( stderr, "                           7 -> 2 MBit\n" );
-	fprintf( stderr, "                           8 -> 3 MBit\n" );
-	fprintf( stderr, "                           9 -> 5 MBit\n" );
-	fprintf( stderr, "                          10 -> 6 MBit\n" );
-	fprintf( stderr, "                          11 -> >6 MBit\n\n" );
+	fprintf( stderr, "          allowed values:  download speed/upload in kbit (default) or mbit\n" );
+	fprintf( stderr, "                           e.g. 5000\n" );
+	fprintf( stderr, "                                5000kbit\n" );
+	fprintf( stderr, "                                5mbit\n" );
+	fprintf( stderr, "                                5mbit/1024\n" );
+	fprintf( stderr, "                                5mbit/1024kbit\n" );
+	fprintf( stderr, "                                5mbit/1024mbit\n" );
 	fprintf( stderr, "       -h shorter help\n" );
 	fprintf( stderr, "       -H this help\n" );
 	fprintf( stderr, "       -o originator interval in ms\n" );
@@ -466,6 +441,7 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct gw_node *gw_node;
 	static char orig_str[ADDR_STR_LEN];
+	int download_speed, upload_speed;
 
 	list_for_each_safe( gw_pos, gw_pos_tmp, &gw_list ) {
 
@@ -498,7 +474,9 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 	}
 
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
-	debug_output( 3, "Found new gateway %s -> class: %i - %s\n", orig_str, new_gwflags, gw2string[new_gwflags] );
+	get_gw_speeds( new_gwflags, &download_speed, &upload_speed );
+
+	debug_output( 3, "Found new gateway %s -> class: %i - %i%s/%i%s\n", orig_str, new_gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ) );
 
 	gw_node = debugMalloc( sizeof(struct gw_node), 103 );
 	memset( gw_node, 0, sizeof(struct gw_node) );
@@ -513,6 +491,67 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 	prof_stop( PROF_update_gw_list );
 
 	choose_gw();
+
+}
+
+
+
+/* returns the up and downspeeds in kbit, calculated from the class */
+void get_gw_speeds( unsigned char class, int *down, int *up ) {
+
+	char sbit    = (class&0x80)>>7;
+	char dpart   = (class&0x7C)>>3;
+	char upart   = (class&0x07);
+
+	*down= 32*(sbit+2)*(1<<dpart);
+	*up=   ((upart+1)*(*down))/8;
+
+}
+
+
+/* calculates the gateway class from kbit */
+unsigned char get_gw_class( int down, int up ) {
+
+	int mdown = 0, tdown, tup, difference = 0x0FFFFFFF;
+	unsigned char class = 0, sbit, part;
+
+
+	/* test all downspeeds */
+	for ( sbit = 0; sbit < 2; sbit++ ) {
+
+		for ( part = 0; part < 16; part++ ) {
+
+			tdown = 32 * ( sbit + 2 ) * ( 1<<part );
+
+			if ( abs( tdown - down ) < difference ) {
+
+				class = ( sbit<<7 ) + ( part<<3 );
+				difference = abs( tdown - down );
+				mdown = tdown;
+
+			}
+
+		}
+
+	}
+
+	/* test all upspeeds */
+	difference = 0x0FFFFFFF;
+
+	for ( part = 0; part < 8; part++ ) {
+
+		tup = ( ( part+1 ) * ( mdown ) ) / 8;
+
+		if ( abs( tup - up ) < difference ) {
+
+			class = ( class&0xF8 ) | part;
+			difference = abs( tup - up );
+
+		}
+
+	}
+
+	return class;
 
 }
 

@@ -48,7 +48,7 @@ int my_daemon() {
 	switch( fork() ) {
 
 		case -1:
-			return(-1);
+			return -1;
 
 		case 0:
 			break;
@@ -78,7 +78,7 @@ int my_daemon() {
 
 	}
 
-	return(0);
+	return 0;
 
 }
 
@@ -94,7 +94,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	uint16_t netmask;
 	int8_t res;
 
-	int32_t optchar, recv_buff_len, bytes_written;
+	int32_t optchar, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
 	uint32_t vis_server = 0;
 
@@ -120,7 +120,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				*slash_ptr = '\0';
 
-				if ( inet_pton(AF_INET, optarg, &tmp_ip_holder) < 1 ) {
+				if ( inet_pton( AF_INET, optarg, &tmp_ip_holder ) < 1 ) {
 
 					*slash_ptr = '/';
 					printf( "Invalid announced network (IP is invalid): %s\n", optarg );
@@ -129,7 +129,8 @@ void apply_init_args( int argc, char *argv[] ) {
 				}
 
 				errno = 0;
-				netmask = strtol(slash_ptr + 1, NULL , 10);
+
+				netmask = strtol( slash_ptr + 1, NULL, 10 );
 
 				if ( ( errno == ERANGE ) || ( errno != 0 && netmask == 0 ) ) {
 					perror("strtol");
@@ -168,7 +169,8 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'd':
 
 				errno = 0;
-				debug_level = strtol (optarg, NULL , 10);
+
+				debug_level = strtol( optarg, NULL, 10 );
 
 				if ( ( errno == ERANGE ) || ( errno != 0 && debug_level == 0 ) ) {
 					perror("strtol");
@@ -185,17 +187,37 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'g':
 
-				errno = 0;
-				gateway_class = strtol(optarg, NULL , 10);
+				if ( ( slash_ptr = strchr( optarg, '/' ) ) != NULL )
+					*slash_ptr = '\0';
 
-				if ( ( errno == ERANGE ) || ( errno != 0 && gateway_class == 0 ) ) {
+				errno = 0;
+
+				download_speed = strtol( optarg, NULL, 10 );
+
+				if ( ( errno == ERANGE ) || ( errno != 0 && download_speed == 0 ) ) {
 					perror("strtol");
 					exit(EXIT_FAILURE);
 				}
 
-				if ( gateway_class > 11 ) {
-					printf( "Invalid gateway class specified: %i.\nThe class is a value between 0 and 11.\n", gateway_class );
-					exit(EXIT_FAILURE);
+				if ( ( strlen( optarg ) > 4 ) && ( ( strncmp( optarg + strlen( optarg ) - 4, "MBit", 4 ) == 0 ) || ( strncmp( optarg + strlen( optarg ) - 4, "mbit", 4 ) == 0 ) || ( strncmp( optarg + strlen( optarg ) - 4, "Mbit", 4 ) == 0 ) ) )
+					download_speed *= 1024;
+
+				if ( slash_ptr != NULL ) {
+
+					errno = 0;
+
+					upload_speed = strtol( slash_ptr + 1, NULL, 10 );
+
+					if ( ( errno == ERANGE ) || ( errno != 0 && upload_speed == 0 ) ) {
+						perror("strtol");
+						exit(EXIT_FAILURE);
+					}
+
+					if ( ( strlen( slash_ptr + 1 ) > 4 ) && ( ( strncmp( slash_ptr + 1 + strlen( slash_ptr + 1 ) - 4, "MBit", 4 ) == 0 ) || ( strncmp( slash_ptr + 1 + strlen( slash_ptr + 1 ) - 4, "mbit", 4 ) == 0 ) || ( strncmp( slash_ptr + 1 + strlen( slash_ptr + 1 ) - 4, "Mbit", 4 ) == 0 ) ) )
+						upload_speed *= 1024;
+
+					*slash_ptr = '/';
+
 				}
 
 				found_args += 2;
@@ -208,7 +230,8 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'o':
 
 				errno = 0;
-				originator_interval = strtol (optarg, NULL , 10);
+
+				originator_interval = strtol( optarg, NULL, 10 );
 
 				if ( originator_interval < 1 ) {
 
@@ -223,7 +246,8 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'p':
 
 				errno = 0;
-				if ( inet_pton(AF_INET, optarg, &tmp_ip_holder) < 1 ) {
+
+				if ( inet_pton( AF_INET, optarg, &tmp_ip_holder ) < 1 ) {
 
 					printf( "Invalid preferred gateway IP specified: %s\n", optarg );
 					exit(EXIT_FAILURE);
@@ -238,7 +262,8 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'r':
 
 				errno = 0;
-				routing_class = strtol (optarg, NULL , 10);
+
+				routing_class = strtol( optarg, NULL, 10 );
 
 				if ( routing_class > 3 ) {
 
@@ -253,7 +278,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 's':
 
 				errno = 0;
-				if ( inet_pton(AF_INET, optarg, &tmp_ip_holder) < 1 ) {
+				if ( inet_pton( AF_INET, optarg, &tmp_ip_holder ) < 1 ) {
 
 					printf( "Invalid preferred visualation server IP specified: %s\n", optarg );
 					exit(EXIT_FAILURE);
@@ -286,6 +311,16 @@ void apply_init_args( int argc, char *argv[] ) {
 				exit(EXIT_SUCCESS);
 
 		}
+
+	}
+
+	if ( ( download_speed > 0 ) && ( upload_speed == 0 ) )
+		upload_speed = download_speed / 5;
+
+	if ( download_speed > 0 ) {
+
+		gateway_class = get_gw_class( download_speed, upload_speed );
+		get_gw_speeds( gateway_class, &download_speed, &upload_speed );
 
 	}
 
@@ -407,11 +442,8 @@ void apply_init_args( int argc, char *argv[] ) {
 			if ( debug_level > 0 )
 				printf( "Using interface %s with address %s and broadcast address %s\n", batman_if->dev, str1, str2 );
 
-			if ( gateway_class != 0 ) {
-
+			if ( gateway_class != 0 )
 				init_interface_gw( batman_if );
-
-			}
 
 			found_ifs++;
 			found_args++;
@@ -472,7 +504,7 @@ void apply_init_args( int argc, char *argv[] ) {
 				printf( "originator interval: %i\n", originator_interval );
 
 			if ( gateway_class > 0 )
-				printf( "gateway class: %i\n", gateway_class );
+				printf( "gateway class: %i -> propagating: %i%s/%i%s\n", gateway_class, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ) );
 
 			if ( routing_class > 0 )
 				printf( "routing class: %i\n", routing_class );

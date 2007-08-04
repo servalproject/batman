@@ -365,6 +365,7 @@ void debug_orig() {
 	struct gw_node *gw_node;
 	uint16_t batman_count = 0;
 	uint32_t uptime_sec;
+	int download_speed, upload_speed;
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN];
 
 
@@ -390,11 +391,9 @@ void debug_orig() {
 				addr_to_string( gw_node->orig_node->orig, str, sizeof (str) );
 				addr_to_string( gw_node->orig_node->router->addr, str2, sizeof (str2) );
 
-				if ( curr_gateway == gw_node ) {
-					debug_output( 2, "=> %-15s %''15s (%3i), gw_class %2i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
-				} else {
-					debug_output( 2, "   %-15s %''15s (%3i), gw_class %2i - %s, reliability: %i \n", str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, gw2string[gw_node->orig_node->gwflags], gw_node->unavail_factor );
-				}
+				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
+
+				debug_output( 2, "%s %-15s %''15s (%3i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
