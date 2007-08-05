@@ -349,7 +349,7 @@ int8_t send_raw_packet( unsigned char *packet_buff, int32_t packet_buff_len, str
 
 	( ( struct udphdr *) (packet_buff + sizeof(struct iphdr) ) )->len = htons( (u_short) (packet_buff_len - ( sizeof(struct iphdr) ) ) );
 
-	
+
 	if ( write( batman_if->udp_send_sock, packet_buff, packet_buff_len ) < 0 ) {
 
 		if ( errno == 1 ) {
@@ -408,6 +408,9 @@ void restore_defaults() {
 		debugFree( if_pos, 1214 );
 
 	}
+
+	/* delete rule for hna networks */
+	add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_DEFAULT - 1, 0, 1, 1 );
 
 	if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 		del_default_route();

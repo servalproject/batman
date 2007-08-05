@@ -450,6 +450,9 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
+		/* add rule for hna networks */
+		add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_DEFAULT - 1, 0, 1, 0 );
+
 		if ( routing_class > 0 ) {
 
 			if ( add_del_interface_rules( 0 ) < 0 ) {
