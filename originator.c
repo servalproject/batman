@@ -458,9 +458,6 @@ void debug_orig() {
 
 				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i)", str, neigh_node->packet_count );
 
-				/*debug_output( 1, " %''15s (%3i)", str, neigh_node->packet_count );
-				debug_output( 4, "\t\t%''15s (%3i) \n", str, neigh_node->packet_count );*/
-
 				if ( debug_out_size + 30 > sizeof(debug_out_str) - 1 ) {
 
 					debug_output( 1, "%s \n", debug_out_str );
@@ -474,8 +471,6 @@ void debug_orig() {
 
 			debug_output( 1, "%s \n", debug_out_str );
 			debug_output( 4, "%s \n", debug_out_str );
-
-			/*debug_output( 1, " \n" );*/
 
 		}
 

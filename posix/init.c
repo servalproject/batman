@@ -90,6 +90,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
+	struct list_head *list_pos;
 	uint8_t found_args = 1, batch_mode = 0;
 	uint16_t netmask;
 	int8_t res;
@@ -391,6 +392,57 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
+
+		FD_ZERO( &receive_wait_set );
+
+		while ( argc > found_args ) {
+
+			batman_if = debugMalloc( sizeof(struct batman_if), 206 );
+			memset( batman_if, 0, sizeof(struct batman_if) );
+			INIT_LIST_HEAD( &batman_if->list );
+
+			batman_if->dev = argv[found_args];
+			batman_if->if_num = found_ifs;
+
+			list_add_tail( &batman_if->list, &if_list );
+
+			init_interface ( batman_if );
+
+			if ( batman_if->udp_recv_sock > receive_max_sock )
+				receive_max_sock = batman_if->udp_recv_sock;
+
+			FD_SET( batman_if->udp_recv_sock, &receive_wait_set );
+
+			addr_to_string( batman_if->addr.sin_addr.s_addr, str1, sizeof (str1) );
+			addr_to_string( batman_if->broad.sin_addr.s_addr, str2, sizeof (str2) );
+
+			printf( "Using interface %s with address %s and broadcast address %s\n", batman_if->dev, str1, str2 );
+
+			found_ifs++;
+			found_args++;
+
+		}
+
+
+		unlink( UNIX_PATH );
+		unix_if.unix_sock = socket( AF_LOCAL, SOCK_STREAM, 0 );
+
+		memset( &unix_if.addr, 0, sizeof(struct sockaddr_un) );
+		unix_if.addr.sun_family = AF_LOCAL;
+		strcpy( unix_if.addr.sun_path, UNIX_PATH );
+
+		if ( bind ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof (struct sockaddr_un) ) < 0 ) {
+			printf( "Error - can't bind unix socket (%s): %s\n", UNIX_PATH, strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+		}
+
+		if ( listen( unix_if.unix_sock, 10 ) < 0 ) {
+			printf( "Error - can't listen unix socket (%s): %s\n", UNIX_PATH, strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+		}
+
 		/* daemonize */
 		if ( debug_level == 0 ) {
 
@@ -416,39 +468,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		FD_ZERO( &receive_wait_set );
-
-		while ( argc > found_args ) {
-
-			batman_if = debugMalloc( sizeof(struct batman_if), 206 );
-			memset( batman_if, 0, sizeof(struct batman_if) );
-			INIT_LIST_HEAD( &batman_if->list );
-
-			batman_if->dev = argv[found_args];
-			batman_if->if_num = found_ifs;
-
-			list_add_tail( &batman_if->list, &if_list );
-
-			init_interface ( batman_if );
-
-			if ( batman_if->udp_recv_sock > receive_max_sock )
-				receive_max_sock = batman_if->udp_recv_sock;
-
-			FD_SET( batman_if->udp_recv_sock, &receive_wait_set );
-
-			addr_to_string(batman_if->addr.sin_addr.s_addr, str1, sizeof (str1));
-			addr_to_string(batman_if->broad.sin_addr.s_addr, str2, sizeof (str2));
-
-			if ( debug_level > 0 )
-				printf( "Using interface %s with address %s and broadcast address %s\n", batman_if->dev, str1, str2 );
-
-			if ( gateway_class != 0 )
-				init_interface_gw( batman_if );
-
-			found_ifs++;
-			found_args++;
-
-		}
+		pthread_create( &unix_if.listen_thread_id, NULL, &unix_listen, NULL );
 
 		/* add rule for hna networks */
 		add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_DEFAULT - 1, 0, 1, 0 );
@@ -464,39 +484,28 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		if(vis_server)
-		{
-			memset(&vis_if.addr, 0, sizeof(vis_if.addr));
+		memset( &vis_if, 0, sizeof(vis_if) );
+
+		if ( vis_server ) {
+
 			vis_if.addr.sin_family = AF_INET;
-			vis_if.addr.sin_port = htons(1968);
+			vis_if.addr.sin_port = htons(PORT + 2);
 			vis_if.addr.sin_addr.s_addr = vis_server;
-			vis_if.sock = socket( PF_INET, SOCK_DGRAM, 0);
-			/*vis_if.sock = ((struct batman_if *)if_list.next)->udp_send_sock;*/
-		} else {
-			memset(&vis_if, 0, sizeof(vis_if));
+			vis_if.sock = socket( PF_INET, SOCK_DGRAM, 0 );
+
 		}
 
+		if ( gateway_class != 0 ) {
 
-		unlink( UNIX_PATH );
-		unix_if.unix_sock = socket( AF_LOCAL, SOCK_STREAM, 0 );
+			list_for_each( list_pos, &if_list ) {
 
-		memset( &unix_if.addr, 0, sizeof(struct sockaddr_un) );
-		unix_if.addr.sun_family = AF_LOCAL;
-		strcpy( unix_if.addr.sun_path, UNIX_PATH );
+				batman_if = list_entry( list_pos, struct batman_if, list );
 
-		if ( bind ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof (struct sockaddr_un) ) < 0 ) {
-			debug_output( 0, "Error - can't bind unix socket: %s\n", strerror(errno) );
-			restore_defaults();
-			exit(EXIT_FAILURE);
+				init_interface_gw( batman_if );
+
+			}
+
 		}
-
-		if ( listen( unix_if.unix_sock, 10 ) < 0 ) {
-			debug_output( 0, "Error - can't listen unix socket: %s\n", strerror(errno) );
-			restore_defaults();
-			exit(EXIT_FAILURE);
-		}
-
-		pthread_create( &unix_if.listen_thread_id, NULL, &unix_listen, NULL );
 
 
 		if ( debug_level > 0 ) {
@@ -631,7 +640,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 
 	if ( strlen( batman_if->dev ) > IFNAMSIZ - 1 ) {
-		debug_output( 0, "Error - interface name too long: %s\n", batman_if->dev );
+		printf( "Error - interface name too long: %s\n", batman_if->dev );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 	}
@@ -639,7 +648,7 @@ void init_interface ( struct batman_if *batman_if ) {
 	batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 	if ( batman_if->udp_recv_sock < 0 ) {
 
-		debug_output( 0, "Error - can't create receive socket: %s", strerror(errno) );
+		printf( "Error - can't create receive socket: %s", strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -650,7 +659,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFADDR, &int_req ) < 0 ) {
 
-		debug_output( 0, "Error - can't get IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		printf( "Error - can't get IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -662,7 +671,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
 
-		debug_output( 0, "Error - can't get broadcast IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		printf( "Error - can't get broadcast IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -674,7 +683,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( batman_if->broad.sin_addr.s_addr == 0 ) {
 
-		debug_output( 0, "Error - invalid broadcast address detected (0.0.0.0): %s\n", batman_if->dev );
+		printf( "Error - invalid broadcast address detected (0.0.0.0): %s\n", batman_if->dev );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -682,7 +691,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFINDEX, &int_req ) < 0 ) {
 
-		debug_output( 0, "Error - can't get index of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		printf( "Error - can't get index of interface %s: %s\n", batman_if->dev, strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -692,7 +701,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFNETMASK, &int_req ) < 0 ) {
 
-		debug_output( 0, "Error - can't get netmask address of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		printf( "Error - can't get netmask address of interface %s: %s\n", batman_if->dev, strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 
@@ -708,7 +717,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 		if ( ( batman_if->udp_send_sock = socket( AF_INET, SOCK_RAW, IPPROTO_RAW ) ) < 0 ) {
 
-			debug_output( 0, "Error - can't create send socket: %s", strerror(errno) );
+			printf( "Error - can't create send socket: %s", strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
 
@@ -716,7 +725,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 		if ( setsockopt( batman_if->udp_send_sock, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on) ) < 0 ) {
 
-			debug_output( 0, "Error - can't set IP_HDRINCL option on send socket: %s", strerror(errno) );
+			printf( "Error - can't set IP_HDRINCL option on send socket: %s", strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
 
@@ -724,7 +733,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 		if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int) ) < 0 ) {
 
-			debug_output( 0, "Error - can't enable broadcasts: %s\n", strerror(errno) );
+			printf( "Error - can't enable broadcasts: %s\n", strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
 
@@ -739,7 +748,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 		if ( connect( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->broad, sizeof(struct sockaddr_in) ) < 0 ) {
 
-			debug_output( 0, "Error - can't bind send socket: %s\n", strerror(errno) );
+			printf( "Error - can't bind send socket: %s\n", strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
 
@@ -756,7 +765,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( bind( batman_if->udp_recv_sock, (struct sockaddr *)&batman_if->broad, sizeof(struct sockaddr_in) ) < 0 ) {
 
-		debug_output( 0, "Error - can't bind receive socket: %s\n", strerror(errno) );
+		printf( "Error - can't bind receive socket: %s\n", strerror(errno) );
 		restore_defaults();
 		exit(EXIT_FAILURE);
 

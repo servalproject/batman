@@ -173,7 +173,7 @@ int8_t bind_to_iface( int32_t sock, char *dev ) {
 
 	if ( setsockopt( sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen( dev ) + 1 ) < 0 ) {
 
-		debug_output( 0, "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
+		printf( "Cannot bind socket to device %s : %s \n", dev, strerror(errno) );
 
 		if ( colon_ptr != NULL )
 			*colon_ptr = ':';
@@ -202,7 +202,7 @@ int8_t use_kernel_module( char *dev ) {
 
 	if ( ( sock = open( "/dev/batman", O_WRONLY ) ) < 0 ) {
 
-		debug_output( 0, "Warning - batman kernel modul interface (/dev/batman) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
+		printf( "Warning - batman kernel modul interface (/dev/batman) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
 
 		if ( colon_ptr != NULL )
 			*colon_ptr = ':';
@@ -213,7 +213,7 @@ int8_t use_kernel_module( char *dev ) {
 
 	if ( ( fd = ioctl( sock, IOCGETNWDEV, dummy ) ) < 0 ) {
 
-		debug_output( 0, "Warning - can't get batman interface from kernel module: %s\n", strerror(errno) );
+		printf( "Warning - can't get batman interface from kernel module: %s\n", strerror(errno) );
 
 		if ( colon_ptr != NULL )
 			*colon_ptr = ':';
@@ -225,7 +225,7 @@ int8_t use_kernel_module( char *dev ) {
 
 	if ( ioctl( fd, strlen( dev ) + 1, dev ) < 0 ) {
 
-		debug_output( 0, "Warning - can't bind batman kernel interface: %s\n", strerror(errno) );
+		printf( "Warning - can't bind batman kernel interface: %s\n", strerror(errno) );
 
 		if ( colon_ptr != NULL )
 			*colon_ptr = ':';
