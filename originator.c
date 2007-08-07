@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "os.h"
 #include "batman.h"
 
@@ -365,8 +366,8 @@ void debug_orig() {
 	struct gw_node *gw_node;
 	uint16_t batman_count = 0;
 	uint32_t uptime_sec;
-	int download_speed, upload_speed;
-	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN];
+	int download_speed, upload_speed, debug_out_size;
+	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN], debug_out_str[1001];
 
 
 	if ( debug_clients.clients_num[1] > 0 ) {
@@ -447,17 +448,34 @@ void debug_orig() {
 			debug_output( 1, "%-15s %''15s (%3i):", str, str2, orig_node->router->packet_count );
 			debug_output( 4, "%''15s %''15s (%3i), last_valid: %u: \n", str, str2, orig_node->router->packet_count, orig_node->last_valid );
 
+			debug_out_size = 0;
+
 			list_for_each( neigh_pos, &orig_node->neigh_list ) {
+
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
 				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
-				debug_output( 1, " %''15s (%3i)", str, neigh_node->packet_count );
-				debug_output( 4, "\t\t%''15s (%3i) \n", str, neigh_node->packet_count );
+				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i)", str, neigh_node->packet_count );
+
+				/*debug_output( 1, " %''15s (%3i)", str, neigh_node->packet_count );
+				debug_output( 4, "\t\t%''15s (%3i) \n", str, neigh_node->packet_count );*/
+
+				if ( debug_out_size + 30 > sizeof(debug_out_str) - 1 ) {
+
+					debug_output( 1, "%s \n", debug_out_str );
+					debug_output( 4, "%s \n", debug_out_str );
+
+					debug_out_size = 0;
+
+				}
 
 			}
 
-			debug_output( 1, " \n" );
+			debug_output( 1, "%s \n", debug_out_str );
+			debug_output( 4, "%s \n", debug_out_str );
+
+			/*debug_output( 1, " \n" );*/
 
 		}
 

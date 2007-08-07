@@ -143,6 +143,8 @@ void verbose_usage( void ) {
 	fprintf( stderr, "       -g gateway class\n" );
 	fprintf( stderr, "          default:         0 -> this is not an internet gateway\n" );
 	fprintf( stderr, "          allowed values:  download speed/upload in kbit (default) or mbit\n" );
+	fprintf( stderr, "          note:            batmand will choose the nearest gateway class representing your speeds\n" );
+	fprintf( stderr, "                           and therefore accepts all given values\n" );
 	fprintf( stderr, "                           e.g. 5000\n" );
 	fprintf( stderr, "                                5000kbit\n" );
 	fprintf( stderr, "                                5mbit\n" );
