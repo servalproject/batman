@@ -410,7 +410,7 @@ void *gw_listen( void *arg ) {
 
 	max_sock = ( batman_if->udp_tunnel_sock > tun_fd ? batman_if->udp_tunnel_sock : tun_fd );
 
-	while ( !is_aborted() ) {
+	while ( ( !is_aborted() ) && ( gateway_class > 0 ) ) {
 
 		tv.tv_sec = 0;
 		tv.tv_usec = 250;
@@ -570,6 +570,7 @@ void *gw_listen( void *arg ) {
 
 	}
 
+	close( batman_if->udp_tunnel_sock );
 
 	return NULL;
 

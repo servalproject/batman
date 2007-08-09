@@ -111,6 +111,7 @@
 
 
 
+extern char *prog_name;
 extern uint8_t debug_level;
 extern uint8_t debug_level_max;
 extern uint8_t gateway_class;

@@ -53,6 +53,9 @@ uint8_t debug_level_max = 4;
 #endif
 
 
+char *prog_name;
+
+
 /*
  * "-g" is the command line switch for the gateway class,
  */
@@ -726,7 +729,7 @@ void send_vis_packet() {
 
 int8_t batman() {
 
-	struct list_head *if_pos, *neigh_pos, *hna_pos, *hna_pos_tmp, *forw_pos, *forw_pos_tmp;
+	struct list_head *list_pos, *hna_pos_tmp, *forw_pos_tmp;
 	struct orig_node *orig_neigh_node, *orig_node;
 	struct batman_if *batman_if, *if_incoming;
 	struct neigh_node *neigh_node;
@@ -759,9 +762,9 @@ int8_t batman() {
 
 	if ( !( list_empty( &hna_list ) ) ) {
 
-		list_for_each( hna_pos, &hna_list ) {
+		list_for_each( list_pos, &hna_list ) {
 
-			hna_node = list_entry( hna_pos, struct hna_node, list );
+			hna_node = list_entry( list_pos, struct hna_node, list );
 
 			hna_buff = debugRealloc( hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 15 );
 
@@ -774,9 +777,9 @@ int8_t batman() {
 
 	}
 
-	list_for_each( if_pos, &if_list ) {
+	list_for_each( list_pos, &if_list ) {
 
-		batman_if = list_entry( if_pos, struct batman_if, list );
+		batman_if = list_entry( list_pos, struct batman_if, list );
 
 		batman_if->out.ip.version = 4;
 		batman_if->out.ip.ihl = 5;
@@ -856,9 +859,9 @@ int8_t batman() {
 			hna_buff_len -= sizeof(struct bat_packet);
 			hna_recv_buff = ( hna_buff_len > 4 ? in + sizeof(struct orig_packet) : NULL );
 
-			list_for_each( if_pos, &if_list ) {
+			list_for_each( list_pos, &if_list ) {
 
-				batman_if = list_entry(if_pos, struct batman_if, list);
+				batman_if = list_entry( list_pos, struct batman_if, list );
 
 				if ( neigh == batman_if->addr.sin_addr.s_addr )
 					is_my_addr = 1;
@@ -994,9 +997,9 @@ int8_t batman() {
 
 							} else { /* is_bntog anyway */
 
-								list_for_each( neigh_pos, &orig_node->neigh_list ) {
+								list_for_each( list_pos, &orig_node->neigh_list ) {
 
-									neigh_node = list_entry(neigh_pos, struct neigh_node, list);
+									neigh_node = list_entry( list_pos, struct neigh_node, list );
 
 									if ( ( neigh_node->addr == neigh ) && ( neigh_node->if_incoming == if_incoming ) ) {
 
@@ -1085,9 +1088,9 @@ int8_t batman() {
 	hash_destroy( orig_hash );
 
 
-	list_for_each_safe( hna_pos, hna_pos_tmp, &hna_list ) {
+	list_for_each_safe( list_pos, hna_pos_tmp, &hna_list ) {
 
-		hna_node = list_entry(hna_pos, struct hna_node, list);
+		hna_node = list_entry( list_pos, struct hna_node, list );
 
 		debugFree( hna_node, 1103 );
 
@@ -1097,11 +1100,11 @@ int8_t batman() {
 		debugFree( hna_buff, 1104 );
 
 
-	list_for_each_safe( forw_pos, forw_pos_tmp, &forw_list ) {
+	list_for_each_safe( list_pos, forw_pos_tmp, &forw_list ) {
 
-		forw_node = list_entry( forw_pos, struct forw_node, list );
+		forw_node = list_entry( list_pos, struct forw_node, list );
 
-		list_del( (struct list_head *)&forw_list, forw_pos, &forw_list );
+		list_del( (struct list_head *)&forw_list, list_pos, &forw_list );
 
 		debugFree( forw_node->pack_buff, 1105 );
 		debugFree( forw_node, 1106 );
@@ -1113,9 +1116,9 @@ int8_t batman() {
 
 	set_forwarding( forward_old );
 
-	list_for_each( if_pos, &if_list ) {
+	list_for_each( list_pos, &if_list ) {
 
-		batman_if = list_entry(if_pos, struct batman_if, list);
+		batman_if = list_entry( list_pos, struct batman_if, list );
 
 		set_rp_filter( batman_if->if_rp_filter_old , batman_if->dev );
 		set_send_redirects( batman_if->if_send_redirects_old , batman_if->dev );

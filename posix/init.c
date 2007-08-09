@@ -97,11 +97,13 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	int32_t optchar, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
+	char routing_class_opt = 0, gateway_class_opt = 0;
 	uint32_t vis_server = 0;
 
 
 	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
 	stop = 0;
+	prog_name = argv[0];
 
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
@@ -134,8 +136,10 @@ void apply_init_args( int argc, char *argv[] ) {
 				netmask = strtol( slash_ptr + 1, NULL, 10 );
 
 				if ( ( errno == ERANGE ) || ( errno != 0 && netmask == 0 ) ) {
+
 					perror("strtol");
 					exit(EXIT_FAILURE);
+
 				}
 
 				if ( netmask < 1 || netmask > 32 ) {
@@ -174,13 +178,17 @@ void apply_init_args( int argc, char *argv[] ) {
 				debug_level = strtol( optarg, NULL, 10 );
 
 				if ( ( errno == ERANGE ) || ( errno != 0 && debug_level == 0 ) ) {
+
 					perror("strtol");
 					exit(EXIT_FAILURE);
+
 				}
 
 				if ( debug_level > debug_level_max ) {
+
 					printf( "Invalid debug level: %i\nDebug level has to be between 0 and %i.\n", debug_level, debug_level_max );
 					exit(EXIT_FAILURE);
+
 				}
 
 				found_args += 2;
@@ -196,8 +204,10 @@ void apply_init_args( int argc, char *argv[] ) {
 				download_speed = strtol( optarg, NULL, 10 );
 
 				if ( ( errno == ERANGE ) || ( errno != 0 && download_speed == 0 ) ) {
+
 					perror("strtol");
 					exit(EXIT_FAILURE);
+
 				}
 
 				if ( ( strlen( optarg ) > 4 ) && ( ( strncmp( optarg + strlen( optarg ) - 4, "MBit", 4 ) == 0 ) || ( strncmp( optarg + strlen( optarg ) - 4, "mbit", 4 ) == 0 ) || ( strncmp( optarg + strlen( optarg ) - 4, "Mbit", 4 ) == 0 ) ) )
@@ -220,6 +230,8 @@ void apply_init_args( int argc, char *argv[] ) {
 					*slash_ptr = '/';
 
 				}
+
+				gateway_class_opt = 1;
 
 				found_args += 2;
 				break;
@@ -272,6 +284,8 @@ void apply_init_args( int argc, char *argv[] ) {
 					exit(EXIT_FAILURE);
 
 				}
+
+				routing_class_opt = 1;
 
 				found_args += 2;
 				break;
@@ -432,15 +446,19 @@ void apply_init_args( int argc, char *argv[] ) {
 		strcpy( unix_if.addr.sun_path, UNIX_PATH );
 
 		if ( bind ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof (struct sockaddr_un) ) < 0 ) {
-			printf( "Error - can't bind unix socket (%s): %s\n", UNIX_PATH, strerror(errno) );
+
+			printf( "Error - can't bind unix socket '%s': %s\n", UNIX_PATH, strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
+
 		}
 
 		if ( listen( unix_if.unix_sock, 10 ) < 0 ) {
-			printf( "Error - can't listen unix socket (%s): %s\n", UNIX_PATH, strerror(errno) );
+
+			printf( "Error - can't listen unix socket '%s': %s\n", UNIX_PATH, strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
+
 		}
 
 		/* daemonize */
@@ -522,12 +540,12 @@ void apply_init_args( int argc, char *argv[] ) {
 				printf( "routing class: %i\n", routing_class );
 
 			if ( pref_gateway > 0 ) {
-				addr_to_string(pref_gateway, str1, sizeof (str1));
+				addr_to_string( pref_gateway, str1, sizeof(str1) );
 				printf( "preferred gateway: %s\n", str1 );
 			}
 
 			if ( vis_server > 0 ) {
-				addr_to_string(vis_server, str1, sizeof (str1));
+				addr_to_string( vis_server, str1, sizeof(str1) );
 				printf( "visualisation server: %s\n", str1 );
 			}
 
@@ -536,92 +554,118 @@ void apply_init_args( int argc, char *argv[] ) {
 	/* connect to running batmand via unix socket */
 	} else {
 
-		if ( ( debug_level > 0 ) && ( debug_level <= debug_level_max ) ) {
+		unix_if.unix_sock = socket( AF_LOCAL, SOCK_STREAM, 0 );
 
-			if ( ( debug_level > 2 ) && ( batch_mode ) )
-				printf( "WARNING: Your chosen debug level (%i) does not support batch mode !\n", debug_level );
+		memset( &unix_if.addr, 0, sizeof(struct sockaddr_un) );
+		unix_if.addr.sun_family = AF_LOCAL;
+		strcpy( unix_if.addr.sun_path, UNIX_PATH );
 
-			unix_if.unix_sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+		if ( connect ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof(struct sockaddr_un) ) < 0 ) {
 
-			memset( &unix_if.addr, 0, sizeof(struct sockaddr_un) );
-			unix_if.addr.sun_family = AF_LOCAL;
-			strcpy( unix_if.addr.sun_path, UNIX_PATH );
+			printf( "Error - can't connect to unix socket '%s': %s ! Is batmand running on this host ?\n", UNIX_PATH, strerror(errno) );
+			close( unix_if.unix_sock );
+			exit(EXIT_FAILURE);
 
-			if ( connect ( unix_if.unix_sock, (struct sockaddr *)&unix_if.addr, sizeof(struct sockaddr_un) ) < 0 ) {
+		}
 
-				printf( "Error - can't connect to unix socket '%s': %s ! Is batmand running on this host ?\n", UNIX_PATH, strerror(errno) );
-				close( unix_if.unix_sock );
-				exit(EXIT_FAILURE);
+		unix_buff = debugMalloc( 1501, 5001 );
 
-			}
+		if ( debug_level > 0 ) {
 
-			unix_buff = debugMalloc( 1501, 5001 );
-			snprintf( unix_buff, 10, "d:%i", debug_level );
+			if ( debug_level <= debug_level_max ) {
 
-			if ( write( unix_if.unix_sock, unix_buff, 10 ) < 0 ) {
+				snprintf( unix_buff, 10, "d:%c", debug_level );
 
-				printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
-				close( unix_if.unix_sock );
-				debugFree( unix_buff, 5101 );
-				exit(EXIT_FAILURE);
+				if ( ( debug_level > 2 ) && ( batch_mode ) )
+					printf( "WARNING: Your chosen debug level (%i) does not support batch mode !\n", debug_level );
 
 			}
 
-			while ( ( recv_buff_len = read( unix_if.unix_sock, unix_buff, 1500 ) ) > 0 ) {
+		} else if ( routing_class_opt ) {
 
-				unix_buff[recv_buff_len] = '\0';
+			batch_mode = 1;
+			snprintf( unix_buff, 10, "r:%c", routing_class );
 
-				buff_ptr = unix_buff;
-				bytes_written = 0;
+		} else if ( pref_gateway > 0 ) {
 
-				while ( ( cr_ptr = strchr( buff_ptr, '\n' ) ) != NULL ) {
+			batch_mode = 1;
+			addr_to_string( pref_gateway, str1, sizeof(str1) );
+			snprintf( unix_buff, 20, "p:%s", str1 );
 
-					*cr_ptr = '\0';
+		} else if ( gateway_class_opt ) {
 
-					if ( strncmp( buff_ptr, "EOD", 3 ) == 0 ) {
+			batch_mode = 1;
+			snprintf( unix_buff, 10, "g:%c", gateway_class );
 
-						if ( batch_mode ) {
+		} else {
 
-							close( unix_if.unix_sock );
-							debugFree( unix_buff, 5102 );
-							exit(EXIT_SUCCESS);
+			batch_mode = 1;
+			snprintf( unix_buff, 10, "i" );
 
-						}
+		}
 
-					} else if ( strncmp( buff_ptr, "BOD", 3 ) == 0 ) {
+		if ( write( unix_if.unix_sock, unix_buff, 20 ) < 0 ) {
 
-						if ( !batch_mode )
-							system( "clear" );
+			printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
+			close( unix_if.unix_sock );
+			debugFree( unix_buff, 5101 );
+			exit(EXIT_FAILURE);
 
-					} else {
+		}
 
-						printf( "%s\n", buff_ptr );
+		while ( ( recv_buff_len = read( unix_if.unix_sock, unix_buff, 1500 ) ) > 0 ) {
+
+			unix_buff[recv_buff_len] = '\0';
+
+			buff_ptr = unix_buff;
+			bytes_written = 0;
+
+			while ( ( cr_ptr = strchr( buff_ptr, '\n' ) ) != NULL ) {
+
+				*cr_ptr = '\0';
+
+				if ( strncmp( buff_ptr, "EOD", 3 ) == 0 ) {
+
+					if ( batch_mode ) {
+
+						close( unix_if.unix_sock );
+						debugFree( unix_buff, 5102 );
+						exit(EXIT_SUCCESS);
 
 					}
 
-					bytes_written += strlen( buff_ptr ) + 1;
-					buff_ptr = cr_ptr + 1;
+				} else if ( strncmp( buff_ptr, "BOD", 3 ) == 0 ) {
+
+					if ( !batch_mode )
+						system( "clear" );
+
+				} else {
+
+					printf( "%s\n", buff_ptr );
 
 				}
 
-				if ( bytes_written != recv_buff_len )
-					printf( "%s", buff_ptr );
+				bytes_written += strlen( buff_ptr ) + 1;
+				buff_ptr = cr_ptr + 1;
 
 			}
 
-			close( unix_if.unix_sock );
-			debugFree( unix_buff, 5103 );
+			if ( bytes_written != recv_buff_len )
+				printf( "%s", buff_ptr );
 
-			if ( recv_buff_len < 0 ) {
+		}
 
-				printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
-				exit(EXIT_FAILURE);
+		close( unix_if.unix_sock );
+		debugFree( unix_buff, 5103 );
 
-			} else {
+		if ( recv_buff_len < 0 ) {
 
-				printf( "Connection terminated by remote host\n" );
+			printf( "Error - can't read from unix socket: %s\n", strerror(errno) );
+			exit(EXIT_FAILURE);
 
-			}
+		} else {
+
+			printf( "Connection terminated by remote host\n" );
 
 		}
 
