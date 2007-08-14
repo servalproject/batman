@@ -6,8 +6,9 @@ B.A.T.M.A.N. Installation and Usage
 
   ( This documentation is actually for the stable batman-0.2.x branch. 
   However, the main steps described here for compilation and usage should 
-  be almost the same for the currently unstable 0.3.x branch )
-
+  be almost the same for the currently unstable 0.3.x branch. 
+  There is also a very nice HOWTO from Wesley available as a pdf at:
+  http://open-mesh.net/batman/documentation/batmand_howto.pdf )
 
 
 Compiling from source
