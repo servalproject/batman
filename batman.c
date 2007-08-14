@@ -119,7 +119,7 @@ void usage( void ) {
 	fprintf( stderr, "       -o originator interval in ms\n" );
 	fprintf( stderr, "       -p preferred gateway\n" );
 	fprintf( stderr, "       -r routing class\n" );
-	fprintf( stderr, "       -s visualisation server\n" );
+	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "       -v print version\n" );
 
 }
@@ -165,7 +165,7 @@ void verbose_usage( void ) {
 	fprintf( stderr, "          allowed values:  1 -> use fast internet connection\n" );
 	fprintf( stderr, "                           2 -> use stable internet connection\n" );
 	fprintf( stderr, "                           3 -> use best statistic internet connection (olsr style)\n\n" );
-	fprintf( stderr, "       -s visualisation server\n" );
+	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
 
@@ -983,6 +983,9 @@ int8_t batman() {
 							debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
 
 						}
+
+						/* rebroadcast packet again */
+						schedule_forward_packet( (struct orig_packet *)&in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 					/* multihop originator */
 					} else {
