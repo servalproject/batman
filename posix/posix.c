@@ -377,7 +377,7 @@ void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
-	unsigned int tmp_cmd[2];
+	unsigned short tmp_cmd[2];
 	unsigned int cmd;
 
 	stop = 1;
@@ -450,7 +450,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 	struct batman_if *batman_if;
 	struct orig_node *orig_node;
 	struct hash_it_t *hashit = NULL;
-	unsigned int tmp_cmd[2];
+	unsigned short tmp_cmd[2];
 	unsigned int cmd;
 
 	if ( !unix_client ) {
