@@ -28,6 +28,7 @@
 #include <syslog.h>
 #include <sys/socket.h>
 #include <sys/times.h>
+#include <sys/ioctl.h>
 
 
 #include "../os.h"
@@ -37,7 +38,7 @@
 
 #define BAT_LOGO_PRINT(x,y,z) printf( "\x1B[%i;%iH%c", y + 1, x, z )                      /* write char 'z' into column 'x', row 'y' */
 #define BAT_LOGO_END(x,y) printf("\x1B[8;0H");fflush(NULL);bat_wait( x, y );              /* end of current picture */
-
+#define IOCREMDEV 2
 
 extern struct vis_if vis_if;
 
@@ -376,7 +377,8 @@ void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
-
+	unsigned int tmp_cmd[2];
+	unsigned int cmd;
 
 	stop = 1;
 
@@ -386,11 +388,23 @@ void restore_defaults() {
 	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 
 		batman_if = list_entry( if_pos, struct batman_if, list );
-
-		if ( batman_if->listen_thread_id != 0 ) {
-
-			pthread_join( batman_if->listen_thread_id, NULL );
-
+	    
+		/* TODO: unregister from kernel module per ioctl */
+		
+		if (batman_if->udp_tunnel_sock > 0) {
+			
+			if ( batman_if->listen_thread_id != 0 )
+				pthread_join( batman_if->listen_thread_id, NULL );
+			else {
+				tmp_cmd[0] = (unsigned short)IOCREMDEV;
+				tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
+				/* TODO: test if we can assign tmp_cmd direct */
+				memcpy(&cmd, tmp_cmd, sizeof(int));
+				if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+					debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+				}
+			}
+			
 		}
 
 		close( batman_if->udp_recv_sock );
@@ -407,7 +421,7 @@ void restore_defaults() {
 		debugFree( if_pos, 1214 );
 
 	}
-
+	
 	/* delete rule for hna networks */
 	add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_DEFAULT - 1, 0, 1, 1 );
 
@@ -436,7 +450,8 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 	struct batman_if *batman_if;
 	struct orig_node *orig_node;
 	struct hash_it_t *hashit = NULL;
-
+	unsigned int tmp_cmd[2];
+	unsigned int cmd;
 
 	if ( !unix_client ) {
 
@@ -446,10 +461,21 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 		list_for_each( if_pos, &if_list ) {
 
 			batman_if = list_entry( if_pos, struct batman_if, list );
-
-			if ( batman_if->listen_thread_id != 0 ) {
-
-				pthread_join( batman_if->listen_thread_id, NULL );
+			/* TODO: unregister from kernel module per ioctl */
+			if (batman_if->udp_tunnel_sock > 0) {
+				if(batman_if->listen_thread_id != 0)  
+					pthread_join( batman_if->listen_thread_id, NULL );
+				else {
+					
+					tmp_cmd[0] = (unsigned short)IOCREMDEV;
+					tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
+					/* TODO: test if we can assign tmp_cmd direct */
+					memcpy(&cmd, tmp_cmd, sizeof(int));
+					if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+					}
+					
+				}
 				batman_if->listen_thread_id = 0;
 
 			}

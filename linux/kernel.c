@@ -245,4 +245,28 @@ int8_t use_kernel_module( char *dev ) {
 
 }
 
+int8_t use_gateway_module( char *dev ) {
+
+	int32_t fd;
+	char *colon_ptr;
+
+	/* if given interface is an alias bind to parent interface */
+	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+		*colon_ptr = '\0';
+
+	if ( ( fd = open( "/dev/batgat", O_WRONLY ) ) < 0 ) {
+
+		debug_output( 0, "Warning - batgat kernel modul interface (/dev/batgat) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
+
+		if ( colon_ptr != NULL )
+			*colon_ptr = ':';
+
+		return -1;
+
+	}
+
+	return fd;
+
+}
+
 

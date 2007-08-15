@@ -35,7 +35,7 @@
 #include "../os.h"
 #include "../batman.h"
 
-
+#define IOCSETDEV 1
 
 int8_t stop;
 
@@ -419,6 +419,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			batman_if->dev = argv[found_args];
 			batman_if->if_num = found_ifs;
+			batman_if->udp_tunnel_sock = 0;
 
 			list_add_tail( &batman_if->list, &if_list );
 
@@ -825,34 +826,51 @@ void init_interface ( struct batman_if *batman_if ) {
 void init_interface_gw ( struct batman_if *batman_if ) {
 
 	int32_t sock_opts;
+	unsigned short tmp_cmd[2];
+	unsigned int cmd;
 
-	batman_if->addr.sin_port = htons(PORT + 1);
+	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
+	    
+		batman_if->addr.sin_port = htons(PORT + 1);
 
-	batman_if->udp_tunnel_sock = socket( PF_INET, SOCK_DGRAM, 0 );
+		batman_if->udp_tunnel_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 
-	if ( batman_if->udp_tunnel_sock < 0 ) {
+		if ( batman_if->udp_tunnel_sock < 0 ) {
 
-		debug_output( 0, "Error - can't create tunnel socket: %s", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
+			debug_output( 0, "Error - can't create tunnel socket: %s", strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
 
+		}
+
+		if ( bind( batman_if->udp_tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
+
+			debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+
+		}
+
+		/* make udp socket non blocking */
+		sock_opts = fcntl( batman_if->udp_tunnel_sock, F_GETFL, 0 );
+		fcntl( batman_if->udp_tunnel_sock, F_SETFL, sock_opts | O_NONBLOCK );
+
+		batman_if->addr.sin_port = htons(PORT);
+
+		pthread_create( &batman_if->listen_thread_id, NULL, &gw_listen, batman_if );
+		
+	} else {
+		
+	    tmp_cmd[0] = (unsigned short)IOCSETDEV;
+	    tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
+	    memcpy(&cmd, tmp_cmd, sizeof(int));
+		/* TODO: test if we can assign tmp_cmd direct */
+	    if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+			debug_output( 0, "Error - can't add device %s: %s\n", batman_if->dev,strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+	    }
 	}
-
-	if ( bind( batman_if->udp_tunnel_sock, (struct sockaddr *)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
-
-		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
-		restore_defaults();
-		exit(EXIT_FAILURE);
-
-	}
-
-	/* make udp socket non blocking */
-	sock_opts = fcntl( batman_if->udp_tunnel_sock, F_GETFL, 0 );
-	fcntl( batman_if->udp_tunnel_sock, F_SETFL, sock_opts | O_NONBLOCK );
-
-	batman_if->addr.sin_port = htons(PORT);
-
-	pthread_create( &batman_if->listen_thread_id, NULL, &gw_listen, batman_if );
 
 }
 
