@@ -97,7 +97,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	int32_t optchar, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
-	char routing_class_opt = 0, gateway_class_opt = 0;
+	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0;
 	uint32_t vis_server = 0;
 
 
@@ -268,6 +268,8 @@ void apply_init_args( int argc, char *argv[] ) {
 				}
 
 				pref_gateway = tmp_ip_holder.s_addr;
+
+				pref_gw_opt = 1;
 
 				found_args += 2;
 				break;
@@ -586,7 +588,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			batch_mode = 1;
 			snprintf( unix_buff, 10, "r:%c", routing_class );
 
-		} else if ( pref_gateway > 0 ) {
+		} else if ( pref_gw_opt ) {
 
 			batch_mode = 1;
 			addr_to_string( pref_gateway, str1, sizeof(str1) );

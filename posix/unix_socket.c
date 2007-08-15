@@ -329,7 +329,7 @@ void *unix_listen( void *arg ) {
 
 								}
 
-								dprintf( unix_client->sock, "\nEOD\n" );
+								dprintf( unix_client->sock, "EOD\n" );
 
 							} else if ( buff[0] == 'r' ) {
 
@@ -362,7 +362,7 @@ void *unix_listen( void *arg ) {
 
 								}
 
-								dprintf( unix_client->sock, "\nEOD\n" );
+								dprintf( unix_client->sock, "EOD\n" );
 
 							} else if ( buff[0] == 'p' ) {
 
@@ -383,7 +383,7 @@ void *unix_listen( void *arg ) {
 
 								}
 
-								dprintf( unix_client->sock, "\nEOD\n" );
+								dprintf( unix_client->sock, "EOD\n" );
 
 							}
 
