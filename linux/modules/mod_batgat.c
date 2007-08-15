@@ -34,6 +34,7 @@
 #include <linux/skbuff.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
+#include <linux/list.h>
 #include <net/pkt_sched.h>
 #include <net/udp.h>
 
@@ -59,14 +60,29 @@ static struct file_operations fops = {
 	.ioctl = batgat_ioctl,
 };
 
-static struct packet_type packet = {
-	.type = __constant_htons(ETH_P_IP),
-	.func = batgat_func,
+/* static struct packet_type packet = {
+ * 	.type = __constant_htons(ETH_P_IP),
+ * 	.func = batgat_func,
+ * };
+ */
+
+/* tunnel clients */
+struct gw_client {
+	uint32_t addr;
+	uint32_t last_keep_alive;
+} gw_client[256];
+
+uint8_t free_client = 0;
+
+
+struct dev_element {
+	struct list_head list;
+	struct net_device *netdev;
+	struct packet_type packet;
 };
 
-// static struct device_list {
-	struct net_device *netdev;
-// };
+static struct list_head device_list;
+
 
 static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
@@ -74,6 +90,9 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 	char *tmp=NULL;
 	int command;
 	int length;
+	struct dev_element *dev_entry = NULL;
+	struct net_device *rm_dev = NULL;
+	struct list_head *ptr = NULL;
 
 	/* cmd comes with 2 short values */
 	command = cmd & 0x0000FFFF;
@@ -92,12 +111,23 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				__copy_from_user(tmp, (void __user*)arg, length);
 				tmp[length] = 0;
 				printk("B.A.T.M.A.N. GW: Register device %s\n", tmp);
-				netdev = dev_get_by_name(tmp);
-				if(!netdev)
+				
+				if( (dev_entry = kmalloc(sizeof(struct dev_element), GFP_KERNEL)) == NULL) {
+					printk("B.A.T.M.A.N. GW: Allocate memory for device list\n");
+					return -EFAULT;
+				}
+				
+				dev_entry->netdev = dev_get_by_name(tmp);
+				dev_entry->packet.type = __constant_htons(ETH_P_IP);
+				dev_entry->packet.func = batgat_func;
+				
+				list_add_tail(&dev_entry->list, &device_list);
+				
+				if(!dev_entry->netdev)
 					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
 				else {
-					packet.dev = netdev;
-					dev_add_pack(&packet);
+					dev_entry->packet.dev = dev_entry->netdev;
+					dev_add_pack(&dev_entry->packet);
 				}
 
 			} else {
@@ -118,7 +148,21 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				__copy_from_user(tmp, (void __user*)arg, length);
 				tmp[length] = 0;
 				printk("B.A.T.M.A.N. GW: Remove device %s\n", tmp);
-				dev_remove_pack(&packet);
+				
+				rm_dev = dev_get_by_name(tmp);
+				
+				list_for_each(ptr, &device_list) {
+					dev_entry = list_entry(ptr, struct dev_element, list);
+					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
+						break;
+				}
+				
+				if(dev_entry) {
+					dev_remove_pack(&dev_entry->packet);
+					list_del(&dev_entry->list);
+					kfree(dev_entry);
+				} else
+					printk("B.A.T.M.A.N. GW: Can't remove device from dev_list.\n");
 
 			} else {
 
@@ -165,6 +209,9 @@ init_module()
 	printk( "B.A.T.M.A.N. GW: I was assigned major number %d. To talk to\n", Major );
 	printk( "B.A.T.M.A.N. GW: the driver, create a dev file with 'mknod /dev/batgat c %d 0'.\n", Major );
 	printk( "B.A.T.M.A.N. GW: Remove the device file and module when done.\n" );
+		
+	/* init device list */
+	INIT_LIST_HEAD(&device_list);
 
 	return(0);
 }
@@ -216,12 +263,31 @@ batgat_release(struct inode *inode, struct file *file)
 static int
 batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
 {
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
+#else
+	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
+#endif
+
 	struct udphdr *uhdr;
 	unsigned char *buffer;
+	
+	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 
-	if(skb->nh.iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+		uhdr = (struct udphdr *)skb_transport_header(skb);
+#else
 		uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
+#endif
+		
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)	
+		buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
+#else
 		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
+#endif
+		
 
 		if(ntohs(uhdr->source) == 1967 && buffer[0] == 2) {
 			
@@ -238,9 +304,34 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 static int
 send_vip(struct sk_buff *skb)
 {
+	
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)	
+	unsigned char *buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
+#else
 	unsigned char *buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
+#endif
+	
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	struct udphdr *uhdr = (struct udphdr *)skb_transport_header(skb);
+#else
 	struct udphdr *uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
-	struct ethhdr *eth = (struct ethhdr*)skb->mac.raw;
+#endif
+	
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
+#else
+	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
+#endif
+	
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
+#else
+	struct ethhdr *eth = (struct ethhdr *)skb->mac.raw;
+#endif
+	
+	
+	
+	//~ struct ethhdr *eth = (struct ethhdr*)skb->mac.raw;
 	unsigned int tmp,size;
 	unsigned char dst_hw_addr[6];
 
@@ -253,26 +344,37 @@ send_vip(struct sk_buff *skb)
 	
 	skb->pkt_type = PACKET_OUTGOING;
 	/* replace source and destination address */
-	tmp = skb->nh.iph->saddr;
-	skb->nh.iph->saddr = skb->nh.iph->daddr;
-	skb->nh.iph->daddr = tmp;
+	tmp = iph->saddr;
+	//~ tmp = skb->nh.iph->saddr;
+	iph->saddr = iph->daddr;
+	//~ skb->nh.iph->saddr = skb->nh.iph->daddr;
+	iph->daddr = tmp;
+	//~ skb->nh.iph->daddr = tmp;
 	
 	/* change checksum */
-	size = skb->len - skb->nh.iph->ihl*4;
+	size = skb->len - iph->ihl*4;
+	//~ size = skb->len - skb->nh.iph->ihl*4;
 	uhdr->len = htons(size);
 	
 	uhdr->check = 0;
-	uhdr->check = csum_tcpudp_magic(skb->nh.iph->saddr, skb->nh.iph->daddr,size, IPPROTO_UDP,csum_partial((char *)uhdr,size, 0));
+	uhdr->check = csum_tcpudp_magic(iph->saddr, iph->daddr,size, IPPROTO_UDP,csum_partial((char *)uhdr,size, 0));
+	//~ uhdr->check = csum_tcpudp_magic(skb->nh.iph->saddr, skb->nh.iph->daddr,size, IPPROTO_UDP,csum_partial((char *)uhdr,size, 0));
 	if (!uhdr->check)
 		uhdr->check = CSUM_MANGLED_0;
 	
-	ip_send_check(skb->nh.iph);
+	ip_send_check(iph);
 	
 	/* replace mac address for destination */
 	memcpy(dst_hw_addr, eth->h_source, 6);
 	if (skb->dev->hard_header)
 		skb->dev->hard_header(skb,skb->dev,ntohs(skb->protocol),dst_hw_addr,skb->dev->dev_addr,skb->len);
 	dev_queue_xmit(skb_clone(skb, GFP_ATOMIC));
+	return 0;
+}
+
+uint8_t
+get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_client[] )
+{
 	return 0;
 }
 
