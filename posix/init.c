@@ -692,8 +692,7 @@ void init_interface ( struct batman_if *batman_if ) {
 		exit(EXIT_FAILURE);
 	}
 
-	batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 );
-	if ( batman_if->udp_recv_sock < 0 ) {
+	if ( ( batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
 
 		printf( "Error - can't create receive socket: %s", strerror(errno) );
 		restore_defaults();
@@ -762,17 +761,9 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	if ( ( batman_if->udp_send_sock = use_kernel_module( batman_if->dev ) ) < 0 ) {
 
-		if ( ( batman_if->udp_send_sock = socket( AF_INET, SOCK_RAW, IPPROTO_RAW ) ) < 0 ) {
+		if ( ( batman_if->udp_send_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
 
 			printf( "Error - can't create send socket: %s", strerror(errno) );
-			restore_defaults();
-			exit(EXIT_FAILURE);
-
-		}
-
-		if ( setsockopt( batman_if->udp_send_sock, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on) ) < 0 ) {
-
-			printf( "Error - can't set IP_HDRINCL option on send socket: %s", strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
 
@@ -793,7 +784,7 @@ void init_interface ( struct batman_if *batman_if ) {
 
 		}
 
-		if ( connect( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->broad, sizeof(struct sockaddr_in) ) < 0 ) {
+		if ( bind( batman_if->udp_send_sock, (struct sockaddr *)&batman_if->addr, sizeof(struct sockaddr_in) ) < 0 ) {
 
 			printf( "Error - can't bind send socket: %s\n", strerror(errno) );
 			restore_defaults();
@@ -830,7 +821,7 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 	unsigned int cmd;
 
 	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
-	    
+
 		batman_if->addr.sin_port = htons(PORT + 1);
 
 		batman_if->udp_tunnel_sock = socket( PF_INET, SOCK_DGRAM, 0 );
@@ -858,9 +849,9 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 		batman_if->addr.sin_port = htons(PORT);
 
 		pthread_create( &batman_if->listen_thread_id, NULL, &gw_listen, batman_if );
-		
+
 	} else {
-		
+
 	    tmp_cmd[0] = (unsigned short)IOCSETDEV;
 	    tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
 	    memcpy(&cmd, tmp_cmd, sizeof(int));

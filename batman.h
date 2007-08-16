@@ -24,8 +24,6 @@
 
 #include <sys/types.h>
 #include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/udp.h>
 #include <pthread.h>
 #include <sys/un.h>
 #include <stdint.h>
@@ -154,12 +152,6 @@ struct bat_packet
 	uint8_t  version;  /* batman version field */
 } __attribute__((packed));
 
-struct orig_packet {
-	struct iphdr ip;
-	struct udphdr udp;
-	struct bat_packet bat_packet;
-} __attribute__((packed));
-
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
 {
 	uint32_t orig;
@@ -227,7 +219,7 @@ struct batman_if
 	struct sockaddr_in broad;
 	uint32_t netaddr;
 	uint8_t netmask;
-	struct orig_packet out;
+	struct bat_packet out;
 };
 
 struct gw_client

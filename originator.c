@@ -424,7 +424,7 @@ void debug_orig() {
 
 			list_for_each( forw_pos, &forw_list ) {
 				forw_node = list_entry( forw_pos, struct forw_node, list );
-				addr_to_string( ((struct orig_packet *)forw_node->pack_buff)->bat_packet.orig, str, sizeof (str) );
+				addr_to_string( ((struct bat_packet *)forw_node->pack_buff)->orig, str, sizeof(str) );
 				debug_output( 4, "    %s at %u \n", str, forw_node->send_time );
 			}
 

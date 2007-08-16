@@ -311,7 +311,7 @@ void *unix_listen( void *arg ) {
 
 										batman_if = list_entry( list_pos, struct batman_if, list );
 
-										batman_if->out.bat_packet.gwflags = gateway_class;
+										batman_if->out.gwflags = gateway_class;
 
 										if ( ( ! was_gateway ) && ( gateway_class > 0 ) )
 											init_interface_gw( batman_if );
@@ -352,7 +352,7 @@ void *unix_listen( void *arg ) {
 
 												batman_if = list_entry( list_pos, struct batman_if, list );
 
-												batman_if->out.bat_packet.gwflags = gateway_class;
+												batman_if->out.gwflags = gateway_class;
 
 											}
 

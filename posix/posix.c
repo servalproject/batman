@@ -344,35 +344,6 @@ int8_t send_udp_packet( unsigned char *packet_buff, int32_t packet_buff_len, str
 
 
 
-int8_t send_raw_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct batman_if *batman_if ) {
-
-	memcpy( packet_buff, (unsigned char *)&batman_if->out, sizeof(struct iphdr) + sizeof(struct udphdr) );
-
-	( ( struct udphdr *) (packet_buff + sizeof(struct iphdr) ) )->len = htons( (u_short) (packet_buff_len - ( sizeof(struct iphdr) ) ) );
-
-
-	if ( write( batman_if->udp_send_sock, packet_buff, packet_buff_len ) < 0 ) {
-
-		if ( errno == 1 ) {
-
-			debug_output( 0, "Error - can't send raw packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs( batman_if->out.udp.dest ) );
-
-		} else {
-
-			debug_output( 0, "Error - can't send raw packet: %s.%i\n", strerror(errno), errno );
-
-		}
-
-		return -1;
-
-	}
-
-	return 0;
-
-}
-
-
-
 void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
@@ -388,11 +359,11 @@ void restore_defaults() {
 	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 
 		batman_if = list_entry( if_pos, struct batman_if, list );
-	    
+
 		/* TODO: unregister from kernel module per ioctl */
-		
+
 		if (batman_if->udp_tunnel_sock > 0) {
-			
+
 			if ( batman_if->listen_thread_id != 0 )
 				pthread_join( batman_if->listen_thread_id, NULL );
 			else {
@@ -404,7 +375,7 @@ void restore_defaults() {
 					debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
 				}
 			}
-			
+
 		}
 
 		close( batman_if->udp_recv_sock );
@@ -421,7 +392,7 @@ void restore_defaults() {
 		debugFree( if_pos, 1214 );
 
 	}
-	
+
 	/* delete rule for hna networks */
 	add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_DEFAULT - 1, 0, 1, 1 );
 
@@ -463,10 +434,10 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 			batman_if = list_entry( if_pos, struct batman_if, list );
 			/* TODO: unregister from kernel module per ioctl */
 			if (batman_if->udp_tunnel_sock > 0) {
-				if(batman_if->listen_thread_id != 0)  
+				if(batman_if->listen_thread_id != 0)
 					pthread_join( batman_if->listen_thread_id, NULL );
 				else {
-					
+
 					tmp_cmd[0] = (unsigned short)IOCREMDEV;
 					tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
 					/* TODO: test if we can assign tmp_cmd direct */
@@ -474,7 +445,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 					if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
 						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
 					}
-					
+
 				}
 				batman_if->listen_thread_id = 0;
 
