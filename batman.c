@@ -910,13 +910,22 @@ int8_t batman() {
 				/* if received seqno equals last send seqno save new seqno for bidirectional check */
 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
-					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
+					/* if we did not receive the last sequence number we apply a penalty */
+					if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + 1 == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + BIDIRECT_PENALTY <= ((struct bat_packet *)&in)->seqno ) ) {
 
-					debug_output( 4, "indicating bidirectional link - updating bidirect_link seqno \n");
+						orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
+
+						debug_output( 4, "indicating bidirectional link - updating bidirect_link seqno \n" );
+
+					} else {
+
+						debug_output( 4, "applying bidirectional penalty: seq = %i, last recv seq = %i, penalty = %i \n", ((struct bat_packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], BIDIRECT_PENALTY );
+
+					}
 
 				} else {
 
-					debug_output( 4, "NOT indicating bidirectional link - NOT updating bidirect_link seqno \n");
+					debug_output( 4, "NOT indicating bidirectional link - NOT updating bidirect_link seqno \n" );
 
 				}
 

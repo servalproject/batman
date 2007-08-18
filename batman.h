@@ -76,6 +76,7 @@
 #define JITTER 100
 #define TTL 50                /* Time To Live of broadcast messages */
 #define BIDIRECT_TIMEOUT 1
+#define BIDIRECT_PENALTY 2
 #define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on SEQ_RANGE */
 #define SEQ_RANGE 128         /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
 

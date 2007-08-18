@@ -55,10 +55,10 @@
 
 
 
-static int device_open(struct inode *, struct file *);
-static int device_release(struct inode *, struct file *);
+static int device_open( struct inode *, struct file * );
+static int device_release( struct inode *, struct file * );
 static int device_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
-static ssize_t device_write(struct file *, const char *, size_t, loff_t *);
+static ssize_t device_write( struct file *, const char *, size_t, loff_t * );
 
 
 
@@ -84,13 +84,13 @@ struct minor {
 static struct file_operations fops = {
 	.open = device_open,
 	.release = device_release,
-	.ioctl = device_ioctl,
 	.write = device_write,
+	.ioctl = device_ioctl,
 };
 
 
 
-static int Major;            /* Major number assigned to our device driver */
+static int Major;                  /* Major number assigned to our device driver */
 struct minor *minor_array[256];    /* minor numbers for device users */
 
 
@@ -261,6 +261,7 @@ static int device_release( struct inode *inode, struct file *file ) {
 }
 
 
+
 static ssize_t device_write( struct file *file, const char *buff, size_t len, loff_t *off ) {
 
 	int minor_num;
@@ -427,6 +428,7 @@ static int device_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	}
 
 }
+
 
 
 
