@@ -732,7 +732,7 @@ int8_t batman() {
 	struct list_head *list_pos, *hna_pos_tmp, *forw_pos_tmp;
 	struct orig_node *orig_neigh_node, *orig_node;
 	struct batman_if *batman_if, *if_incoming;
-	struct neigh_node *neigh_node, *tmp_neigh_node;
+	struct neigh_node *neigh_node;
 	struct hna_node *hna_node;
 	struct forw_node *forw_node;
 	uint32_t neigh, hna, netmask, debug_timeout, vis_timeout, select_timeout, curr_time;
@@ -911,7 +911,7 @@ int8_t batman() {
 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
 					/* if we did not receive the last sequence number we apply a penalty */
-					if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + 1 == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + BIDIRECT_PENALTY <= ((struct bat_packet *)&in)->seqno ) ) {
+					if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + 1 == ((struct bat_packet *)&in)->seqno ) || ( ((struct bat_packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] >= BIDIRECT_PENALTY ) ) {
 
 						orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
 
@@ -919,23 +919,7 @@ int8_t batman() {
 
 					} else {
 
-						debug_output( 4, "applying bidirectional penalty: seq = %i, last recv seq = %i, penalty = %i \n", ((struct bat_packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], BIDIRECT_PENALTY );
-
-						if ( ! ((struct bat_packet *)&in)->flags & UNIDIRECTIONAL ) {
-
-							orig_node = get_orig_node( ((struct bat_packet *)&in)->orig );
-
-							list_for_each( list_pos, &orig_node->neigh_list ) {
-
-								tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
-
-								bit_get_packet( tmp_neigh_node->seq_bits, ((struct bat_packet *)&in)->seqno - orig_node->last_seqno, 0 );
-
-							}
-
-							orig_node->last_seqno = ((struct bat_packet *)&in)->seqno;
-
-						}
+						debug_output( 3, "applying bidirectional penalty: seq = %i, last recv seq = %i, penalty = %i \n", ((struct bat_packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], BIDIRECT_PENALTY );
 
 					}
 
