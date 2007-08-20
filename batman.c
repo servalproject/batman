@@ -911,7 +911,7 @@ int8_t batman() {
 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
 					/* if we did not receive the last sequence number we apply a penalty */
-					if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + 1 == ((struct bat_packet *)&in)->seqno ) || ( ((struct bat_packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] >= BIDIRECT_PENALTY ) ) {
+					if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + 1 == ((struct bat_packet *)&in)->seqno ) || ( ((struct bat_packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] > BIDIRECT_PENALTY ) ) {
 
 						orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
 
