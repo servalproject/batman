@@ -276,22 +276,20 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-		uhdr = (struct udphdr *)skb_transport_header(skb);
+		//~ uhdr = (struct udphdr *)skb_transport_header(skb);
+		//~ buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
+		uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
+		buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
 #else
 		uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
-#endif
-		
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)	
-		buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
-#else
 		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
 #endif
-		
 
+		
+		printk("skb_len %d %p %p %p %p %u %u\n", skb->len, skb, buffer, uhdr, iph, (unsigned int)buffer[0], ntohs(uhdr->source));
 		if(ntohs(uhdr->source) == 1967 && buffer[0] == 2) {
-			
-			send_vip(skb);
+			printk("before send\n");
+			//~ send_vip(skb);
 
 		}
 	}
@@ -307,28 +305,15 @@ send_vip(struct sk_buff *skb)
 	
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)	
 	unsigned char *buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
-#else
-	unsigned char *buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
-#endif
-	
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	struct udphdr *uhdr = (struct udphdr *)skb_transport_header(skb);
-#else
-	struct udphdr *uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
-#endif
-	
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
-#else
-	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
-#endif
-	
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
 #else
+	unsigned char *buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
+	struct udphdr *uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
+	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
 	struct ethhdr *eth = (struct ethhdr *)skb->mac.raw;
 #endif
-	
 	
 	
 	//~ struct ethhdr *eth = (struct ethhdr*)skb->mac.raw;
