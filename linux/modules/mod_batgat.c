@@ -278,8 +278,11 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 		//~ uhdr = (struct udphdr *)skb_transport_header(skb);
 		//~ buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
+		
 		uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 		buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
+		//~ uhdr = (struct udphdr *)skb->transport_header;
+		//~ buffer = (unsigned char*)(uhdr + sizeof(struct udphdr));
 #else
 		uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
 		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
@@ -289,7 +292,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		printk("skb_len %d %p %p %p %p %u %u\n", skb->len, skb, buffer, uhdr, iph, (unsigned int)buffer[0], ntohs(uhdr->source));
 		if(ntohs(uhdr->source) == 1967 && buffer[0] == 2) {
 			printk("before send\n");
-			//~ send_vip(skb);
+			send_vip(skb);
 
 		}
 	}
@@ -304,9 +307,10 @@ send_vip(struct sk_buff *skb)
 {
 	
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)	
-	unsigned char *buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
-	struct udphdr *uhdr = (struct udphdr *)skb_transport_header(skb);
+	unsigned char *buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
+	struct udphdr *uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
+	//~ struct udphdr *uhdr = (struct udphdr *)skb_transport_header(skb);
 	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
 #else
 	unsigned char *buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
@@ -314,12 +318,13 @@ send_vip(struct sk_buff *skb)
 	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
 	struct ethhdr *eth = (struct ethhdr *)skb->mac.raw;
 #endif
-	
-	
-	//~ struct ethhdr *eth = (struct ethhdr*)skb->mac.raw;
+
 	unsigned int tmp,size;
 	unsigned char dst_hw_addr[6];
 
+	//~ printk("%x:%x:%x:%x:%x:%x\n",eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
+	//~ return 0;
+	
 	
 	/* TODO: address handling */
 	tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
