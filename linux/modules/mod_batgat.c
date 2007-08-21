@@ -50,7 +50,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
 
 static int send_vip(struct sk_buff *skb);
-
+static uint8_t get_ip_addr( uint32_t client_addr, char *ip_buff );
 
 static int Major;            /* Major number assigned to our device driver */
 
@@ -60,20 +60,13 @@ static struct file_operations fops = {
 	.ioctl = batgat_ioctl,
 };
 
-/* static struct packet_type packet = {
- * 	.type = __constant_htons(ETH_P_IP),
- * 	.func = batgat_func,
- * };
- */
-
 /* tunnel clients */
 struct gw_client {
 	uint32_t addr;
 	uint32_t last_keep_alive;
-} gw_client[256];
+};
 
-uint8_t free_client = 0;
-
+static struct gw_client *gw_client_list[256];
 
 struct dev_element {
 	struct list_head list;
@@ -184,7 +177,8 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 int
 init_module()
 {
-
+	int i = 0;
+	
 	/* register our device - kernel assigns a free major number */
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
 
@@ -212,6 +206,10 @@ init_module()
 		
 	/* init device list */
 	INIT_LIST_HEAD(&device_list);
+	
+	/* init gw_client_list */
+	for( ;i< 255;i++)
+		gw_client_list[i] = NULL;
 
 	return(0);
 }
@@ -327,8 +325,17 @@ send_vip(struct sk_buff *skb)
 	
 	
 	/* TODO: address handling */
-	tmp = 169 + ( 254<<8 ) + ( 3<<16 ) + ( 2<<24 );
-	/* TODO: memset buffer */	
+	
+	if( (tmp = get_ip_addr(iph->saddr, buffer)) < 0 ) {
+		/* TODO: error */
+		return 0;
+	}
+	
+	tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + ( buffer[0]<<24 );
+	printk("%d ifindex\n",skb->dev->ifindex);
+	
+	
+	/* TODO: memset buffer */
 	buffer[0] = 1;
 	memcpy( &buffer[1], &tmp , sizeof(unsigned int));
 	
@@ -362,9 +369,43 @@ send_vip(struct sk_buff *skb)
 	return 0;
 }
 
-uint8_t
-get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_client[] )
+static uint8_t
+get_ip_addr( uint32_t client_addr, char *ip_buff )
 {
+	uint8_t i,first_free = 0;
+
+	for ( i = 1; i < 255; i++ ) {
+
+		if ( gw_client_list[i] != NULL ) {
+
+			if ( gw_client_list[i]->addr == client_addr ) {
+
+				ip_buff[0] = i;
+				return 0;
+
+			}
+
+		} else {
+
+			if ( first_free == 0 )
+				first_free = i;
+
+		}
+
+	}
+
+	if ( first_free == 0 ) {
+		/* TODO: list is full */
+		return -1;
+
+	}
+
+	gw_client_list[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
+	gw_client_list[first_free]->addr = client_addr;
+	/* TODO: check syscall */
+	gw_client_list[first_free]->last_keep_alive = 0;
+
+	ip_buff[0] = first_free;
 	return 0;
 }
 
