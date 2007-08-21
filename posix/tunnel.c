@@ -32,6 +32,14 @@
 
 
 
+#define TUNNEL_DATA 0x01
+#define TUNNEL_IP_REQUEST 0x02
+#define TUNNEL_IP_INVALID 0x03
+
+
+
+
+
 int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr ) {
 
 	struct sockaddr_in sender_addr;
@@ -45,9 +53,11 @@ int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_
 
 	addr_len = sizeof(struct sockaddr_in);
 	memset( &buff, 0, sizeof(buff) );
-	buff[0] = 2;
+
 
 	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( i > 0 ) ) {
+
+		buff[0] = TUNNEL_IP_REQUEST;
 
 		if ( sendto( udp_sock, buff, sizeof(buff), 0, (struct sockaddr *)gw_addr, sizeof(struct sockaddr_in) ) < 0 ) {
 
@@ -207,7 +217,7 @@ void *client_to_gw_tun( void *arg ) {
 					if ( ( buff_len > 1 ) && ( sender_addr.sin_addr.s_addr == gw_addr.sin_addr.s_addr ) ) {
 
 						/* got data from gateway */
-						if ( buff[0] == 1 ) {
+						if ( buff[0] == TUNNEL_DATA ) {
 
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
@@ -215,7 +225,7 @@ void *client_to_gw_tun( void *arg ) {
 							gw_timeout = 0;
 
 						/* gateway told us that we have no valid ip */
-						} else if ( buff[0] == 3 ) {
+						} else if ( buff[0] == TUNNEL_IP_INVALID ) {
 
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is expired \n", gw_str, my_str );
@@ -269,7 +279,7 @@ void *client_to_gw_tun( void *arg ) {
 
 					}
 
-					buff[0] = 1;
+					buff[0] = TUNNEL_DATA;
 
 					/* fill in new ip - the packets in the buffer don't know it yet */
 					if ( got_new_ip + 1000 > ip_lease_timeout )
@@ -446,12 +456,12 @@ void *gw_listen( void *arg ) {
 
 					if ( buff_len > 1 ) {
 
-						if ( buff[0] == 1 ) {
+						if ( buff[0] == TUNNEL_DATA ) {
 
 							/* check whether client IP is known */
 							if ( ( buff[13] != 169 ) || ( buff[14] != 254 ) || ( buff[15] != batman_if->if_num ) || ( gw_client[(uint8_t)buff[16]] == NULL ) || ( gw_client[(uint8_t)buff[16]]->addr != addr.sin_addr.s_addr ) ) {
 
-								buff[0] = 3;
+								buff[0] = TUNNEL_IP_INVALID;
 								addr_to_string( addr.sin_addr.s_addr, str, sizeof(str) );
 
 								debug_output( 0, "Error - got packet from unknown client: %s (virtual ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16] );
@@ -466,7 +476,7 @@ void *gw_listen( void *arg ) {
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
-						} else if ( buff[0] == 2 ) {
+						} else if ( buff[0] == TUNNEL_IP_REQUEST ) {
 
 							if ( get_ip_addr( addr.sin_addr.s_addr, ip_buff, gw_client ) > 0 ) {
 
@@ -518,7 +528,7 @@ void *gw_listen( void *arg ) {
 						addr_to_string( tmp_client_ip, gw_addr, sizeof(gw_addr) );
 						debug_output( 3, "Gateway - packet resolved: %s for client %s \n", str, gw_addr ); */
 
-						buff[0] = 1;
+						buff[0] = TUNNEL_DATA;
 
 						if ( sendto( batman_if->udp_tunnel_sock, buff, buff_len + 1, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr_in) ) < 0 )
 							debug_output( 0, "Error - can't send data to client (%s): %s \n", str, strerror(errno) );
@@ -555,7 +565,7 @@ void *gw_listen( void *arg ) {
 
 		if ( ( client_timeout + 60000 ) < current_time ) {
 
-			client_timeout = get_time();
+			client_timeout = current_time;
 
 			for ( i = 1; i < 255; i++ ) {
 
