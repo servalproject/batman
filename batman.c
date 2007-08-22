@@ -201,11 +201,8 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 		memcpy( &hna, ( uint32_t *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
 		netmask = ( uint32_t )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
 
-		if ( ( netmask > 0 ) && ( netmask < 33 ) ) {
-
+		if ( ( netmask > 0 ) && ( netmask < 33 ) )
 			add_del_route( hna, netmask, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, del );
-
-		}
 
 		hna_buff_count++;
 
