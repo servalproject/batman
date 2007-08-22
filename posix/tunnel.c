@@ -66,7 +66,7 @@ int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_
 		} else {
 
 			tv.tv_sec = 0;
-			tv.tv_usec = 250;
+			tv.tv_usec = 250000;
 
 			FD_ZERO(&wait_sockets);
 			FD_SET(udp_sock, &wait_sockets);
@@ -230,8 +230,18 @@ void *client_to_gw_tun( void *arg ) {
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is expired \n", gw_str, my_str );
 
-							if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 )
+							if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 ) {
+
+								curr_gw_data->gw_node->last_failure = current_time;
+								curr_gw_data->gw_node->unavail_factor++;
+
+								curr_gateway = NULL;
+
+								errno = EWOULDBLOCK;
+
 								break;
+
+							}
 
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 							debug_output( 3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str );
@@ -265,8 +275,18 @@ void *client_to_gw_tun( void *arg ) {
 
 					if ( my_tun_addr == 0 ) {
 
-						if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 )
+						if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 ) {
+
+							curr_gw_data->gw_node->last_failure = current_time;
+							curr_gw_data->gw_node->unavail_factor++;
+
+							curr_gateway = NULL;
+
+							errno = EWOULDBLOCK;
+
 							break;
+
+						}
 
 						addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 						debug_output( 3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str );
