@@ -31,8 +31,6 @@
 #include "originator.h"
 #include "schedule.h"
 
-#include <errno.h>  /* should be removed together with tcp control channel */
-
 
 
 uint8_t debug_level = 0;
@@ -240,7 +238,7 @@ void choose_gw() {
 
 	}
 
-	if ( list_empty(&gw_list) ) {
+	if ( list_empty( &gw_list ) ) {
 
 		if ( curr_gateway != NULL ) {
 
@@ -256,9 +254,9 @@ void choose_gw() {
 	}
 
 
-	list_for_each(pos, &gw_list) {
+	list_for_each( pos, &gw_list ) {
 
-		gw_node = list_entry(pos, struct gw_node, list);
+		gw_node = list_entry( pos, struct gw_node, list );
 
 		/* ignore this gateway if recent connection attempts were unsuccessful */
 		if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > get_time() )
@@ -513,6 +511,7 @@ void get_gw_speeds( unsigned char class, int *down, int *up ) {
 }
 
 
+
 /* calculates the gateway class from kbit */
 unsigned char get_gw_class( int down, int up ) {
 
@@ -586,6 +585,8 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
 }
 
+
+
 int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 	if ( ( orig_tog_node->router != NULL ) && ( orig_tog_node->router->addr == neigh ) )
@@ -594,6 +595,8 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 	return 0;
 
 }
+
+
 
 int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
 

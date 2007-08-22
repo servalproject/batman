@@ -373,8 +373,12 @@ int8_t get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_cl
 
 		} else {
 
-			if ( first_free == 0 )
+			if ( first_free == 0 ) {
+
 				first_free = i;
+				break;
+
+			}
 
 		}
 

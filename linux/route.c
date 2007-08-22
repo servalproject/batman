@@ -260,10 +260,21 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 
 	} else {
 
-		rta = (struct rtattr *)req.buff;
-		rta->rta_type = RTA_IIF;
-		rta->rta_len = sizeof(struct rtattr) + 4;
-		memcpy( ((char *)&req.buff) + sizeof(struct rtattr), iif, 4 );
+		if ( del ) {
+
+			rta = (struct rtattr *)req.buff;
+			rta->rta_type = RTA_SRC;
+			rta->rta_len = sizeof(struct rtattr) + 4;
+			memcpy( ((char *)&req.buff) + sizeof(struct rtattr), (char *)&network, 4 );
+
+		} else {
+
+			rta = (struct rtattr *)req.buff;
+			rta->rta_type = RTA_IIF;
+			rta->rta_len = sizeof(struct rtattr) + 4;
+			memcpy( ((char *)&req.buff) + sizeof(struct rtattr), iif, 4 );
+
+		}
 
 	}
 
