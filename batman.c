@@ -160,9 +160,9 @@ void verbose_usage( void ) {
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -r routing class (only needed if gateway class = 0)\n" );
 	fprintf( stderr, "          default:         0 -> set no default route\n" );
-	fprintf( stderr, "          allowed values:  1 -> use fast internet connection\n" );
-	fprintf( stderr, "                           2 -> use stable internet connection\n" );
-	fprintf( stderr, "                           3 -> use best statistic internet connection (olsr style)\n\n" );
+	fprintf( stderr, "          allowed values:  1 -> use fast internet connection (gw_flags * packet count)\n" );
+	fprintf( stderr, "                           2 -> use stable internet connection (packet count)\n" );
+	fprintf( stderr, "                           3 -> use fast-switch internet connection (packet count but change as soon as a better gateway appears)\n\n" );
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
@@ -225,10 +225,11 @@ void choose_gw() {
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
 	uint8_t max_gw_class = 0, max_packets = 0, max_gw_factor = 0;
+	uint32_t current_time;
 	static char orig_str[ADDR_STR_LEN];
 
 
-	if ( routing_class == 0 ) {
+	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * SEQ_RANGE ) ) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -256,7 +257,7 @@ void choose_gw() {
 		gw_node = list_entry( pos, struct gw_node, list );
 
 		/* ignore this gateway if recent connection attempts were unsuccessful */
-		if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > get_time() )
+		if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > current_time )
 			continue;
 
 		if ( gw_node->orig_node->router == NULL )
@@ -272,13 +273,12 @@ void choose_gw() {
 					tmp_curr_gw = gw_node;
 				break;
 
-			case 2:   /* stable connection */
-				/* FIXME - not implemented yet */
-				if ( ( ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) > max_gw_factor ) || ( ( ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) == max_gw_factor ) && ( gw_node->orig_node->router->packet_count > max_packets ) ) )
+			case 2:   /* stable connection (use best statistic) */
+				if ( gw_node->orig_node->router->packet_count > max_packets )
 					tmp_curr_gw = gw_node;
 				break;
 
-			default:  /* use best statistic (olsr style) */
+			default:  /* fast-switch (use best statistic but change as soon as a better gateway appears) */
 				if ( gw_node->orig_node->router->packet_count > max_packets )
 					tmp_curr_gw = gw_node;
 				break;
@@ -299,7 +299,7 @@ void choose_gw() {
 			tmp_curr_gw = gw_node;
 
 			addr_to_string( tmp_curr_gw->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Preferred gateway found: %s (%i,%i,%i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->packet_count, ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) );
+			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, packet_count: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->packet_count, ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) );
 
 			break;
 

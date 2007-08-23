@@ -205,6 +205,15 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	orig_node->gwflags = in->gwflags;
 
+
+	/* restart gateway selection if we have more packets and routing class 3 */
+	if ( ( routing_class == 3 ) && ( orig_node->gwflags != 0 ) && ( curr_gateway != NULL ) ) {
+
+		if (  ( curr_gateway->orig_node != orig_node ) && ( curr_gateway->orig_node->router->packet_count < orig_node->router->packet_count ) )
+			curr_gateway == NULL;
+
+	}
+
 	prof_stop( PROF_update_originator );
 
 }
