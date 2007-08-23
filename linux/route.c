@@ -564,6 +564,9 @@ int flush_routes_rules( int8_t is_rule ) {
 					rule_type = 2;
 					break;
 
+				case RTA_TABLE:
+					break;
+
 				default:
 					debug_output( 0, "Error - unknown rta type: %i \n", rtap->rta_type );
 					break;
