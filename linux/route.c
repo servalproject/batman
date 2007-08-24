@@ -564,7 +564,7 @@ int flush_routes_rules( int8_t is_rule ) {
 					rule_type = 2;
 					break;
 
-				case RTA_TABLE:
+				case 15:  /* FIXME: RTA_TABLE is not always available */
 					break;
 
 				default:

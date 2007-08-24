@@ -595,10 +595,50 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 
 
-int isBidirectionalNeigh( struct orig_node *orig_neigh_node, struct batman_if *if_incoming ) {
+int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming ) {
 
-	if ( ( if_incoming->out.seqno - 2 - orig_neigh_node->bidirect_link[if_incoming->if_num] ) < BIDIRECT_TIMEOUT )
+	struct list_head *list_pos;
+	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
+	static char orig_str[ADDR_STR_LEN];
+	uint8_t total_count, send_count;
+
+
+	list_for_each( list_pos, &orig_node->neigh_list ) {
+
+		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
+
+		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
+
+			neigh_node = tmp_neigh_node;
+
+		}
+
+		bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
+		tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
+
+	}
+
+	if ( neigh_node != NULL ) {
+
+		addr_to_string( neigh, orig_str, ADDR_STR_LEN );
+
+		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
+		send_count = (int)( ( ( (float)total_count / (float)SEQ_RANGE ) / ( (float)neigh_node->real_packet_count / (float)SEQ_RANGE ) ) * SEQ_RANGE );
+
+		debug_output( 3, "bidirectional: neigh = %s, own_bcast = %i, real recv = %i, packets to be forwarded: %i, packet_count: %i \n", orig_str, total_count, neigh_node->real_packet_count, send_count, neigh_node->packet_count );
+
+		if ( neigh_node->packet_count < send_count )
+			return 1;
+
+	} else {
+
+		debug_output( 3, "bidirectional: unknown neighbor \n" );
 		return 1;
+
+	}
+
+// 	if ( ( if_incoming->out.seqno - 2 - orig_neigh_node->bidirect_link[if_incoming->if_num] ) < BIDIRECT_TIMEOUT )
+// 		return 1;
 
 	return 0;
 
@@ -722,6 +762,45 @@ void send_vis_packet() {
 
 	if ( vis_packet != NULL )
 		send_udp_packet( vis_packet, vis_packet_size, &vis_if.addr, vis_if.sock );
+
+}
+
+
+
+void count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman_if *if_incoming ) {
+
+	struct list_head *list_pos;
+	struct orig_node *orig_node;
+	struct neigh_node *tmp_neigh_node;
+	uint8_t is_new_seqno = 0;
+	static char orig_str[ADDR_STR_LEN];
+
+
+	addr_to_string( neigh, orig_str, ADDR_STR_LEN );
+	orig_node = get_orig_node( in->orig );
+
+	list_for_each( list_pos, &orig_node->neigh_list ) {
+
+		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
+
+		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
+
+			is_new_seqno = bit_get_packet( tmp_neigh_node->real_bits, in->seqno - orig_node->last_real_seqno, 1 );
+// 			debug_output( 3, "count_real_packets (yes): neigh = %s, is_new = %s, seq = %i, last seq\n", orig_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );
+
+		} else {
+
+			bit_get_packet( tmp_neigh_node->real_bits, in->seqno - orig_node->last_real_seqno, 0 );
+// 			debug_output( 3, "count_real_packets (no): neigh = %s, is_new = %s, seq = %i, last seq\n", orig_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );
+
+		}
+
+		tmp_neigh_node->real_packet_count = bit_packet_count( tmp_neigh_node->real_bits );
+
+	}
+
+	if ( is_new_seqno )
+		orig_node->last_real_seqno = in->seqno;
 
 }
 
@@ -908,34 +987,32 @@ int8_t batman() {
 
 				/* neighbour has to indicate direct link and it has to come via the corresponding interface */
 				/* if received seqno equals last send seqno save new seqno for bidirectional check */
-				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
+// 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
+//
+// 					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
+//
+// 					debug_output( 4, "indicating bidirectional link - updating bidirect_link seqno \n" );
+//
+// 				} else {
+//
+// 					debug_output( 4, "NOT indicating bidirectional link - NOT updating bidirect_link seqno \n" );
+//
+// 				}
 
-					/* if we did not receive the last sequence number we apply a penalty */
-					if ( ( orig_neigh_node->bidirect_link[if_incoming->if_num] == ((struct bat_packet *)&in)->seqno ) || ( orig_neigh_node->bidirect_link[if_incoming->if_num] + 1 == ((struct bat_packet *)&in)->seqno ) || ( ((struct bat_packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] > BIDIRECT_PENALTY ) ) {
-
-						orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
-
-						debug_output( 4, "indicating bidirectional link - updating bidirect_link seqno \n" );
-
-					} else {
-
-						debug_output( 3, "applying bidirectional penalty: seq = %i, last recv seq = %i, penalty = %i \n", ((struct bat_packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], BIDIRECT_PENALTY );
-
-					}
-
-				} else {
-
-					debug_output( 4, "NOT indicating bidirectional link - NOT updating bidirect_link seqno \n" );
-
-				}
+				if ( ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) )
+					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]), 1 );
 
 				debug_output( 4, "Drop packet: originator packet from myself (via neighbour) \n" );
 
 			} else if ( ((struct bat_packet *)&in)->flags & UNIDIRECTIONAL ) {
 
+				count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
+
 				debug_output( 4, "Drop packet: originator packet with unidirectional flag \n" );
 
 			} else {
+
+				count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
 
 				orig_node = get_orig_node( ((struct bat_packet *)&in)->orig );
 
@@ -950,7 +1027,7 @@ int8_t batman() {
 				} else {
 
 					is_duplicate = isDuplicate( orig_node, ((struct bat_packet *)&in)->seqno );
-					is_bidirectional = isBidirectionalNeigh( orig_neigh_node, if_incoming );
+					is_bidirectional = isBidirectionalNeigh( orig_node, orig_neigh_node, (struct bat_packet *)in, neigh, if_incoming );
 
 					/* update ranking */
 					if ( ( is_bidirectional ) && ( !is_duplicate ) )

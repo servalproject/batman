@@ -30,6 +30,8 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 	struct forw_node *forw_node_new, *forw_packet_tmp = NULL;
 	struct list_head *list_pos, *prev_list_head;
+	struct hash_it_t *hashit = NULL;
+	struct orig_node *orig_node;
 
 
 	forw_node_new = debugMalloc( sizeof(struct forw_node), 501 );
@@ -76,6 +78,15 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 		list_add_tail( &forw_node_new->list, &forw_list );
 
 	batman_if->out.seqno++;
+
+
+	while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
+
+		orig_node = hashit->bucket->data;
+
+		bit_get_packet( (TYPE_OF_WORD *)&(orig_node->rcvd_own[batman_if->if_num * NUM_WORDS]), 1, 0 );
+
+	}
 
 }
 

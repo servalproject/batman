@@ -94,6 +94,9 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(uint16_t), 402 );
 	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(uint16_t) );
 
+	orig_node->rcvd_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
+	memset( orig_node->rcvd_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );
+
 	hash_add( orig_hash, orig_node );
 
 	if ( orig_hash->elements * 4 > orig_hash->size ) {
@@ -121,7 +124,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
 
 	prof_start( PROF_update_originator );
-	struct list_head *neigh_pos;
+	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
 	uint8_t max_packet_count = 0, is_new_seqno = 0;
 
@@ -129,9 +132,9 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
 
 
-	list_for_each( neigh_pos, &orig_node->neigh_list ) {
+	list_for_each( list_pos, &orig_node->neigh_list ) {
 
-		tmp_neigh_node = list_entry( neigh_pos, struct neigh_node, list );
+		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
 		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
 
@@ -139,8 +142,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 		} else {
 
-			bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
-			tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
+// 			bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
+// 			tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
 
 			/* if we got more packets via this neighbour or same amount of packets if it is currently our best neighbour (to avoid route flipping) */
 			if ( ( tmp_neigh_node->packet_count > max_packet_count ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->packet_count >= max_packet_count ) ) ) {
@@ -174,15 +177,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	}
 
 
-	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
-	neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
-
-	if ( neigh_node->packet_count > max_packet_count ) {
-
-		max_packet_count = neigh_node->packet_count;
-		best_neigh_node = neigh_node;
-
-	}
+// 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
+	is_new_seqno = ! get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, in->seqno );
 
 
 	orig_node->last_valid = rcvd_time;
@@ -190,10 +186,20 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	if ( is_new_seqno ) {
 
-		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno  );
+		bit_mark( neigh_node->seq_bits, 1 );
+		neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
+
+		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno );
 
 		orig_node->last_seqno = in->seqno;
 		neigh_node->last_ttl = in->ttl;
+
+	}
+
+	if ( neigh_node->packet_count > max_packet_count ) {
+
+		max_packet_count = neigh_node->packet_count;
+		best_neigh_node = neigh_node;
 
 	}
 
@@ -280,7 +286,8 @@ void purge_orig( uint32_t curr_time ) {
 			update_routes( orig_node, NULL, NULL, 0 );
 
 			debugFree( orig_node->bidirect_link, 1402 );
-			debugFree( orig_node, 1403 );
+			debugFree( orig_node->rcvd_own, 1403 );
+			debugFree( orig_node, 1404 );
 
 		} else {
 
@@ -316,7 +323,7 @@ void purge_orig( uint32_t curr_time ) {
 
 					neigh_purged = 1;
 					list_del( prev_list_head, neigh_pos, &orig_node->neigh_list );
-					debugFree( neigh_node, 1404 );
+					debugFree( neigh_node, 1405 );
 
 				} else {
 
@@ -346,7 +353,7 @@ void purge_orig( uint32_t curr_time ) {
 		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + (2 * PURGE_TIMEOUT)) < curr_time) ) ) {
 
 			list_del( prev_list_head, gw_pos, &gw_list );
-			debugFree( gw_pos, 1405 );
+			debugFree( gw_pos, 1406 );
 
 		} else {
 
