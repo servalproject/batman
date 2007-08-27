@@ -140,7 +140,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				}
 				__copy_from_user(tmp, (void __user*)arg, length);
 				tmp[length] = 0;
-				printk("B.A.T.M.A.N. GW: Remove device %s\n", tmp);
+				printk("B.A.T.M.A.N. GW: Remove device %s...", tmp);
 				
 				rm_dev = dev_get_by_name(tmp);
 				
@@ -154,8 +154,9 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					dev_remove_pack(&dev_entry->packet);
 					list_del(&dev_entry->list);
 					kfree(dev_entry);
+					printk("ok\n");
 				} else
-					printk("B.A.T.M.A.N. GW: Can't remove device from dev_list.\n");
+					printk("failed\n");
 
 			} else {
 
@@ -217,7 +218,7 @@ init_module()
 void
 cleanup_module()
 {
-    int ret;
+    int ret, i=0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batgat", 0 );
 #else
@@ -230,6 +231,11 @@ cleanup_module()
 
 	if ( ret < 0 )
 		printk( "B.A.T.M.A.N. GW: Unregistering the character device failed with %d\n", ret );
+	
+	for( ;i < 255;i++) {		
+		if(gw_client_list[i] != NULL)
+			kfree(gw_client_list[i]);
+	}
 
 	printk( "B.A.T.M.A.N. GW: Unload complete\n" );
 }
@@ -264,12 +270,14 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
+	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
 #else
 	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
 #endif
 
 	struct udphdr *uhdr;
 	unsigned char *buffer;
+	int i;
 	
 	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 
@@ -286,13 +294,41 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
 #endif
 
+		printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
+			   skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
 		
-		printk("skb_len %d %p %p %p %p %u %u\n", skb->len, skb, buffer, uhdr, iph, (unsigned int)buffer[0], ntohs(uhdr->source));
+		i = 0;
+		
+		printk("\n");
+		for( ; i < skb->truesize; i++ ) {
+			if( i == 0 )
+				printk("%p| ",skb->head);
+
+			if( i != 0 && i%8 == 0 )
+				printk("  ");
+			if( i != 0 && i%16 == 0 )
+				printk("\n%p| ", &skb->head[i]);
+
+			printk("%02x ", skb->head[i] );
+		}
+		printk("\n\n");
+		
+		
 		if(ntohs(uhdr->source) == 1967 && buffer[0] == 2) {
-			printk("before send\n");
+			
 			send_vip(skb);
 
+		} else if(ntohs(uhdr->source) == 1967 && buffer[0] == 1) {
+			
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+			skb_set_network_header(skb, 29);
+#else
+
+#endif
+			
 		}
+		
+		
 	}
 	kfree_skb(skb);
     return 0;
@@ -320,7 +356,6 @@ send_vip(struct sk_buff *skb)
 	unsigned int tmp,size;
 	unsigned char dst_hw_addr[6];
 
-	//~ printk("%x:%x:%x:%x:%x:%x\n",eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
 	//~ return 0;
 	
 	
@@ -338,7 +373,7 @@ send_vip(struct sk_buff *skb)
 	/* TODO: memset buffer */
 	buffer[0] = 1;
 	memcpy( &buffer[1], &tmp , sizeof(unsigned int));
-	
+	printk("%d %d\n",tmp,buffer[1]);
 	skb->pkt_type = PACKET_OUTGOING;
 	/* replace source and destination address */
 	tmp = iph->saddr;
