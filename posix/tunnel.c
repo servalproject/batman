@@ -22,7 +22,13 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <arpa/inet.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
+#include <sys/sockio.h>
+#endif
 #include <net/if.h>
 #include <fcntl.h>        /* open(), O_RDWR */
 
@@ -373,8 +379,6 @@ void *client_to_gw_tun( void *arg ) {
 	return NULL;
 
 }
-
-
 
 int8_t get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_client[] ) {
 

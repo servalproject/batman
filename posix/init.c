@@ -26,7 +26,9 @@
 #include <errno.h>
 #include <signal.h>
 #include <paths.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -735,6 +737,14 @@ void init_interface ( struct batman_if *batman_if ) {
 
 	}
 
+
+#ifdef __linux__
+	/* The SIOCGIFINDEX ioctl is Linux specific, but I am not yet sure if the
+	 * equivalent exists on *BSD. There is a function called if_nametoindex()
+	 * on both Linux and BSD.
+	 * Maybe it does the same as this code and we can simply call it instead?
+	 * --stsp
+	 */
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFINDEX, &int_req ) < 0 ) {
 
 		printf( "Error - can't get index of interface %s: %s\n", batman_if->dev, strerror(errno) );
@@ -744,6 +754,9 @@ void init_interface ( struct batman_if *batman_if ) {
 	}
 
 	batman_if->if_index = int_req.ifr_ifindex;
+#else
+	batman_if->if_index = 0;
+#endif
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFNETMASK, &int_req ) < 0 ) {
 

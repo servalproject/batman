@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <sys/socket.h>
 #include <sys/times.h>
@@ -48,8 +49,8 @@ static float system_tick;
 
 
 uint32_t get_time( void ) {
-
-	return (uint32_t)( ( (float)( times(NULL) - start_time ) * 1000 ) / system_tick );
+	struct tms tp;
+	return (uint32_t)( ( (float)( times(&tp) - start_time ) * 1000 ) / system_tick );
 
 }
 
@@ -535,6 +536,7 @@ void cleanup() {
 int main( int argc, char *argv[] ) {
 
 	int8_t res;
+	struct tms tp;
 
 
 	/* check if user is root */
@@ -552,7 +554,7 @@ int main( int argc, char *argv[] ) {
 	INIT_LIST_HEAD_FIRST( hna_list );
 
 
-	start_time = times(NULL);
+	start_time = times(&tp);
 	system_tick = (float)sysconf(_SC_CLK_TCK);
 
 
