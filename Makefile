@@ -37,7 +37,7 @@ OS_C=	bsd/route.c bsd/tun.c bsd/kernel.c bsd/compat.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),FreeBSD)
-OS_C=	bsd/bsd.c $(POSIX_C)
+OS_C=	bsd/route.c bsd/tun.c bsd/kernel.c bsd/compat.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),OpenBSD)
