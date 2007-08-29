@@ -28,6 +28,8 @@
 #define IOCSETDEV 1
 #define IOCREMDEV 2
 
+#define TRANSPORT_PACKET_SIZE 29
+
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/inet.h>
@@ -37,7 +39,6 @@
 #include <linux/list.h>
 #include <net/pkt_sched.h>
 #include <net/udp.h>
-#include <net/ip.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	#include <linux/devfs_fs_kernel.h>
@@ -283,13 +284,10 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-		//~ uhdr = (struct udphdr *)skb_transport_header(skb);
-		//~ buffer = (unsigned char*)(skb_transport_header(skb) + sizeof(struct udphdr));
 		
 		uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 		buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
-		//~ uhdr = (struct udphdr *)skb->transport_header;
-		//~ buffer = (unsigned char*)(uhdr + sizeof(struct udphdr));
+
 #else
 		uhdr = (struct udphdr *)(skb->data + (skb->nh.iph->ihl * 4));
 		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
@@ -303,51 +301,49 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			printk("will ins inet\n");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 
-			printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
-				   skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
-			printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
+			//~ printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
+				   //~ skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
+			//~ printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
 			
-			i = 0;
+			//~ i = 0;
 			
-			printk("\n");
-			for( ; i < skb->truesize; i++ ) {
-				if( i == 0 )
-					printk("%p| ",skb->head);
+			//~ printk("\n");
+			//~ for( ; i < skb->truesize; i++ ) {
+				//~ if( i == 0 )
+					//~ printk("%p| ",skb->head);
 
-				if( i != 0 && i%8 == 0 )
-					printk("  ");
-				if( i != 0 && i%16 == 0 )
-					printk("\n%p| ", &skb->head[i]);
+				//~ if( i != 0 && i%8 == 0 )
+					//~ printk("  ");
+				//~ if( i != 0 && i%16 == 0 )
+					//~ printk("\n%p| ", &skb->head[i]);
 
-				printk("%02x ", skb->head[i] );
-			}
-			printk("\n\n");
+				//~ printk("%02x ", skb->head[i] );
+			//~ }
+			//~ printk("\n\n");
 
-			//~ skb_set_network_header(skb, 29);
-			skb_pull(skb,29);
+			skb_pull(skb,TRANSPORT_PACKET_SIZE);
 			skb->network_header = skb->data;
-			skb->transport_header = skb->data + sizeof(struct iphdr);
+			skb->transport_header = skb->data;
 			
-			i = 0;
+			//~ i = 0;
 			
-			printk("\n");
-			printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
-				   skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
-			printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
-			for( ; i < skb->truesize; i++ ) {
-				if( i == 0 )
-					printk("%p| ",skb->head);
+			//~ printk("\n");
+			//~ printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
+				   //~ skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
+			//~ printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
+			//~ for( ; i < skb->truesize; i++ ) {
+				//~ if( i == 0 )
+					//~ printk("%p| ",skb->head);
 
-				if( i != 0 && i%8 == 0 )
-					printk("  ");
-				if( i != 0 && i%16 == 0 )
-					printk("\n%p| ", &skb->head[i]);
+				//~ if( i != 0 && i%8 == 0 )
+					//~ printk("  ");
+				//~ if( i != 0 && i%16 == 0 )
+					//~ printk("\n%p| ", &skb->head[i]);
 
-				printk("%02x ", skb->head[i] );
-			}
-			printk("\n\n");
+				//~ printk("%02x ", skb->head[i] );
+			//~ }
+			//~ printk("\n\n");
 			
-			//dev_queue_xmit(skb_clone(skb, GFP_ATOMIC));
 #else
 
 #endif
@@ -370,7 +366,6 @@ send_vip(struct sk_buff *skb)
 	unsigned char *buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
 	struct udphdr *uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
-	//~ struct udphdr *uhdr = (struct udphdr *)skb_transport_header(skb);
 	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
 #else
 	unsigned char *buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
