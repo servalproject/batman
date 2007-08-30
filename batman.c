@@ -599,7 +599,7 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
-	static char orig_str[ADDR_STR_LEN];
+	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	uint8_t total_count, send_count;
 
 
@@ -620,12 +620,13 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 	if ( neigh_node != NULL ) {
 
-		addr_to_string( neigh, orig_str, ADDR_STR_LEN );
+		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
+		addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
 
 		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
 		send_count = (int)( ( ( (float)total_count / (float)SEQ_RANGE ) / ( (float)neigh_node->real_packet_count / (float)SEQ_RANGE ) ) * SEQ_RANGE );
 
-		debug_output( 3, "bidirectional: neigh = %s, own_bcast = %i, real recv = %i, packets to be forwarded: %i, packet_count: %i \n", orig_str, total_count, neigh_node->real_packet_count, send_count, neigh_node->packet_count );
+		debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, packets to be forwarded: %3i, packet_count: %i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, send_count, neigh_node->packet_count );
 
 		if ( neigh_node->packet_count < send_count )
 			return 1;
