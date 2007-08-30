@@ -640,6 +640,7 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 // 	if ( ( if_incoming->out.seqno - 2 - orig_neigh_node->bidirect_link[if_incoming->if_num] ) < BIDIRECT_TIMEOUT )
 // 		return 1;
 
+	orig_node->last_seqno = in->seqno;
 	return 0;
 
 }
@@ -1055,9 +1056,6 @@ int8_t batman() {
 							debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
 
 						}
-
-						/* rebroadcast packet again */
-						schedule_forward_packet( (struct bat_packet *)in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 					/* multihop originator */
 					} else {
