@@ -186,7 +186,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	if ( is_new_seqno ) {
 
-		bit_mark( neigh_node->seq_bits, 1 );
+		bit_mark( neigh_node->seq_bits, 0 );
 		neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
 
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno );

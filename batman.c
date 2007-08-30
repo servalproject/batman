@@ -1002,7 +1002,7 @@ int8_t batman() {
 // 				}
 
 				if ( ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) )
-					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]), 1 );
+					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]), 0 );
 
 				debug_output( 4, "Drop packet: originator packet from myself (via neighbour) \n" );
 
