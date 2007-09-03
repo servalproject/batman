@@ -530,7 +530,7 @@ int flush_routes_rules( int8_t is_rule ) {
 
 		nh = NLMSG_NEXT( nh, len );
 
-		if ( ( rtm->rtm_table != BATMAN_RT_TABLE_NETWORKS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_HOSTS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_TUNNEL ) )
+		if ( ( rtm->rtm_table != BATMAN_RT_TABLE_UNREACH ) &&  ( rtm->rtm_table != BATMAN_RT_TABLE_NETWORKS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_HOSTS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_TUNNEL ) )
 			continue;
 
 		while ( RTA_OK(rtap, rtl) ) {

@@ -385,7 +385,7 @@ void restore_defaults() {
 		if ( ( batman_if->netaddr > 0 ) && ( batman_if->netmask > 0 ) ) {
 
 			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 1 );
-			add_del_route( batman_if->netaddr, batman_if->netmask, 0, batman_if->if_index, batman_if->dev, BATMAN_RT_TABLE_HOSTS, 2, 1 );
+			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, 1, 1 );
 
 		}
 
@@ -395,7 +395,10 @@ void restore_defaults() {
 	}
 
 	/* delete rule for hna networks */
-	add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_DEFAULT - 1, 0, 1, 1 );
+	add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_UNREACH - 1, 0, 1, 1 );
+
+	/* delete unreachable routing table entry */
+	add_del_route( 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 2, 1 );
 
 	if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 		del_default_route();

@@ -89,20 +89,25 @@
  *
  * Things you should leave as is unless your know what you are doing !
  *
- * BATMAN_RT_TABLE_NETWORKS  routing table for announced networks
- * BATMAN_RT_TABLE_HOSTS      routing table for routes towards originators
- * BATMAN_RT_TABLE_TUNNEL    routing table for the tunnel towards the internet gateway
- * BATMAN_RT_PRIO_DEFAULT    standard priority for routing rules
- * BATMAN_RT_PRIO_TUNNEL     standard priority for tunnel routing rules
+ * BATMAN_RT_TABLE_UNREACH	routing table for unreachable routing entry
+ * BATMAN_RT_TABLE_NETWORKS	routing table for announced networks
+ * BATMAN_RT_TABLE_HOSTS	routing table for routes towards originators
+ * BATMAN_RT_TABLE_TUNNEL	routing table for the tunnel towards the internet gateway
+ * BATMAN_RT_PRIO_DEFAULT	standard priority for routing rules
+ * BATMAN_RT_PRIO_UNREACH	standard priority for unreachable rules
+ * BATMAN_RT_PRIO_TUNNEL	standard priority for tunnel routing rules
  *
  ***/
 
 
+#define BATMAN_RT_TABLE_UNREACH 64
 #define BATMAN_RT_TABLE_NETWORKS 65
 #define BATMAN_RT_TABLE_HOSTS 66
 #define BATMAN_RT_TABLE_TUNNEL 67
 #define BATMAN_RT_PRIO_DEFAULT 6600
-#define BATMAN_RT_PRIO_TUNNEL BATMAN_RT_PRIO_DEFAULT + 100
+#define BATMAN_RT_PRIO_UNREACH BATMAN_RT_PRIO_DEFAULT + 100
+#define BATMAN_RT_PRIO_TUNNEL BATMAN_RT_PRIO_UNREACH + 100
+
 
 
 
