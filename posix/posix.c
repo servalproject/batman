@@ -349,7 +349,6 @@ void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
-	unsigned short tmp_cmd[2];
 	unsigned int cmd;
 
 	stop = 1;
@@ -368,13 +367,22 @@ void restore_defaults() {
 			if ( batman_if->listen_thread_id != 0 )
 				pthread_join( batman_if->listen_thread_id, NULL );
 			else {
-				tmp_cmd[0] = (unsigned short)IOCREMDEV;
-				tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
-				/* TODO: test if we can assign tmp_cmd direct */
-				memcpy(&cmd, tmp_cmd, sizeof(int));
-				if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
-					debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+				if(batman_if->dev != NULL ) {
+					cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->dev)<<16);
+					if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+					}
+
+					if(batman_if->tun_dev[0] != 0 ) {
+						cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
+						if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->tun_dev) < 0) {
+							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->tun_dev,strerror(errno) );
+						}
+						add_del_route( batman_if->tun_ip, 24, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
+						del_dev_tun(batman_if->tun_fd);
+					}
 				}
+				
 			}
 
 		}
@@ -425,7 +433,6 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 	struct batman_if *batman_if;
 	struct orig_node *orig_node;
 	struct hash_it_t *hashit = NULL;
-	unsigned short tmp_cmd[2];
 	unsigned int cmd;
 
 	if ( !unix_client ) {
@@ -442,12 +449,20 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 					pthread_join( batman_if->listen_thread_id, NULL );
 				else {
 
-					tmp_cmd[0] = (unsigned short)IOCREMDEV;
-					tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
-					/* TODO: test if we can assign tmp_cmd direct */
-					memcpy(&cmd, tmp_cmd, sizeof(int));
-					if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
-						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+					if(batman_if->dev != NULL ) {
+						cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->dev)<<16);
+						if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+						}
+
+						if(batman_if->tun_dev[0] != 0 ) {
+							cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
+							if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->tun_dev) < 0) {
+								debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->tun_dev,strerror(errno) );
+							}
+							add_del_route( batman_if->tun_ip, 24, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
+							del_dev_tun(batman_if->tun_fd);
+						}
 					}
 
 				}

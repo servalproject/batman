@@ -836,10 +836,10 @@ void init_interface ( struct batman_if *batman_if ) {
 
 void init_interface_gw ( struct batman_if *batman_if ) {
 
-	int32_t sock_opts;
-	unsigned short tmp_cmd[2];
 	unsigned int cmd;
 
+	int32_t sock_opts;
+	
 	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
 
 		batman_if->addr.sin_port = htons(PORT + 1);
@@ -872,15 +872,32 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 
 	} else {
 
-	    tmp_cmd[0] = (unsigned short)IOCSETDEV;
-	    tmp_cmd[1] = (unsigned short)strlen(batman_if->dev);
-	    memcpy(&cmd, tmp_cmd, sizeof(int));
-		/* TODO: test if we can assign tmp_cmd direct */
-	    if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+		cmd = (unsigned short)IOCSETDEV + ((unsigned short)strlen(batman_if->dev)<<16);
+		if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0 ) {
+			batman_if->dev = NULL;
 			debug_output( 0, "Error - can't add device %s: %s\n", batman_if->dev,strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
-	    }
+		}
+		
+		/* create tun device and assign ip address */
+		batman_if->tun_ip = 169 + ( 254<<8 ) + ( batman_if->if_num<<16 ) + ( 0<<24 );
+
+		if ( add_dev_tun( batman_if, batman_if->tun_ip, batman_if->tun_dev, sizeof(batman_if->tun_dev), &batman_if->tun_fd, &batman_if->tun_ifi ) < 0 ) {
+			batman_if->tun_dev[0] = 0;
+			restore_defaults();
+			exit(EXIT_FAILURE);
+		}
+		add_del_route( batman_if->tun_ip, 24, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 0 );
+
+		cmd = (unsigned short)IOCSETDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
+		if(ioctl(batman_if->udp_tunnel_sock,cmd,batman_if->tun_dev) < 0 ) {
+			batman_if->tun_dev[0] = 0;
+			debug_output( 0, "Error - can't add device %s or %s: %s\n", batman_if->tun_dev,strerror(errno) );
+			restore_defaults();
+			exit(EXIT_FAILURE);
+		}
+
 	}
 
 }

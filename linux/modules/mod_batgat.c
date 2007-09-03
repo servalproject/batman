@@ -111,19 +111,23 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					printk("B.A.T.M.A.N. GW: Allocate memory for device list\n");
 					return -EFAULT;
 				}
-				
-				dev_entry->netdev = dev_get_by_name(tmp);
-				dev_entry->packet.type = __constant_htons(ETH_P_IP);
-				dev_entry->packet.func = batgat_func;
-				
-				list_add_tail(&dev_entry->list, &device_list);
-				
-				if(!dev_entry->netdev)
+
+				if( (dev_entry->netdev = dev_get_by_name(tmp)) == NULL ) {
 					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
-				else {
-					dev_entry->packet.dev = dev_entry->netdev;
-					dev_add_pack(&dev_entry->packet);
+					return -EFAULT;
 				}
+				
+// 				dev_entry->packet.type = __constant_htons(ETH_P_IP);
+// 				dev_entry->packet.func = batgat_func;
+// 				
+// 				list_add_tail(&dev_entry->list, &device_list);
+// 				
+// 				if(!dev_entry->netdev)
+// 					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
+// 				else {
+// 					dev_entry->packet.dev = dev_entry->netdev;
+// 					dev_add_pack(&dev_entry->packet);
+// 				}
 
 			} else {
 
@@ -144,21 +148,25 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				tmp[length] = 0;
 				printk("B.A.T.M.A.N. GW: Remove device %s...", tmp);
 				
-				rm_dev = dev_get_by_name(tmp);
-				
-				list_for_each(ptr, &device_list) {
-					dev_entry = list_entry(ptr, struct dev_element, list);
-					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
-						break;
+				if((rm_dev = dev_get_by_name(tmp))==NULL) {
+					printk("did not find device %s\n",tmp);
+					return -EFAULT;
 				}
 				
-				if(dev_entry) {
-					dev_remove_pack(&dev_entry->packet);
-					list_del(&dev_entry->list);
-					kfree(dev_entry);
+// 				
+// 				list_for_each(ptr, &device_list) {
+// 					dev_entry = list_entry(ptr, struct dev_element, list);
+// 					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
+// 						break;
+// 				}
+// 				
+// 				if(dev_entry) {
+// 					dev_remove_pack(&dev_entry->packet);
+// 					list_del(&dev_entry->list);
+// 					kfree(dev_entry);
 					printk("ok\n");
-				} else
-					printk("failed\n");
+// 				} else
+// 					printk("failed\n");
 
 			} else {
 
