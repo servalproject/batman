@@ -39,7 +39,7 @@
 
 #define SOURCE_VERSION "0.3-alpha" //put exactly one distinct word inside the string like "0.3-pre-alpha" or "0.3-rc1" or "0.3"
 #define COMPAT_VERSION 3
-#define PORT 1966
+#define PORT 4305
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
@@ -89,9 +89,9 @@
  *
  * Things you should leave as is unless your know what you are doing !
  *
- * BATMAN_RT_TABLE_UNREACH	routing table for unreachable routing entry
  * BATMAN_RT_TABLE_NETWORKS	routing table for announced networks
  * BATMAN_RT_TABLE_HOSTS	routing table for routes towards originators
+ * BATMAN_RT_TABLE_UNREACH	routing table for unreachable routing entry
  * BATMAN_RT_TABLE_TUNNEL	routing table for the tunnel towards the internet gateway
  * BATMAN_RT_PRIO_DEFAULT	standard priority for routing rules
  * BATMAN_RT_PRIO_UNREACH	standard priority for unreachable rules
@@ -100,10 +100,10 @@
  ***/
 
 
-#define BATMAN_RT_TABLE_UNREACH 64
 #define BATMAN_RT_TABLE_NETWORKS 65
 #define BATMAN_RT_TABLE_HOSTS 66
-#define BATMAN_RT_TABLE_TUNNEL 67
+#define BATMAN_RT_TABLE_UNREACH 67
+#define BATMAN_RT_TABLE_TUNNEL 68
 #define BATMAN_RT_PRIO_DEFAULT 6600
 #define BATMAN_RT_PRIO_UNREACH BATMAN_RT_PRIO_DEFAULT + 100
 #define BATMAN_RT_PRIO_TUNNEL BATMAN_RT_PRIO_UNREACH + 100

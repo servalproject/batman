@@ -64,8 +64,13 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi
 
 		if ( dest == 0 ) {
 
-			debug_output( 3, "%s default route via %s (table %i)\n", del ? "Deleting" : "Adding", dev, rt_table );
-			debug_output( 4, "%s default route via %s (table %i)\n", del ? "Deleting" : "Adding", dev, rt_table );
+			if ( route_type != 2 ) {
+
+				debug_output( 3, "%s default route via %s (table %i)\n", del ? "Deleting" : "Adding", dev, rt_table );
+				debug_output( 4, "%s default route via %s (table %i)\n", del ? "Deleting" : "Adding", dev, rt_table );
+
+			}
+
 			my_router = router;
 
 		} else {
