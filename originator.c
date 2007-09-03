@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include "os.h"
 #include "batman.h"
+#include "originator.h"
+
 
 
 
@@ -68,6 +70,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	struct orig_node *orig_node;
 	struct hashtable_t *swaphash;
 	static char orig_str[ADDR_STR_LEN];
+	uint16_t i;
 
 
 	orig_node = ((struct orig_node *)hash_find( orig_hash, &addr ));
@@ -93,6 +96,12 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(uint16_t), 402 );
 	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(uint16_t) );
+	
+	/*TODO: this fix actually postpones the problem to the moment of wrap-arounds but its probably less confusing this way!
+	*/
+	for ( i=0; i < found_ifs; i++ ) {
+		orig_node->bidirect_link[i] = ((uint16_t) (0 - 2 - BIDIRECT_TIMEOUT) ); 
+	}
 
 	orig_node->rcvd_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
 	memset( orig_node->rcvd_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );

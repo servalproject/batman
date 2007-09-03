@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include "os.h"
 #include "batman.h"
+#include "schedule.h"
 
 
 

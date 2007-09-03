@@ -162,7 +162,11 @@ void apply_init_args( int argc, char *argv[] ) {
 				list_add_tail( &hna_node->list, &hna_list );
 
 				*slash_ptr = '/';
-				found_args += 2;
+				
+				
+				/* increment found_args only by one if optarg and optchar are directly following each other 
+				   increment found_args by two if there is some space between the arguments */
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'b':
@@ -193,7 +197,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
-				found_args += 2;
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'g':
@@ -235,7 +239,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				gateway_class_opt = 1;
 
-				found_args += 2;
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'H':
@@ -255,7 +259,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
-				found_args += 2;
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'p':
@@ -273,7 +277,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				pref_gw_opt = 1;
 
-				found_args += 2;
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'r':
@@ -291,7 +295,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				routing_class_opt = 1;
 
-				found_args += 2;
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 's':
@@ -307,7 +311,7 @@ void apply_init_args( int argc, char *argv[] ) {
 				vis_server = tmp_ip_holder.s_addr;
 
 
-				found_args += 2;
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'v':
