@@ -120,14 +120,14 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 // 				dev_entry->packet.type = __constant_htons(ETH_P_IP);
 // 				dev_entry->packet.func = batgat_func;
 // 				
-// 				list_add_tail(&dev_entry->list, &device_list);
+				list_add_tail(&dev_entry->list, &device_list);
 // 				
-// 				if(!dev_entry->netdev)
-// 					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
-// 				else {
+				if(!dev_entry->netdev)
+					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
+				else {
 // 					dev_entry->packet.dev = dev_entry->netdev;
 // 					dev_add_pack(&dev_entry->packet);
-// 				}
+				}
 
 			} else {
 
@@ -152,21 +152,24 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					printk("did not find device %s\n",tmp);
 					return -EFAULT;
 				}
+
 				
-// 				
-// 				list_for_each(ptr, &device_list) {
-// 					dev_entry = list_entry(ptr, struct dev_element, list);
-// 					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
-// 						break;
-// 				}
-// 				
-// 				if(dev_entry) {
+				
+				list_for_each(ptr, &device_list) {
+					dev_entry = list_entry(ptr, struct dev_element, list);
+					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
+						break;
+				}
+				
+				if(dev_entry) {
 // 					dev_remove_pack(&dev_entry->packet);
-// 					list_del(&dev_entry->list);
-// 					kfree(dev_entry);
+					dev_put(rm_dev);
+					dev_put(dev_entry->netdev);
+					list_del(&dev_entry->list);
+					kfree(dev_entry);
 					printk("ok\n");
-// 				} else
-// 					printk("failed\n");
+				} else
+					printk("failed\n");
 
 			} else {
 
