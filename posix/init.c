@@ -881,7 +881,7 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 		}
 		
 		/* create tun device and assign ip address */
-		batman_if->tun_ip = 169 + ( 254<<8 ) + ( batman_if->if_num<<16 ) + ( 0<<24 );
+		batman_if->tun_ip = 169 + ( 254<<8 ) + ( batman_if->if_index<<16 ) + ( 0<<24 );
 
 		if ( add_dev_tun( batman_if, batman_if->tun_ip, batman_if->tun_dev, sizeof(batman_if->tun_dev), &batman_if->tun_fd, &batman_if->tun_ifi ) < 0 ) {
 			batman_if->tun_dev[0] = 0;
