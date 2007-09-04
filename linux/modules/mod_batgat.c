@@ -29,6 +29,7 @@
 #define IOCREMDEV 2
 
 #define TRANSPORT_PACKET_SIZE 29
+#define BATMAN_PORT 4306
 
 #include <linux/module.h>
 #include <linux/version.h>
@@ -51,6 +52,7 @@ static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
 
+static void print_ip(unsigned int sip, unsigned int dip);
 static int send_vip(struct sk_buff *skb);
 static uint8_t get_ip_addr( uint32_t client_addr, char *ip_buff );
 
@@ -109,25 +111,24 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				
 				if( (dev_entry = kmalloc(sizeof(struct dev_element), GFP_KERNEL)) == NULL) {
 					printk("B.A.T.M.A.N. GW: Allocate memory for device list\n");
+					if(tmp)
+						kfree(tmp);
 					return -EFAULT;
 				}
 
 				if( (dev_entry->netdev = dev_get_by_name(tmp)) == NULL ) {
 					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
+					if(tmp)
+						kfree(tmp);
 					return -EFAULT;
 				}
 				
-// 				dev_entry->packet.type = __constant_htons(ETH_P_IP);
-// 				dev_entry->packet.func = batgat_func;
-// 				
+				dev_entry->packet.type = __constant_htons(ETH_P_IP);
+				dev_entry->packet.func = batgat_func;
+				
 				list_add_tail(&dev_entry->list, &device_list);
-// 				
-				if(!dev_entry->netdev)
-					printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
-				else {
-// 					dev_entry->packet.dev = dev_entry->netdev;
-// 					dev_add_pack(&dev_entry->packet);
-				}
+				dev_entry->packet.dev = dev_entry->netdev;
+				dev_add_pack(&dev_entry->packet);
 
 			} else {
 
@@ -150,26 +151,33 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				
 				if((rm_dev = dev_get_by_name(tmp))==NULL) {
 					printk("did not find device %s\n",tmp);
+					if(tmp)
+						kfree(tmp);
 					return -EFAULT;
 				}
 
-				
-				
 				list_for_each(ptr, &device_list) {
 					dev_entry = list_entry(ptr, struct dev_element, list);
 					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
 						break;
 				}
 				
-				if(dev_entry) {
-// 					dev_remove_pack(&dev_entry->packet);
+				if(dev_entry->netdev->ifindex == rm_dev->ifindex) {
+					dev_remove_pack(&dev_entry->packet);
+
+					/* we must dev_put for every call of dev_get_by_name */
 					dev_put(rm_dev);
 					dev_put(dev_entry->netdev);
+					
 					list_del(&dev_entry->list);
 					kfree(dev_entry);
 					printk("ok\n");
-				} else
-					printk("failed\n");
+				} else {
+					printk("device %s not in list\n",tmp);
+					if(tmp)
+						kfree(tmp);
+					return -EFAULT;
+				}
 
 			} else {
 
@@ -304,11 +312,11 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		buffer = (unsigned char*)((skb->data + (skb->nh.iph->ihl * 4)) + sizeof(struct udphdr));
 #endif
 		
-		if(ntohs(uhdr->source) == 1967 && buffer[0] == 2) {
+		if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == 2) {
 			
 			send_vip(skb);
 
-		} else if(ntohs(uhdr->source) == 1967 && buffer[0] == 1) {
+		} else if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == 1) {
 			printk("will ins inet\n");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 
@@ -363,11 +371,29 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		
 		
 	}
+	
+// 	if( ((ntohl(iph->saddr)>>24)&255) == 169 || ((ntohl(iph->daddr)>>24)&255) == 169)
+		print_ip(iph->saddr, iph->daddr);
+// 	else
+// 		printk("no valid ip %d %d\n",(ntohl(iph->saddr)>>24)&255, iph->protocol );
+
 	kfree_skb(skb);
     return 0;
 }
 
 /* helpers */
+
+static void
+print_ip(unsigned int sip, unsigned int dip)
+{
+	sip = ntohl(sip);
+	dip = ntohl(dip);
+	
+	printk("%d.%d.%d.%d -> %d.%d.%d.%d\n", (sip >> 24) & 255, (sip >> 16) & 255,(sip >> 8) & 255, (sip & 255),
+	       (dip >> 24) & 255, (dip >> 16) & 255,(dip >> 8) & 255, (dip & 255));
+
+	return;
+}
 
 static int
 send_vip(struct sk_buff *skb)
@@ -399,13 +425,10 @@ send_vip(struct sk_buff *skb)
 	}
 	
 	tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + ( buffer[0]<<24 );
-	printk("%d ifindex\n",skb->dev->ifindex);
-	
 	
 	/* TODO: memset buffer */
 	buffer[0] = 1;
 	memcpy( &buffer[1], &tmp , sizeof(unsigned int));
-	printk("%d %d\n",tmp,buffer[1]);
 	skb->pkt_type = PACKET_OUTGOING;
 	/* replace source and destination address */
 	tmp = iph->saddr;
