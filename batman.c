@@ -224,8 +224,9 @@ void choose_gw() {
 	prof_start( PROF_choose_gw );
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
-	uint8_t max_gw_class = 0, max_packets = 0, max_gw_factor = 0;
-	uint32_t current_time;
+	uint8_t max_gw_class = 0, max_packets = 0;
+	uint32_t current_time, max_gw_factor = 0, tmp_gw_factor = 0;
+	int download_speed, upload_speed;
 	static char orig_str[ADDR_STR_LEN];
 
 
@@ -269,7 +270,12 @@ void choose_gw() {
 		switch ( routing_class ) {
 
 			case 1:   /* fast connection */
-				if ( ( ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) > max_gw_factor ) || ( ( ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) == max_gw_factor ) && ( gw_node->orig_node->router->packet_count > max_packets ) ) )
+				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
+
+				if ( ( ( tmp_gw_factor = ( ( ( gw_node->orig_node->router->packet_count * 100 ) / SEQ_RANGE ) *
+								     ( ( gw_node->orig_node->router->packet_count * 100 ) / SEQ_RANGE ) *
+								     ( download_speed / 64 ) ) ) > max_gw_factor ) ||
+								     ( ( tmp_gw_factor == max_gw_factor ) && ( gw_node->orig_node->router->packet_count > max_packets ) ) )
 					tmp_curr_gw = gw_node;
 				break;
 
@@ -291,15 +297,15 @@ void choose_gw() {
 		if ( gw_node->orig_node->router->packet_count > max_packets )
 			max_packets = gw_node->orig_node->router->packet_count;
 
-		if ( ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) > max_gw_class )
-			max_gw_factor = ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags );
+		if ( tmp_gw_factor > max_gw_factor )
+			max_gw_factor = tmp_gw_factor;
 
 		if ( ( pref_gateway != 0 ) && ( pref_gateway == gw_node->orig_node->orig ) ) {
 
 			tmp_curr_gw = gw_node;
 
 			addr_to_string( tmp_curr_gw->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, packet_count: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->packet_count, ( gw_node->orig_node->router->packet_count * gw_node->orig_node->gwflags ) );
+			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, packet_count: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->packet_count, tmp_gw_factor );
 
 			break;
 
@@ -327,7 +333,7 @@ void choose_gw() {
 		if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
 
 			addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Adding default route to %s (%i,%i,%i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
+			debug_output( 3, "Adding default route to %s (gw_flags: %i, packet_count: %i, gw_product: %i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
 
 			add_default_route();
 
