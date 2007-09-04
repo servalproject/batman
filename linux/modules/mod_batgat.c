@@ -123,7 +123,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					return -EFAULT;
 				}
 				
-				dev_entry->packet.type = __constant_htons(ETH_P_IP);
+				dev_entry->packet.type = __constant_htons(ETH_P_ALL);
 				dev_entry->packet.func = batgat_func;
 				
 				list_add_tail(&dev_entry->list, &device_list);
@@ -372,8 +372,10 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		
 	}
 	
-// 	if( ((ntohl(iph->saddr)>>24)&255) == 169 || ((ntohl(iph->daddr)>>24)&255) == 169)
+	if( ((ntohl(iph->saddr)>>24)&255) == 169 || ((ntohl(iph->daddr)>>24)&255) == 169) {
+		printk("%d ",orig_dev->ifindex);
 		print_ip(iph->saddr, iph->daddr);
+	}
 // 	else
 // 		printk("no valid ip %d %d\n",(ntohl(iph->saddr)>>24)&255, iph->protocol );
 
