@@ -856,9 +856,15 @@ int8_t batman() {
 			hna_buff = debugRealloc( hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 15 );
 
 			memmove( &hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4 );
-			hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char ) hna_node->netmask;
+			hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char )hna_node->netmask;
 
 			num_hna++;
+
+			/* add throw routing entries for own hna */
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 0 );
 
 		}
 
@@ -1171,6 +1177,12 @@ int8_t batman() {
 	list_for_each_safe( list_pos, hna_pos_tmp, &hna_list ) {
 
 		hna_node = list_entry( list_pos, struct hna_node, list );
+
+		/* add throw routing entries for own hna */
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 1 );
 
 		debugFree( hna_node, 1103 );
 
