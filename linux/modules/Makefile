@@ -1,6 +1,6 @@
 
 #
-# TARGET  := mod_batman mod_batgat
+# TARGET  := mod_batgat
 # WARN    := -W -Wall -Wstrict-prototypes -Wmissing-prototypes
 # INCLUDE := -isystem /lib/modules/`uname -r`/build/include
 # CFLAGS  := -O2 -DMODULE -D__KERNEL__ ${WARN} ${INCLUDE}
@@ -15,8 +15,6 @@
 # 	rm -rf ${TARGET}.o
 
 
-
-obj-m += mod_batman.o
 obj-m += mod_batgat.o
 
 all:

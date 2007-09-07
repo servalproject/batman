@@ -20,7 +20,7 @@
 /* Kernel Programming */
 #define LINUX
 
-#define DRIVER_AUTHOR "Andreas Langer <a.langer@q-dsl.de>"
+#define DRIVER_AUTHOR "Andreas Langer <a.langer@q-dsl.de>, Marek Lindner <lindner_marek@yahoo.de>"
 #define DRIVER_DESC   "batman gateway module"
 #define DRIVER_DEVICE "batgat"
 
@@ -54,7 +54,7 @@ static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet
 
 static void print_ip(unsigned int sip, unsigned int dip);
 static int send_vip(struct sk_buff *skb);
-static uint8_t get_ip_addr( uint32_t client_addr, char *ip_buff );
+static uint8_t get_ip_addr( uint32_t client_addr, unsigned int ifindex, char *ip_buff );
 
 static int Major;            /* Major number assigned to our device driver */
 
@@ -70,7 +70,13 @@ struct gw_client {
 	uint32_t last_keep_alive;
 };
 
-static struct gw_client *gw_client_list[256];
+struct gw {
+	struct list_head list;
+	unsigned short ip_part;
+	struct gw_client *gw_client_list[256];
+};
+
+static struct list_head gw_client_list;
 
 struct dev_element {
 	struct list_head list;
@@ -90,6 +96,9 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 	struct dev_element *dev_entry = NULL;
 	struct net_device *rm_dev = NULL;
 	struct list_head *ptr = NULL;
+
+	struct gw *gw_entry = NULL;
+	struct list_head *gw_ptr = NULL;
 
 	/* cmd comes with 2 short values */
 	command = cmd & 0x0000FFFF;
@@ -130,6 +139,15 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				dev_entry->packet.dev = dev_entry->netdev;
 				dev_add_pack(&dev_entry->packet);
 
+				if( (gw_entry = kmalloc(sizeof(struct gw), GFP_KERNEL)) == NULL) {
+					printk("B.A.T.M.A.N. GW: Allocate memory for gw_list\n");
+					return -EFAULT;
+				}
+
+				memset(gw_entry->gw_client_list, 0x0, 256*sizeof(int));
+				gw_entry->ip_part = dev_entry->netdev->ifindex;
+				list_add_tail(&gw_entry->list, &gw_client_list);
+
 			} else {
 
 				printk("B.A.T.M.A.N. GW: Access to memory area of arg not allowed\n");
@@ -165,6 +183,16 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				if(dev_entry->netdev->ifindex == rm_dev->ifindex) {
 					dev_remove_pack(&dev_entry->packet);
 
+					/* remove interface index from gw_list */
+					list_for_each(gw_ptr, &gw_client_list) {
+						gw_entry = list_entry(gw_ptr, struct gw, list);
+						if(gw_entry->ip_part == dev_entry->netdev->ifindex)
+							break;
+					}
+
+					list_del(&gw_entry->list);
+					kfree(gw_entry);
+					
 					/* we must dev_put for every call of dev_get_by_name */
 					dev_put(rm_dev);
 					dev_put(dev_entry->netdev);
@@ -199,7 +227,6 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 int
 init_module()
 {
-	int i = 0;
 	
 	/* register our device - kernel assigns a free major number */
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
@@ -228,10 +255,7 @@ init_module()
 		
 	/* init device list */
 	INIT_LIST_HEAD(&device_list);
-	
-	/* init gw_client_list */
-	for( ;i< 255;i++)
-		gw_client_list[i] = NULL;
+	INIT_LIST_HEAD(&gw_client_list);
 
 	return(0);
 }
@@ -239,7 +263,10 @@ init_module()
 void
 cleanup_module()
 {
-    int ret, i=0;
+	int ret, i=0;
+	struct list_head *gw_ptr;
+	struct gw *gw_entry;
+    
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batgat", 0 );
 #else
@@ -252,11 +279,21 @@ cleanup_module()
 
 	if ( ret < 0 )
 		printk( "B.A.T.M.A.N. GW: Unregistering the character device failed with %d\n", ret );
-	
-	for( ;i < 255;i++) {		
-		if(gw_client_list[i] != NULL)
-			kfree(gw_client_list[i]);
+
+	if(!list_empty(&gw_client_list)) {
+		list_for_each(gw_ptr, &gw_client_list) {
+			gw_entry = list_entry(gw_ptr, struct gw, list);
+			if(gw_entry) {
+				for( ;i < 255;i++) {
+					if(gw_entry->gw_client_list[i] != NULL)
+						kfree(gw_entry->gw_client_list[i]);
+				}
+			}
+			list_del(&gw_entry->list);
+			kfree(gw_entry);
+		}
 	}
+
 
 	printk( "B.A.T.M.A.N. GW: Unload complete\n" );
 }
@@ -289,16 +326,16 @@ static int
 batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
 {
 
+	unsigned short addr_part_3, addr_part_4;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	struct iphdr *iph = (struct iphdr*)skb_network_header(skb);
-	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
+// 	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
 #else
 	struct iphdr *iph = (struct iphdr*)skb->nh.iph;
 #endif
 
 	struct udphdr *uhdr;
 	unsigned char *buffer;
-	int i;
 	
 	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 
@@ -317,52 +354,11 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			send_vip(skb);
 
 		} else if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == 1) {
-			printk("will ins inet\n");
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-
-			//~ printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
-				   //~ skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
-			//~ printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
-			
-			//~ i = 0;
-			
-			//~ printk("\n");
-			//~ for( ; i < skb->truesize; i++ ) {
-				//~ if( i == 0 )
-					//~ printk("%p| ",skb->head);
-
-				//~ if( i != 0 && i%8 == 0 )
-					//~ printk("  ");
-				//~ if( i != 0 && i%16 == 0 )
-					//~ printk("\n%p| ", &skb->head[i]);
-
-				//~ printk("%02x ", skb->head[i] );
-			//~ }
-			//~ printk("\n\n");
-
 			skb_pull(skb,TRANSPORT_PACKET_SIZE);
 			skb->network_header = skb->data;
 			skb->transport_header = skb->data;
-			
-			//~ i = 0;
-			
-			//~ printk("\n");
-			//~ printk("tail %p end %p head %p data %p ethhdr %p iph %p uhdr %p len %d mac_len %d\n", 
-				   //~ skb->tail, skb->end, skb->head, skb->data, eth, iph, uhdr, skb->len, skb->mac_len);
-			//~ printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
-			//~ for( ; i < skb->truesize; i++ ) {
-				//~ if( i == 0 )
-					//~ printk("%p| ",skb->head);
-
-				//~ if( i != 0 && i%8 == 0 )
-					//~ printk("  ");
-				//~ if( i != 0 && i%16 == 0 )
-					//~ printk("\n%p| ", &skb->head[i]);
-
-				//~ printk("%02x ", skb->head[i] );
-			//~ }
-			//~ printk("\n\n");
-			
 #else
 
 #endif
@@ -372,12 +368,19 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		
 	}
 	
-	if( ((ntohl(iph->saddr)>>24)&255) == 169 || ((ntohl(iph->daddr)>>24)&255) == 169) {
+	if( ((ntohl(iph->daddr)>>24)&255) == 169) {
+		
 		printk("%d ",orig_dev->ifindex);
 		print_ip(iph->saddr, iph->daddr);
+		addr_part_3 = (ntohl(iph->daddr)>>16)&255;
+		addr_part_4 = (ntohl(iph->daddr)>>8)&255;
+		
+// 		if(gw_client_list[addr_part_3][addr_part_4] != NULL) {
+// 			printk("real ip: ");
+// 			print_ip(iph->saddr,gw_client_list[addr_part_3][addr_part_4]->addr);
+// 		}
+		
 	}
-// 	else
-// 		printk("no valid ip %d %d\n",(ntohl(iph->saddr)>>24)&255, iph->protocol );
 
 	kfree_skb(skb);
     return 0;
@@ -421,7 +424,7 @@ send_vip(struct sk_buff *skb)
 	
 	/* TODO: address handling */
 	
-	if( (tmp = get_ip_addr(iph->saddr, buffer)) < 0 ) {
+	if( (tmp = get_ip_addr(iph->saddr, skb->dev->ifindex, buffer)) < 0 ) {
 		/* TODO: error */
 		return 0;
 	}
@@ -462,26 +465,37 @@ send_vip(struct sk_buff *skb)
 }
 
 static uint8_t
-get_ip_addr( uint32_t client_addr, char *ip_buff )
+get_ip_addr( uint32_t client_addr, unsigned int ifindex, char *ip_buff )
 {
-	uint8_t i,first_free = 0;
+	uint8_t i,first_free		= 0;
+	struct list_head *gw_ptr	= NULL;
+	struct gw *gw_entry		= NULL;
 
-	for ( i = 1; i < 255; i++ ) {
 
-		if ( gw_client_list[i] != NULL ) {
+	list_for_each(gw_ptr, &gw_client_list) {
+		gw_entry = list_entry(gw_ptr, struct gw, list);
+		if(gw_entry->ip_part == ifindex) {
+			/* we have this ip part */
+			for ( i = 1; i < 255; i++ ) {
 
-			if ( gw_client_list[i]->addr == client_addr ) {
+				if ( gw_entry->gw_client_list[i] != NULL ) {
 
-				ip_buff[0] = i;
-				return 0;
+					if ( gw_entry->gw_client_list[i]->addr == client_addr ) {
+
+						ip_buff[0] = i;
+						return 0;
+
+					}
+
+				} else {
+
+					if ( first_free == 0 )
+						first_free = i;
+
+				}
 
 			}
-
-		} else {
-
-			if ( first_free == 0 )
-				first_free = i;
-
+			break;
 		}
 
 	}
@@ -492,10 +506,10 @@ get_ip_addr( uint32_t client_addr, char *ip_buff )
 
 	}
 
-	gw_client_list[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
-	gw_client_list[first_free]->addr = client_addr;
+	gw_entry->gw_client_list[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
+	gw_entry->gw_client_list[first_free]->addr = client_addr;
 	/* TODO: check syscall */
-	gw_client_list[first_free]->last_keep_alive = 0;
+	gw_entry->gw_client_list[first_free]->last_keep_alive = 0;
 
 	ip_buff[0] = first_free;
 	return 0;
