@@ -20,7 +20,7 @@
 /* Kernel Programming */
 #define LINUX
 
-#define DRIVER_AUTHOR "Andreas Langer <a.langer@q-dsl.de>"
+#define DRIVER_AUTHOR "Andreas Langer <a.langer@q-dsl.de>, Marek Lindner <lindner_marek@yahoo.de>"
 #define DRIVER_DESC   "batman gateway module"
 #define DRIVER_DEVICE "batgat"
 
