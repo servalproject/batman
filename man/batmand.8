@@ -1,0 +1,115 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH BATMAND SECTION "Sep 7, 2007"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.TH "batmand" 8
+.SH NAME
+batmand \- better approach to mobile ad-hoc networking
+.SH SYNOPSIS
+.B batmand
+.RI [ options ] interface [ interface ... ]
+.br
+.SH DESCRIPTION
+.B B.A.T.M.A.N
+means better approach to mobile ad-hoc networking, this is a new routing protocol for multi-hop ad-hoc mesh networks. Go to http://www.open-mesh.net to get more information.
+.PP
+The following document will explain how to use the \fBbatman daemon\fP.
+.PP
+The batmand binary can be run in 2 different ways. First you need to start the daemon with "batmand [options] interface" (daemon mode) and then you can connect to that daemon to issue further commands with "batmand -c [options]" (client mode). Some of the options below are always available, some are not. See the example section to get an idea.
+.SH OPTIONS
+.TP
+.B \-a announce network(s)
+The daemon announces the availability of a connection to another network. This option can be used multiple times and is only available in daemon mode.
+.TP
+.B \-b run debug connection in batch mode
+The debug information are updated after a period of time by default, so if you use "-b" it will execute once and then stop. This option is useful for script integration of the debug output and is only available in client mode together with "-d".
+.TP
+.B \-c connect via unix socket
+Use this option to switch to client mode.
+.TP
+.B \-d debug level
+The debug level can be set to five values.
+          default:		  	  0 -> debug disabled
+          allowed values:	  1 -> list neighbors
+                           	  2 -> list gateways
+                           	  3 -> observe batman
+                           	  4 -> observe batman (verbose)
+                           	  5 -> memory debug / cpu usage
+.TP
+.B \-g gateway class
+The gateway class is used to tell other nodes in the network your available internet bandwidth. Just enter any number (optionally followed by "kbit" or "mbit") and the daemon will guess your appropriate gateway class. Use "/" to seperate the down- and upload rates.
+          default:         	 0 -> gateway disabled
+          allowed values:	 5000
+ 	                          5000kbit
+ 	                          5mbit
+ 	                          5mbit/1024
+ 	                          5mbit/1024kbit
+ 	                          5mbit/1mbit
+
+.TP
+.B \-h short help
+.TP
+.B \-H verbose help
+.TP
+.B \-o orginator interval in ms
+A node transmits broadcast messages (we call them originator message or OGM) to inform the neighboring nodes about it's existence.
+Originator interval is the time to wait after sending one message and before sending the next message. The default value is 1000 ms (1 second).
+In a mobile network, you may want to detect network changes very quickly, so you need to send message very often, for example, use a value of 500 ms.
+In a static network, you can save bandwidth by using a higher value.
+This option is only available in daemon mode.
+.TP
+.B \-p preferred gateway
+Set the internet gateway by yourself. Note: This automatically switches your daemon to "internet search modus" with "-r 1" unless "-r" is given.
+.TP
+.B \-r routing class
+The routing class can be set to four values - it enables "internet search modus". The deamon will choose an internet gateway based on certain criteria (unless "-p" is specified):
+          default:         	  0 -> set no default route
+          allowed values: 	  1 -> use fast connection
+                           	  2 -> use stable connection
+                           	 3 -> use fast-switch connection
+In level 1, B.A.T.M.A.N tries to find the best available connection by watching the uplinks throughput and the link quality.
+In level 2, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best connection.
+In level 3, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best connection but switches to another gateway as soon as a better connection is found.
+.TP
+.B \-s visualization server
+Since no topology database is computed by the protocol an additional solution to create topology graphs has been implemented, the vis server. Batman daemons may send their local view about their single-hop neighbors to the vis server. It collects the information and provides data in a format similar to OLSR's topology information output. Therefore existing solutions to draw topology graphs developed for OLSR can be used to visualize mesh-clouds using B.A.T.M.A.N.
+.TP
+.B \-v print version
+.SH EXAMPLES
+.TP
+.B batmand eth1 wlan0:test
+Start batman daemon on interface "eth1" and on alias interface "wlan0:test"
+.TP
+.B batmand -o 2000 -a 192.168.100.1/32 -a 10.0.0.0/24 eth1
+Start batman daemon on interface "eth1" with originator interval of 2000 ms while announcing 192.168.100.1 and 10.0.0.0/24.
+.TP
+.B batmand -s 192.168.1.1 -d 1 eth1
+Start batman daemon on interface "eth1", sending topology information to 192.168.1.1 and with debug level 1 (does not fork into the background).
+.TP
+.B batmand eth1 && batmand -c -d 1 -b
+Start batman daemon on interface "eth1". Connect in client mode to get the debug level 1 output once (batch mode).
+.TP
+.B batmand -g 2000kbit/500kbit eth1 && batmand -c -r 1
+Start batman daemon on interface "eth1" as internet gateway. Connect in client mode to disable the internet gateway and enable internet search mode.
+.br
+.SH SEE ALSO
+There is also a HOWTO from WesleyTsai available as a pdf at:
+.IR "http://open-mesh.net/batman/documentation/batmand_howto.pdf"
+.SH AUTHOR
+batmand was written by Marek Lindner <lindner_marek-at-yahoo.de>, Axel Neumann <axel-at-open-mesh.net>, Stefan Sperling <stsp-at-stsp.in-berlin.de>, Corinna 'Elektra' Aichele <onelektra-at-gmx.net>, Thomas Lopatic  <thomas-at-lopatic.de>, Felix Fietkau <nbd-at-nbd.name>, Ludger Schmudde <lui-at-schmudde.com>, Simon Wunderlich <siwu-at-hrz.tu-chemnitz.de>, Andreas Langer <a.langer-at-q-dsl.de>.
+.PP
+This manual page was written by Wesley Tasi <wesleyboy42@gmail.com>,
+for the Debian GNU/Linux system.
