@@ -61,8 +61,14 @@ struct dev_element {
 	struct packet_type packet;
 };
 
+struct gw_element {
+	struct list_head list;
+	struct gw_client *client[256];
+	unsigned short ifindex;
+};
+
 static struct list_head device_list;
-static struct gw_client *gw_client_list[256];
+static struct list_head gw_client_list;
 
 
 static int batgat_open(struct inode *inode, struct file *filp);
@@ -79,8 +85,8 @@ static struct file_operations fops = {
 
 static void print_ip(unsigned int sip, unsigned int dip);
 static int send_vip(struct sk_buff *skb);
-static uint8_t get_ip_addr( uint32_t client_addr, char *ip_buff );
-static void modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3, unsigned int addr_part_4);
+static unsigned short get_virtual_ip(unsigned int ifindex, uint32_t client_addr, uint32_t daddr, unsigned char *mac_source);
+static int modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned int addr_part_4);
 static void raw_print(void *data, unsigned int length);
 
 static int Major;            /* Major number assigned to our device driver */
@@ -89,11 +95,13 @@ static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
 {
 	char *tmp=NULL;
-	int command;
-	int length;
+	int command,length,i;
 	struct dev_element *dev_entry = NULL;
 	struct net_device *rm_dev = NULL;
 	struct list_head *ptr = NULL;
+	struct gw_element *gw_element = NULL;
+	struct list_head *gw_ptr = NULL;
+	struct list_head *gw_ptr_tmp = NULL;
 
 	/* cmd comes with 2 short values */
 	command = cmd & 0x0000FFFF;
@@ -160,6 +168,23 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					return -EFAULT;
 				}
 
+				if(!list_empty(&gw_client_list)) {
+
+					list_for_each_safe(gw_ptr,gw_ptr_tmp,&gw_client_list) {
+						gw_element = list_entry(gw_ptr, struct gw_element, list);
+						if(gw_element->ifindex == rm_dev->ifindex) {
+							for(i=0;i < 255;i++) {
+								if(gw_element->client[i] != NULL)
+									kfree(gw_element->client[i]);
+							}
+							list_del(gw_ptr);
+							kfree(gw_element);
+							break;
+						}
+					}
+
+				}
+
 				list_for_each(ptr, &device_list) {
 					dev_entry = list_entry(ptr, struct dev_element, list);
 					if(dev_entry->netdev->ifindex == rm_dev->ifindex)
@@ -203,7 +228,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 int
 init_module()
 {
-	int i = 0;
+// 	int i;
 	
 	/* register our device - kernel assigns a free major number */
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
@@ -234,8 +259,7 @@ init_module()
 	INIT_LIST_HEAD(&device_list);
 	
 	/* init gw_client_list */
-	for( ;i< 255;i++)
-		gw_client_list[i] = NULL;
+	INIT_LIST_HEAD(&gw_client_list);
 
 	return(0);
 }
@@ -243,7 +267,11 @@ init_module()
 void
 cleanup_module()
 {
-    int ret, i=0;
+	int ret, i;
+	struct gw_element *gw_element = NULL;
+	struct list_head *gw_ptr = NULL;
+	struct list_head *gw_ptr_tmp = NULL;
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batgat", 0 );
 #else
@@ -257,9 +285,19 @@ cleanup_module()
 	if ( ret < 0 )
 		printk( "B.A.T.M.A.N. GW: Unregistering the character device failed with %d\n", ret );
 	
-	for( ;i < 255;i++) {		
-		if(gw_client_list[i] != NULL)
-			kfree(gw_client_list[i]);
+	if(!list_empty(&gw_client_list)) {
+
+		list_for_each_safe(gw_ptr,gw_ptr_tmp,&gw_client_list) {
+			gw_element = list_entry(gw_ptr,struct gw_element,list);
+
+			for(i=0;i < 255;i++) {
+				if(gw_element->client[i] != NULL)
+					kfree(gw_element->client[i]);
+			}
+			list_del(gw_ptr);
+			kfree(gw_element);
+		}
+
 	}
 
 	printk( "B.A.T.M.A.N. GW: Unload complete\n" );
@@ -339,18 +377,20 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 }
 
 /* helpers */
-static void
+static int
 modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned int addr_part_4) {
 
 	int ret;
 	/* size for the udp tunnel */
 	int size = sizeof(char)+sizeof(struct udphdr)+sizeof(struct iphdr);
 
-	unsigned char *buffer, buf[]= "\x01";
+	unsigned char *buffer;
 	struct udphdr *uhdr;
 	struct iphdr *iph,tmp_iph;
 	struct dev_element *dev_entry;
 	struct list_head *ptr;
+	struct gw_element *gw_element = NULL;
+	struct list_head *gw_ptr = NULL;
 
 	list_for_each(ptr, &device_list) {
 		dev_entry = list_entry(ptr, struct dev_element, list);
@@ -363,24 +403,37 @@ modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned in
 	/* FIXME! store the old iph to use it for the new iph */
 	/* it's better to create a new ip header, for performance */
 	memcpy(&tmp_iph, ip_hdr(skb), sizeof(struct iphdr));
-
-
-// 	printk("tail %p end %p head %p data %p len %d mac_len %d resize %d\n",
-// 	       skb->tail, skb->end, skb->head, skb->data, skb->len, skb->mac_len,size);
-// 	printk("mh %p nh %p th %p len %d\n", skb->mac_header, skb->network_header, skb->transport_header,skb->len);
-
-// 	raw_print(skb->head, skb_headroom(skb) + skb->len);
 	
 	if(!dev_entry) {
-		printk("batgat debug: device not found\n");
-		return;
+		printk("B.A.T.M.A.N. GW: interface in dev_list with index %d not found\n", addr_part_3);
+		return -1;
 	}
 
 	if( (ret = pskb_expand_head(skb,size,0,GFP_ATOMIC)) != 0 ) {
-		printk("batman debug: expand failed\n");
-		return;
+		printk("B.A.T.M.A.N. GW: sk_buff header expand failed\n");
+		return -1;
 	}
 	
+	/* search if interface index exists in gw_client_list */
+	list_for_each(gw_ptr, &gw_client_list) {
+		gw_element = list_entry(gw_ptr, struct gw_element, list);
+		if(gw_element->ifindex == addr_part_3)
+			break;
+		else
+			gw_element = NULL;
+	}
+
+	if(!gw_element) {
+		printk("B.A.T.M.A.N. GW: interface in gw_list with index %d not found\n", addr_part_3);
+		return -1;
+	}
+
+	if(gw_element->client[addr_part_4] == NULL)  {
+		printk("B.A.T.M.A.N. GW: client %d not found\n", addr_part_4);
+		return -1;
+	}
+
+
 	skb_push(skb,size);
 
 	/* set the pointer new */
@@ -396,8 +449,9 @@ modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned in
 	/* FIXME! it's better to create a new ip header, for performance */
 	memcpy(iph, &tmp_iph, sizeof(struct iphdr));
 	
-	iph->daddr = gw_client_list[addr_part_4]->addr;
-	iph->saddr = gw_client_list[addr_part_4]->source;
+	iph->daddr = gw_element->client[addr_part_4]->addr;
+	iph->saddr = gw_element->client[addr_part_4]->source;
+
 	iph->protocol = IPPROTO_UDP;
 	iph->tot_len = htons(skb->len);
 
@@ -412,16 +466,16 @@ modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned in
 
 	ip_send_check(iph);
 
-	memcpy(buffer,buf,1);
+	buffer[0] = 1;
 	skb->dev = dev_entry->netdev;
 	
 	skb->pkt_type = PACKET_OUTGOING;
 	if (skb->dev->hard_header)
-		skb->dev->hard_header(skb,skb->dev,ntohs(skb->protocol),gw_client_list[addr_part_4]->hw_addr,skb->dev->dev_addr,skb->len);
+		skb->dev->hard_header(skb,skb->dev,ntohs(skb->protocol),gw_element->client[addr_part_4]->hw_addr,skb->dev->dev_addr,skb->len);
 
 	dev_queue_xmit(skb_clone(skb, GFP_ATOMIC));
 
-	return;
+	return 0;
 }
 
 static void
@@ -473,18 +527,14 @@ send_vip(struct sk_buff *skb)
 	struct ethhdr *eth = (struct ethhdr *)skb->mac.raw;
 #endif	
 	
-	/* TODO: address handling */
-	
-	if( (tmp = get_ip_addr(iph->saddr, buffer)) < 0 ) {
+	if((tmp = (unsigned int)get_virtual_ip(skb->dev->ifindex, iph->saddr, iph->daddr,eth->h_source)) == 0) {
 		/* TODO: error */
-		return 0;
+		return -1;
 	}
-	
-	tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + ( buffer[0]<<24 );
-	gw_client_list[buffer[0]]->source = iph->daddr;
-	memcpy(gw_client_list[buffer[0]]->hw_addr, eth->h_source, 6);
 
-	/* TODO: memset buffer */
+	tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + (tmp<<24 );
+
+	/* TODO: it's better to memset buffer ? */
 	buffer[0] = 1;
 	memcpy( &buffer[1], &tmp , sizeof(unsigned int));
 	skb->pkt_type = PACKET_OUTGOING;
@@ -494,15 +544,11 @@ send_vip(struct sk_buff *skb)
 	iph->saddr = iph->daddr;
 	iph->daddr = tmp;
 	
-	/* change checksum */
 	size = skb->len - iph->ihl*4;
 	uhdr->len = htons(size);
+	/* don't use checksum */
 	uhdr->check = 0;
-	uhdr->check = csum_tcpudp_magic(iph->saddr, iph->daddr,size, IPPROTO_UDP,csum_partial((char *)uhdr,size, 0));
-	
-	if (!uhdr->check)
-		uhdr->check = CSUM_MANGLED_0;
-	
+
 	ip_send_check(iph);
 	
 	/* replace mac address for destination */
@@ -513,21 +559,42 @@ send_vip(struct sk_buff *skb)
 	return 0;
 }
 
-static uint8_t
-get_ip_addr( uint32_t client_addr, char *ip_buff )
+static unsigned short
+get_virtual_ip(unsigned int ifindex, uint32_t client_addr, uint32_t daddr, unsigned char *mac_source)
 {
+	struct gw_element *gw_element = NULL;
+	struct list_head *gw_ptr = NULL;
 	uint8_t i,first_free = 0;
+	
+	/* search if interface index exists in gw_client_list */
+	list_for_each(gw_ptr, &gw_client_list) {
+		gw_element = list_entry(gw_ptr, struct gw_element, list);
+		if(gw_element->ifindex == ifindex)
+			goto ifi_found;
+	}
 
-	for ( i = 1; i < 255; i++ ) {
+	/* create gw_element */
+	gw_element = kmalloc(sizeof(struct gw_element), GFP_KERNEL);
 
-		if ( gw_client_list[i] != NULL ) {
+	if(gw_element == NULL)
+		return 0;
+	gw_element->ifindex = ifindex;
+	
+	for(i=0;i< 255;i++)
+		gw_element->client[i] = NULL;
+	
+	list_add_tail(&gw_element->list, &gw_client_list);
 
-			if ( gw_client_list[i]->addr == client_addr ) {
+ifi_found:
+	/* assign ip */
 
-				ip_buff[0] = i;
-				return 0;
+	for (i = 1;i<255;i++) {
+	
+		if (gw_element->client[i] != NULL) {
 
-			}
+			if ( gw_element->client[i]->addr == client_addr )
+
+				return i;
 
 		} else {
 
@@ -544,13 +611,17 @@ get_ip_addr( uint32_t client_addr, char *ip_buff )
 
 	}
 
-	gw_client_list[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
-	gw_client_list[first_free]->addr = client_addr;
-	/* TODO: check syscall */
-	gw_client_list[first_free]->last_keep_alive = 0;
+	gw_element->client[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
+	gw_element->client[first_free]->addr = client_addr;
 
-	ip_buff[0] = first_free;
-	return 0;
+	/* TODO: check syscall for time*/
+	gw_element->client[first_free]->last_keep_alive = 0;
+
+	gw_element->client[first_free]->source = daddr;
+	memcpy(gw_element->client[first_free]->hw_addr, mac_source, 6);
+
+	return first_free;
+	
 }
 
 MODULE_LICENSE("GPL");
