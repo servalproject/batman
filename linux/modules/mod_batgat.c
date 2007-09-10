@@ -408,14 +408,7 @@ modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned in
 
 	uhdr->len = htons(size);
 
-	/* FIXME! we need to calculate the correct checksum */
-	uhdr->check = 0x8bff;
-
-	/* FIXME! that's not right */
-// 	uhdr->check = csum_tcpudp_magic(iph->saddr, iph->daddr,size, IPPROTO_UDP,csum_partial((char *)uhdr,size, 0));
-
-	if (!uhdr->check)
-		uhdr->check = CSUM_MANGLED_0;
+	uhdr->check = 0;
 
 	ip_send_check(iph);
 
