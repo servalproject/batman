@@ -78,6 +78,8 @@ pthread_t curr_gateway_thread_id = 0;
 
 uint32_t pref_gateway = 0;
 
+uint8_t no_policy_routing = 0;
+
 unsigned char *hna_buff = NULL;
 
 uint8_t num_hna = 0;

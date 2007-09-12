@@ -224,7 +224,7 @@ void send_outstanding_packets() {
 
 				} else {
 
-					/* non-primary interfaces do not send hna information and are only broadcasted on their interface */
+					/* non-primary interfaces are only broadcasted on their interface */
 					if ( ( forw_node->own ) && ( forw_node->if_outgoing->if_num > 0 ) ) {
 
 						debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct bat_packet *)forw_node->pack_buff)->seqno ), ((struct bat_packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev );

@@ -32,6 +32,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 
 #include "../os.h"
@@ -97,11 +98,15 @@ void apply_init_args( int argc, char *argv[] ) {
 	uint16_t netmask;
 	int8_t res;
 
-	int32_t optchar, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
+	int32_t optchar, option_index, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
 	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0;
 	uint32_t vis_server = 0;
-
+	static struct option long_options[] =
+	{
+		{"no-policy-routing",     no_argument,       0, 'n'},
+		{0, 0, 0, 0}
+	};
 
 	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
 	stop = 0;
@@ -110,7 +115,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
 
-	while ( ( optchar = getopt ( argc, argv, "a:bcd:hHo:g:p:r:s:vV" ) ) != -1 ) {
+	while ( ( optchar = getopt_long( argc, argv, "a:bcd:hHo:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
 
 		switch ( optchar ) {
 
@@ -245,6 +250,11 @@ void apply_init_args( int argc, char *argv[] ) {
 			case 'H':
 				verbose_usage();
 				exit(EXIT_SUCCESS);
+
+			case 'n':
+				no_policy_routing = 1;
+				found_args++;
+				break;
 
 			case 'o':
 

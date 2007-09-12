@@ -56,6 +56,10 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi
 	} req;
 
 
+	if ( ( no_policy_routing ) && ( ( route_type == 1 ) || ( route_type == 2 ) ) )
+		return;
+
+
 	inet_ntop( AF_INET, &dest, str1, sizeof (str1) );
 	inet_ntop( AF_INET, &router, str2, sizeof (str2) );
 
@@ -208,6 +212,10 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 	} req;
 
 
+	if ( no_policy_routing )
+		return;
+
+
 	memset( &nladdr, 0, sizeof(struct sockaddr_nl) );
 	memset( &req, 0, sizeof(req) );
 	memset( &msg, 0, sizeof(struct msghdr) );
@@ -351,6 +359,10 @@ int add_del_interface_rules( int8_t del ) {
 	struct batman_if *batman_if;
 
 
+	if ( no_policy_routing )
+		return 1;
+
+
 	tmp_fd = socket( AF_INET, SOCK_DGRAM, 0 );
 
 	if ( tmp_fd < 0 ) {
@@ -477,6 +489,10 @@ int flush_routes_rules( int8_t is_rule ) {
 	struct rtattr *rtap;
 
 
+	if ( ( no_policy_routing ) && ( is_rule ) )
+		return 1;
+
+
 	memset( &nladdr, 0, sizeof(struct sockaddr_nl) );
 	memset( &req, 0, sizeof(req) );
 	memset( &msg, 0, sizeof(struct msghdr) );
@@ -536,6 +552,9 @@ int flush_routes_rules( int8_t is_rule ) {
 		nh = NLMSG_NEXT( nh, len );
 
 		if ( ( rtm->rtm_table != BATMAN_RT_TABLE_UNREACH ) &&  ( rtm->rtm_table != BATMAN_RT_TABLE_NETWORKS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_HOSTS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_TUNNEL ) )
+			continue;
+
+		if ( ( no_policy_routing ) && ( rtm->rtm_table != BATMAN_RT_TABLE_NETWORKS ) && ( rtm->rtm_table != BATMAN_RT_TABLE_HOSTS ) )
 			continue;
 
 		while ( RTA_OK(rtap, rtl) ) {

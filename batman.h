@@ -125,6 +125,7 @@ extern uint8_t routing_class;
 extern uint8_t num_hna;
 extern int16_t originator_interval;
 extern uint32_t pref_gateway;
+extern uint8_t no_policy_routing;
 
 extern int8_t stop;
 
