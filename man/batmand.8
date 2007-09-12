@@ -32,33 +32,47 @@ The batmand binary can be run in 2 different ways. First you need to start the d
 .SH OPTIONS
 .TP
 .B \-a announce network(s)
-The daemon announces the availability of a connection to another network. This option can be used multiple times and is only available in daemon mode.
+The daemon announces the availability of a connection to another network. This option can be used multiple times and is only available in daemon mode. The parameter has to be in the form of ip-address/netmask.
 .TP
 .B \-b run debug connection in batch mode
-The debug information are updated after a period of time by default, so if you use "-b" it will execute once and then stop. This option is useful for script integration of the debug output and is only available in client mode together with "-d".
+The debug information are updated after a period of time by default, so if you use "-b" it will execute once and then stop. This option is useful for script integration of the debug output and is only available in client mode together with "-d 1" or "-d 2".
 .TP
 .B \-c connect via unix socket
 Use this option to switch to client mode.
 .TP
 .B \-d debug level
 The debug level can be set to five values.
-          default:		  	  0 -> debug disabled
-          allowed values:	  1 -> list neighbors
-                           	  2 -> list gateways
-                           	  3 -> observe batman
-                           	  4 -> observe batman (verbose)
-                           	  5 -> memory debug / cpu usage
+.RS 17
+default: 0 -> debug disabled
+.RE
+.RS 10
+allowed values: 1 -> list neighbors
+.RE
+.RS 25
+ 2 -> list gateways
+ 3 -> observe batman
+ 4 -> observe batman (verbose)
+ 5 -> memory debug / cpu usage
+.RE
+.RS 7
+Note that debug level 5 can be disabled at compile time.
+.RE
 .TP
 .B \-g gateway class
-The gateway class is used to tell other nodes in the network your available internet bandwidth. Just enter any number (optionally followed by "kbit" or "mbit") and the daemon will guess your appropriate gateway class. Use "/" to seperate the down- and upload rates.
-          default:         	 0 -> gateway disabled
-          allowed values:	 5000
- 	                          5000kbit
- 	                          5mbit
- 	                          5mbit/1024
- 	                          5mbit/1024kbit
- 	                          5mbit/1mbit
-
+The gateway class is used to tell other nodes in the network your available internet bandwidth. Just enter any number (optionally followed by "kbit" or "mbit") and the daemon will guess your appropriate gateway class. Use "/" to seperate the down- and upload rates. You can omit the upload rate and batmand will assume an upload of download / 5.
+.RS 17
+default: 0 -> gateway disabled
+.RE
+.RS 10
+allowed values: 5000
+.RE
+.RS 25
+ 5000kbit
+ 5mbit
+ 5mbit/1024
+ 5mbit/1024kbit
+ 5mbit/1mbit
+.RE
 .TP
 .B \-h short help
 .TP
@@ -72,17 +86,25 @@ In a static network, you can save bandwidth by using a higher value.
 This option is only available in daemon mode.
 .TP
 .B \-p preferred gateway
-Set the internet gateway by yourself. Note: This automatically switches your daemon to "internet search modus" with "-r 1" unless "-r" is given.
+Set the internet gateway by yourself. Note: This automatically switches your daemon to "internet search modus" with "-r 1" unless "-r" is given. If the preferred gateway is not found the gateway selection will use the current routing class to choose a gateway.
 .TP
 .B \-r routing class
 The routing class can be set to four values - it enables "internet search modus". The deamon will choose an internet gateway based on certain criteria (unless "-p" is specified):
-          default:         	  0 -> set no default route
-          allowed values: 	  1 -> use fast connection
-                           	  2 -> use stable connection
-                           	 3 -> use fast-switch connection
+.RS 17
+default: 0 -> set no default route
+.RE
+.RS 10
+allowed values: 1 -> use fast connection
+.RE
+.RS 25
+ 2 -> use stable connection
+ 3 -> use fast-switch connection
+.RE
+.RS 7
 In level 1, B.A.T.M.A.N tries to find the best available connection by watching the uplinks throughput and the link quality.
 In level 2, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best connection.
 In level 3, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best connection but switches to another gateway as soon as a better connection is found.
+.RE
 .TP
 .B \-s visualization server
 Since no topology database is computed by the protocol an additional solution to create topology graphs has been implemented, the vis server. Batman daemons may send their local view about their single-hop neighbors to the vis server. It collects the information and provides data in a format similar to OLSR's topology information output. Therefore existing solutions to draw topology graphs developed for OLSR can be used to visualize mesh-clouds using B.A.T.M.A.N.
