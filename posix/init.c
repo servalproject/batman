@@ -431,6 +431,19 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			init_interface ( batman_if );
 
+			if ( batman_if->if_num > 0 ) {
+
+				hna_node = debugMalloc( sizeof(struct hna_node), 207 );
+				memset( hna_node, 0, sizeof(struct hna_node) );
+				INIT_LIST_HEAD( &hna_node->list );
+
+				hna_node->addr = batman_if->addr.sin_addr.s_addr;
+				hna_node->netmask = 32;
+
+				list_add_tail( &hna_node->list, &hna_list );
+
+			}
+
 			if ( batman_if->udp_recv_sock > receive_max_sock )
 				receive_max_sock = batman_if->udp_recv_sock;
 
@@ -839,7 +852,7 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 	unsigned int cmd;
 
 	int32_t sock_opts;
-	
+
 	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
 
 		batman_if->addr.sin_port = htons(PORT + 1);
@@ -879,7 +892,7 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 			restore_defaults();
 			exit(EXIT_FAILURE);
 		}
-		
+
 		/* create tun device and assign ip address */
 		batman_if->tun_ip = 169 + ( 254<<8 ) + ( batman_if->if_index<<16 ) + ( 0<<24 );
 

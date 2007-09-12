@@ -43,7 +43,8 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 	forw_node_new->if_outgoing = batman_if;
 	forw_node_new->own = 1;
 
-	if ( num_hna > 0 ) {
+	/* non-primary interfaces do not send hna information */
+	if ( ( num_hna > 0 ) && ( batman_if->if_num == 0 ) ) {
 
 		forw_node_new->pack_buff = debugMalloc( sizeof(struct bat_packet) + num_hna * 5 * sizeof(unsigned char), 502 );
 		memcpy( forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct bat_packet) );
@@ -223,25 +224,27 @@ void send_outstanding_packets() {
 
 				} else {
 
-					list_for_each(if_pos, &if_list) {
+					/* non-primary interfaces do not send hna information and are only broadcasted on their interface */
+					if ( ( forw_node->own ) && ( forw_node->if_outgoing->if_num > 0 ) ) {
 
-						batman_if = list_entry(if_pos, struct batman_if, list);
+						debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct bat_packet *)forw_node->pack_buff)->seqno ), ((struct bat_packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev );
 
-						if ( ( directlink ) && ( forw_node->if_outgoing == batman_if ) ) {
-							((struct bat_packet *)forw_node->pack_buff)->flags = DIRECTLINK;
-						} else {
-							((struct bat_packet *)forw_node->pack_buff)->flags = 0x00;
-						}
+						if ( send_udp_packet( forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock ) < 0 )
+							restore_and_exit(0);
 
-						debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct bat_packet *)forw_node->pack_buff)->seqno ), ((struct bat_packet *)forw_node->pack_buff)->ttl, batman_if->dev );
+					} else {
 
-						/* non-primary interfaces do not send hna information */
-						if ( ( forw_node->own ) && ( ((struct bat_packet *)forw_node->pack_buff)->orig != ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr ) ) {
+						list_for_each(if_pos, &if_list) {
 
-							if ( send_udp_packet( forw_node->pack_buff, sizeof(struct bat_packet), &batman_if->broad, batman_if->udp_send_sock ) < 0 )
-								restore_and_exit(0);
+							batman_if = list_entry(if_pos, struct batman_if, list);
 
-						} else {
+							if ( ( directlink ) && ( forw_node->if_outgoing == batman_if ) ) {
+								((struct bat_packet *)forw_node->pack_buff)->flags = DIRECTLINK;
+							} else {
+								((struct bat_packet *)forw_node->pack_buff)->flags = 0x00;
+							}
+
+							debug_output( 4, "Forwarding packet (originator %s, seqno %d, TTL %d) on interface %s\n", orig_str, ntohs( ((struct bat_packet *)forw_node->pack_buff)->seqno ), ((struct bat_packet *)forw_node->pack_buff)->ttl, batman_if->dev );
 
 							if ( send_udp_packet( forw_node->pack_buff, forw_node->pack_buff_len, &batman_if->broad, batman_if->udp_send_sock ) < 0 )
 								restore_and_exit(0);
