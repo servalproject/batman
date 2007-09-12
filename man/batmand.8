@@ -110,6 +110,9 @@ In level 3, B.A.T.M.A.N compares the link quality of the internet node and choos
 Since no topology database is computed by the protocol an additional solution to create topology graphs has been implemented, the vis server. Batman daemons may send their local view about their single-hop neighbors to the vis server. It collects the information and provides data in a format similar to OLSR's topology information output. Therefore existing solutions to draw topology graphs developed for OLSR can be used to visualize mesh-clouds using B.A.T.M.A.N.
 .TP
 .B \-v print version
+.TP
+.B \-\-no-policy-routing
+This option disables the policy routing feature of batmand - no policy rules and special throw or unreachable routing entries are created. Firmware and package maintainers can use this option to tightly integrate batmand in their own routing policies.
 .SH EXAMPLES
 .TP
 .B batmand eth1 wlan0:test
