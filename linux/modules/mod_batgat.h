@@ -24,7 +24,12 @@
 #define IOCREMDEV 2
 
 #define TRANSPORT_PACKET_SIZE 29
+#define VIP_BUFFER_SIZE 5
 #define BATMAN_PORT 4306
+
+#define TUNNEL_DATA 0x01
+#define TUNNEL_IP_REQUEST 0x02
+#define TUNNEL_IP_INVALID 0x03
 
 /* tunnel clients */
 struct gw_client {

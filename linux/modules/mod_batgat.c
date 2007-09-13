@@ -51,9 +51,8 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
 
 /* helpers */
-static int send_packet(uint32_t dest,char *buffer);
+static int send_packet(uint32_t dest,char *buffer,int buffer_len, short tunnel);
 static unsigned short get_virtual_ip(unsigned int ifindex, uint32_t client_addr);
-static int modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned int addr_part_4);
 static void raw_print(void *data, unsigned int length);
 static void ip2string(unsigned int sip,char *buffer);
 
@@ -304,7 +303,13 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 {
 	struct iphdr *iph = ip_hdr(skb);
 	struct udphdr *uhdr;
-	unsigned char *buffer,vip_buffer[5];
+
+	struct dev_element *dev_entry;
+	struct list_head *dev_ptr;
+	struct gw_element *gw_element = NULL;
+	struct list_head *gw_ptr = NULL;
+	
+	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],tunnel_buffer[1600];
 	unsigned short addr_part_3, addr_part_4;
 
 	uint32_t tmp;
@@ -314,7 +319,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 		buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
 		
-		if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == 2) {
+		if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == TUNNEL_IP_REQUEST) {
 
 			if((tmp = (unsigned int)get_virtual_ip(skb->dev->ifindex, iph->saddr)) == 0) {
 				printk(KERN_ERR "B.A.T.M.A.N. GW: don't get a virtual ip\n");
@@ -322,36 +327,69 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			}
 
 			tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + (tmp<<24 );
-			vip_buffer[0] = 1;
+			vip_buffer[0] = TUNNEL_DATA;
 			memcpy(&vip_buffer[1], &tmp, sizeof(tmp));
-			send_packet(iph->saddr, vip_buffer);
+			send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE,0);
+			goto end;
 
-
-		} else if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == 1) {
+		} else if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == TUNNEL_DATA) {
 
 			/* TODO: check if source in gw_client_list */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 
-// 			skb_pull(skb,TRANSPORT_PACKET_SIZE);
-// 			skb->network_header = skb->data;
-// 			skb->transport_header = skb->data;
+			skb_pull(skb,TRANSPORT_PACKET_SIZE);
+			skb->network_header = skb->data;
+			skb->transport_header = skb->data;
 
 #else
 			/* TODO: change pointer for Kernel < 2.6.22 */
 
 #endif
-			
+			goto end;
 		}
 		
 		
 	}
 	
 	if( ((ntohl(iph->daddr)>>24)&255) == 169) {
-// 		addr_part_3 = (ntohl(iph->daddr)>>8)&255;
-// 		addr_part_4 = ntohl(iph->daddr)&255;
 
-// 		modify_internet_packet(skb,addr_part_3,addr_part_4);
+		addr_part_3 = (ntohl(iph->daddr)>>8)&255;
+		addr_part_4 = ntohl(iph->daddr)&255;
+		list_for_each(dev_ptr, &device_list) {
+			dev_entry = list_entry(dev_ptr, struct dev_element, list);
+			if(dev_entry->ifindex == addr_part_3)
+				break;
+			else
+				dev_entry = NULL;
+		}
+	
+		if(!dev_entry) {
+			printk("B.A.T.M.A.N. GW: interface in dev_list with index %d not found\n", addr_part_3);
+			return -1;
+		}
+	
+		/* search if interface index exists in gw_client_list */
+		list_for_each(gw_ptr, &gw_client_list) {
+			gw_element = list_entry(gw_ptr, struct gw_element, list);
+			if(gw_element->ifindex == addr_part_3)
+				break;
+			else
+				gw_element = NULL;
+		}
+
+		if(!gw_element) {
+			printk("B.A.T.M.A.N. GW: interface in gw_list with index %d not found\n", addr_part_3);
+			return -1;
+		}
+
+		if(gw_element->client[addr_part_4] == NULL)  {
+			printk("B.A.T.M.A.N. GW: client %d not found\n", addr_part_4);
+			return -1;
+		}
+
+		send_packet(gw_element->client[addr_part_4]->addr, skb->data, skb->len, 1);
+
 	}
 end:
 	kfree_skb(skb);
@@ -359,44 +397,55 @@ end:
 }
 
 /* helpers */
-static int
-modify_internet_packet(struct sk_buff *skb, unsigned int addr_part_3,unsigned int addr_part_4) {
-
-	return 0;
-}
 
 static int
-send_packet(uint32_t dest,char *buffer)
+send_packet(uint32_t dest,char *buffer,int buffer_len, short tunnel)
 {
-	struct iovec iov;
+	struct iovec iov[2];
 	struct msghdr msg;
 	mm_segment_t oldfs;
 	struct sockaddr_in to;
 	int error,len;
+	unsigned char tunnel_option[1];
+
+	tunnel_option[0] = TUNNEL_DATA;
 
 	to.sin_family = AF_INET;
 	to.sin_addr.s_addr = dest;
 	to.sin_port = htons( (unsigned short)BATMAN_PORT );
-
-	iov.iov_base = buffer;
-	iov.iov_len  = 5;
+	
 	msg.msg_name = NULL;
 	
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
-	msg.msg_iov    = &iov;
-	msg.msg_iovlen = 1;
+	msg.msg_iov = iov;
+	
+	if(tunnel) {
+		iov[0].iov_base = tunnel_option;
+		iov[0].iov_len  = 1;
+		iov[1].iov_base = buffer;
+		iov[1].iov_len = buffer_len;
+		msg.msg_iovlen = 2;
+	} else {
+		iov[0].iov_base = buffer;
+		iov[0].iov_len = buffer_len;
+		iov[1].iov_len = 0;
+		msg.msg_iovlen = 1;
+	}
+
 
 	error = sock->ops->connect(sock,(struct sockaddr *)&to,sizeof(to),0);
 	oldfs = get_fs();
 	set_fs( KERNEL_DS );
 
-	len = sock_sendmsg( sock, &msg, 5 );
+	if(error != 0) {
+		printk(KERN_ERR "B.A.T.M.A.N. GW: can't connect to socket: %d\n",error);
+		return 0;
+	}
+	len = sock_sendmsg( sock, &msg, iov[0].iov_len + iov[1].iov_len );
 
 	if( len < 0 )
 		printk( KERN_ERR "B.A.T.M.A.N. GW: sock_sendmsg failed: %d\n",len);
-	else
-		printk("B.A.T.M.A.N. GW: send vip\n");
 	
 	set_fs( oldfs );
 	
