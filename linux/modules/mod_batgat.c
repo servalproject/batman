@@ -391,7 +391,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	
 		if(!dev_entry) {
 			printk("B.A.T.M.A.N. GW: interface in dev_list with index %d not found\n", addr_part_3);
-			return -1;
+			goto end;
 		}
 	
 		/* search if interface index exists in gw_client_list */
@@ -405,12 +405,12 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 		if(!gw_element) {
 			printk("B.A.T.M.A.N. GW: interface in gw_list with index %d not found\n", addr_part_3);
-			return -1;
+			goto end;
 		}
 
 		if(gw_element->client[addr_part_4] == NULL)  {
 			printk("B.A.T.M.A.N. GW: client %d not found\n", addr_part_4);
-			return -1;
+			goto end;
 		}
 
 		tunnel_buffer[0] = TUNNEL_DATA;
