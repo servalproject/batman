@@ -51,7 +51,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
 
 /* helpers */
-static int send_packet(uint32_t dest,char *buffer,int buffer_len, short tunnel);
+static int send_packet(uint32_t dest,unsigned char *buffer,int buffer_len);
 static unsigned short get_virtual_ip(unsigned int ifindex, uint32_t client_addr);
 static void raw_print(void *data, unsigned int length);
 static void ip2string(unsigned int sip,char *buffer);
@@ -302,6 +302,7 @@ static int
 batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
 {
 	struct iphdr *iph = ip_hdr(skb);
+	struct iphdr *tmp_iph = NULL;
 	struct udphdr *uhdr;
 
 	struct dev_element *dev_entry;
@@ -313,6 +314,10 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	unsigned short addr_part_3, addr_part_4;
 
 	uint32_t tmp;
+
+	/* TODO: check if ether proto ip */
+
+
 	
 	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
 
@@ -329,12 +334,31 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + (tmp<<24 );
 			vip_buffer[0] = TUNNEL_DATA;
 			memcpy(&vip_buffer[1], &tmp, sizeof(tmp));
-			send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE,0);
+			send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE);
 			goto end;
 
 		} else if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == TUNNEL_DATA) {
 
-			/* TODO: check if source in gw_client_list */
+			tmp_iph = (struct iphdr*)(buffer + 1);
+
+			addr_part_3 = (ntohl(tmp_iph->saddr)>>8)&255;
+			addr_part_4 = ntohl(tmp_iph->saddr)&255;
+
+			list_for_each(gw_ptr, &gw_client_list) {
+				gw_element = list_entry(gw_ptr, struct gw_element, list);
+				if(gw_element->ifindex == addr_part_3)
+					break;
+				else
+					gw_element = NULL;
+			}
+			
+			if(!gw_element || gw_element->client[addr_part_4] == NULL) {
+				vip_buffer[0] = TUNNEL_IP_INVALID;
+				memset(&vip_buffer[1], 0, 10);
+				send_packet(iph->saddr, vip_buffer, 11);
+				printk("B.A.T.M.A.N. GW: TUNNEL_IP_INVALID .%d.%d\n",addr_part_3,addr_part_4);
+				goto end;
+			}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 
@@ -356,6 +380,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 		addr_part_3 = (ntohl(iph->daddr)>>8)&255;
 		addr_part_4 = ntohl(iph->daddr)&255;
+
 		list_for_each(dev_ptr, &device_list) {
 			dev_entry = list_entry(dev_ptr, struct dev_element, list);
 			if(dev_entry->ifindex == addr_part_3)
@@ -388,7 +413,9 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			return -1;
 		}
 
-		send_packet(gw_element->client[addr_part_4]->addr, skb->data, skb->len, 1);
+		tunnel_buffer[0] = TUNNEL_DATA;
+		memcpy(&tunnel_buffer[1], skb->data, skb->len);
+		send_packet(gw_element->client[addr_part_4]->addr, tunnel_buffer, skb->len + 1);
 
 	}
 end:
@@ -399,16 +426,13 @@ end:
 /* helpers */
 
 static int
-send_packet(uint32_t dest,char *buffer,int buffer_len, short tunnel)
+send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 {
-	struct iovec iov[2];
+	struct iovec iov;
 	struct msghdr msg;
 	mm_segment_t oldfs;
 	struct sockaddr_in to;
 	int error,len;
-	unsigned char tunnel_option[1];
-
-	tunnel_option[0] = TUNNEL_DATA;
 
 	to.sin_family = AF_INET;
 	to.sin_addr.s_addr = dest;
@@ -418,21 +442,10 @@ send_packet(uint32_t dest,char *buffer,int buffer_len, short tunnel)
 	
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
-	msg.msg_iov = iov;
-	
-	if(tunnel) {
-		iov[0].iov_base = tunnel_option;
-		iov[0].iov_len  = 1;
-		iov[1].iov_base = buffer;
-		iov[1].iov_len = buffer_len;
-		msg.msg_iovlen = 2;
-	} else {
-		iov[0].iov_base = buffer;
-		iov[0].iov_len = buffer_len;
-		iov[1].iov_len = 0;
-		msg.msg_iovlen = 1;
-	}
-
+	iov.iov_base = buffer;
+	iov.iov_len = buffer_len;
+	msg.msg_iovlen = 1;
+	msg.msg_iov = &iov;
 
 	error = sock->ops->connect(sock,(struct sockaddr *)&to,sizeof(to),0);
 	oldfs = get_fs();
@@ -442,13 +455,14 @@ send_packet(uint32_t dest,char *buffer,int buffer_len, short tunnel)
 		printk(KERN_ERR "B.A.T.M.A.N. GW: can't connect to socket: %d\n",error);
 		return 0;
 	}
-	len = sock_sendmsg( sock, &msg, iov[0].iov_len + iov[1].iov_len );
+
+	len = sock_sendmsg( sock, &msg, buffer_len );
 
 	if( len < 0 )
 		printk( KERN_ERR "B.A.T.M.A.N. GW: sock_sendmsg failed: %d\n",len);
-	
+
 	set_fs( oldfs );
-	
+
 	return 0;
 }
 
