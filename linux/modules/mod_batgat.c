@@ -304,27 +304,32 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	struct iphdr *iph = ip_hdr(skb);
 	struct iphdr *tmp_iph = NULL;
 	struct udphdr *uhdr;
+	struct ethhdr *eth;
 
 	struct dev_element *dev_entry;
 	struct list_head *dev_ptr;
 	struct gw_element *gw_element = NULL;
 	struct list_head *gw_ptr = NULL;
 	
-	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],tunnel_buffer[1600];
+	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],tunnel_buffer[1600], ip[20],ip1[20];
 	unsigned short addr_part_3, addr_part_4;
 
 	uint32_t tmp;
 
 	/* TODO: check if ether proto ip */
 
-
+	uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 	
-	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST) {
+	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST && ntohs(uhdr->source) == BATMAN_PORT) {
 
-		uhdr = (struct udphdr *)(skb->data + sizeof(struct iphdr));
 		buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
+		ip2string(iph->daddr,ip);
+		ip2string(iph->saddr,ip1);
+		eth = eth_hdr(skb);
 		
-		if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == TUNNEL_IP_REQUEST) {
+		printk("1. proto = %04x %s -> %s\n",ntohs(eth->h_proto), ip1, ip);
+
+		if( buffer[0] == TUNNEL_IP_REQUEST) {
 
 			if((tmp = (unsigned int)get_virtual_ip(skb->dev->ifindex, iph->saddr)) == 0) {
 				printk(KERN_ERR "B.A.T.M.A.N. GW: don't get a virtual ip\n");
@@ -337,7 +342,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE);
 			goto end;
 
-		} else if(ntohs(uhdr->source) == BATMAN_PORT && buffer[0] == TUNNEL_DATA) {
+		} else if(buffer[0] == TUNNEL_DATA) {
 
 			tmp_iph = (struct iphdr*)(buffer + 1);
 
@@ -380,6 +385,10 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 		addr_part_3 = (ntohl(iph->daddr)>>8)&255;
 		addr_part_4 = ntohl(iph->daddr)&255;
+		eth = eth_hdr(skb);
+		ip2string(iph->daddr,ip);
+		ip2string(iph->saddr,ip1);
+		printk("2. proto = %04x %s -> %s\n",ntohs(eth->h_proto), ip1, ip);
 
 		list_for_each(dev_ptr, &device_list) {
 			dev_entry = list_entry(dev_ptr, struct dev_element, list);
@@ -446,6 +455,7 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 	iov.iov_len = buffer_len;
 	msg.msg_iovlen = 1;
 	msg.msg_iov = &iov;
+	msg.msg_flags = MSG_DONTWAIT;
 
 	error = sock->ops->connect(sock,(struct sockaddr *)&to,sizeof(to),0);
 	oldfs = get_fs();
