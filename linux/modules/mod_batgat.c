@@ -311,7 +311,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	struct gw_element *gw_element = NULL;
 	struct list_head *gw_ptr = NULL;
 	
-	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],tunnel_buffer[1600], ip[20],ip1[20];
+	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],*temp_skb;
 	unsigned short addr_part_3, addr_part_4;
 
 	uint32_t tmp;
@@ -323,11 +323,6 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	if(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST && ntohs(uhdr->source) == BATMAN_PORT) {
 
 		buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
-		ip2string(iph->daddr,ip);
-		ip2string(iph->saddr,ip1);
-		eth = eth_hdr(skb);
-		
-		printk("1. proto = %04x %s -> %s\n",ntohs(eth->h_proto), ip1, ip);
 
 		if( buffer[0] == TUNNEL_IP_REQUEST) {
 
@@ -358,9 +353,10 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			}
 			
 			if(!gw_element || gw_element->client[addr_part_4] == NULL) {
+ip_invalid:
 				vip_buffer[0] = TUNNEL_IP_INVALID;
-				memset(&vip_buffer[1], 0, 10);
-				send_packet(iph->saddr, vip_buffer, 11);
+				memset(&vip_buffer[1], 0, VIP_BUFFER_SIZE - 1);
+				send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE);
 				printk("B.A.T.M.A.N. GW: TUNNEL_IP_INVALID .%d.%d\n",addr_part_3,addr_part_4);
 				goto end;
 			}
@@ -386,9 +382,6 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 		addr_part_3 = (ntohl(iph->daddr)>>8)&255;
 		addr_part_4 = ntohl(iph->daddr)&255;
 		eth = eth_hdr(skb);
-		ip2string(iph->daddr,ip);
-		ip2string(iph->saddr,ip1);
-		printk("2. proto = %04x %s -> %s\n",ntohs(eth->h_proto), ip1, ip);
 
 		list_for_each(dev_ptr, &device_list) {
 			dev_entry = list_entry(dev_ptr, struct dev_element, list);
@@ -400,7 +393,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	
 		if(!dev_entry) {
 			printk("B.A.T.M.A.N. GW: interface in dev_list with index %d not found\n", addr_part_3);
-			goto end;
+			goto ip_invalid;
 		}
 	
 		/* search if interface index exists in gw_client_list */
@@ -414,17 +407,18 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 		if(!gw_element) {
 			printk("B.A.T.M.A.N. GW: interface in gw_list with index %d not found\n", addr_part_3);
-			goto end;
+			goto ip_invalid;
 		}
 
 		if(gw_element->client[addr_part_4] == NULL)  {
 			printk("B.A.T.M.A.N. GW: client %d not found\n", addr_part_4);
-			goto end;
+			goto ip_invalid;
 		}
 
-		tunnel_buffer[0] = TUNNEL_DATA;
-		memcpy(&tunnel_buffer[1], skb->data, skb->len);
-		send_packet(gw_element->client[addr_part_4]->addr, tunnel_buffer, skb->len + 1);
+		skb_push(skb,1);
+		temp_skb = (unsigned char*)skb->data;
+		temp_skb[0] = TUNNEL_DATA;
+		send_packet(gw_element->client[addr_part_4]->addr, temp_skb, skb->len + 1);
 
 	}
 end:
