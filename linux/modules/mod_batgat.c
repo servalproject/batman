@@ -68,6 +68,8 @@ static struct list_head device_list;
 static struct list_head gw_client_list;
 static struct socket *sock=NULL;
 
+
+
 static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
 {
@@ -237,8 +239,11 @@ cleanup_module()
 {
 	int ret, i;
 	struct gw_element *gw_element = NULL;
-	struct list_head *gw_ptr = NULL;
-	struct list_head *gw_ptr_tmp = NULL;
+	struct dev_element *dev_entry = NULL;
+	
+	struct list_head *ptr = NULL;
+	struct list_head *ptr_tmp = NULL;
+
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batgat", 0 );
@@ -255,17 +260,27 @@ cleanup_module()
 	
 	if(!list_empty(&gw_client_list)) {
 
-		list_for_each_safe(gw_ptr,gw_ptr_tmp,&gw_client_list) {
-			gw_element = list_entry(gw_ptr,struct gw_element,list);
+		list_for_each_safe(ptr,ptr_tmp,&gw_client_list) {
+			gw_element = list_entry(ptr,struct gw_element,list);
 
 			for(i=0;i < 255;i++) {
 				if(gw_element->client[i] != NULL)
 					kfree(gw_element->client[i]);
 			}
-			list_del(gw_ptr);
+			list_del(ptr);
 			kfree(gw_element);
 		}
 
+	}
+
+	if(!list_empty(&device_list)) {
+		list_for_each_safe(ptr,ptr_tmp, &device_list) {
+			dev_entry = list_entry(ptr, struct dev_element, list);
+			dev_remove_pack(&dev_entry->packet);
+			list_del(&dev_entry->list);
+			kfree(dev_entry);
+			printk("B.A.T.M.A.N. GW: device list not empty...clean it\n");
+		}
 	}
 
 	if(sock)
@@ -311,7 +326,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 	struct gw_element *gw_element = NULL;
 	struct list_head *gw_ptr = NULL;
 	
-	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],*temp_skb;
+	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE],*temp_skb,tmp_ip[20],client_ip[20];
 	unsigned short addr_part_3, addr_part_4;
 
 	uint32_t tmp;
@@ -334,12 +349,19 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			tmp = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + (tmp<<24 );
 			vip_buffer[0] = TUNNEL_DATA;
 			memcpy(&vip_buffer[1], &tmp, sizeof(tmp));
+
+			ip2string(iph->saddr,client_ip);
+			ip2string(tmp,tmp_ip);
+			printk("B.A.T.M.A.N. GW: assign client %s vip %s\n", client_ip, tmp_ip);
+
 			send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE);
 			goto end;
 
 		} else if(buffer[0] == TUNNEL_DATA) {
 
-			tmp_iph = (struct iphdr*)(buffer + 1);
+			
+
+			tmp_iph = (struct iphdr*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr) + 1);
 
 			addr_part_3 = (ntohl(tmp_iph->saddr)>>8)&255;
 			addr_part_4 = ntohl(tmp_iph->saddr)&255;
@@ -363,10 +385,21 @@ ip_invalid:
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 
+			printk("before: mac %p ip %p tr %p\n",skb->mac_header, skb->network_header, skb->transport_header);
+			raw_print(skb->head, skb->len + skb_headroom(skb));
+			
 			skb_pull(skb,TRANSPORT_PACKET_SIZE);
 			skb->network_header = skb->data;
 			skb->transport_header = skb->data;
 
+			printk("after: mac %p ip %p tr %p\n",skb->mac_header, skb->network_header, skb->transport_header);
+			raw_print(skb->head, skb->len + skb_headroom(skb));
+			
+			tmp_iph = ip_hdr(skb);
+			ip2string(tmp_iph->saddr, tmp_ip);
+			ip2string(tmp_iph->daddr, client_ip);
+
+			printk("debug: get tunnel data %s -> %s\n",tmp_ip,client_ip);
 #else
 			/* TODO: change pointer for Kernel < 2.6.22 */
 
@@ -415,10 +448,19 @@ ip_invalid:
 			goto ip_invalid;
 		}
 
+// 		printk("debug: before push len=%d data = %p\n",skb->len,skb->data);
+// 		raw_print(skb->data, skb->len);
+
 		skb_push(skb,1);
 		temp_skb = (unsigned char*)skb->data;
 		temp_skb[0] = TUNNEL_DATA;
-		send_packet(gw_element->client[addr_part_4]->addr, temp_skb, skb->len + 1);
+
+// 		printk("debug: after push len=%d data = %p\n",skb->len,skb->data);
+// 		raw_print(skb->data, skb->len);
+		ip2string(iph->saddr,tmp_ip);
+		ip2string(iph->daddr,client_ip);
+		send_packet(gw_element->client[addr_part_4]->addr, temp_skb, skb->len);
+		printk("debug: tunnel back %s -> %s\n",tmp_ip,client_ip);
 
 	}
 end:
@@ -476,6 +518,7 @@ get_virtual_ip(unsigned int ifindex, uint32_t client_addr)
 	struct gw_element *gw_element = NULL;
 	struct list_head *gw_ptr = NULL;
 	uint8_t i,first_free = 0;
+	char ip[20];
 	
 	/* search if interface index exists in gw_client_list */
 	list_for_each(gw_ptr, &gw_client_list) {
@@ -503,9 +546,12 @@ ifi_found:
 	
 	if (gw_element->client[i] != NULL) {
 
-		if ( gw_element->client[i]->addr == client_addr )
-
+		if ( gw_element->client[i]->addr == client_addr ) {
+			ip2string(client_addr,ip);
+			printk("B.A.T.M.A.N. GW: client %s already exists. return %d\n", ip, i);
 			return i;
+
+		}
 
 	} else {
 
