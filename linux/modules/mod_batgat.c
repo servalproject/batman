@@ -75,7 +75,7 @@ static struct socket *sock=NULL;
 static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
 {
-	char *tmp = NULL;
+	char *tmp = NULL, *colon_ptr;
 	int command,length,i;
 
 	struct dev_element *dev_entry = NULL;
@@ -85,7 +85,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 	struct list_head *gw_ptr_tmp = NULL;
 	struct net_device *tmp_dev = NULL;
 
-	
+
 	/* cmd comes with 2 short values */
 	command = cmd & 0x0000FFFF;
 	length = cmd >> 16;
@@ -105,10 +105,16 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 		__copy_from_user(tmp, (void __user*)arg, length);
 		tmp[length] = 0;
 
+		if ( ( colon_ptr = strchr( tmp, ':' ) ) != NULL )
+			*colon_ptr = '\0';
+
 		if((tmp_dev = dev_get_by_name(tmp))==NULL) {
 			printk("B.A.T.M.A.N. GW: Did not find device %s\n",tmp);
 			goto clean_error_without;
 		}
+
+		if ( colon_ptr != NULL )
+			*colon_ptr = ':';
 
 	} else {
 
@@ -116,7 +122,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 		goto clean_error_without;
 
 	}
-	
+
 	switch(command) {
 
 		case IOCSETDEV:
@@ -136,7 +142,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				dev_entry->packet.type = __constant_htons(ETH_P_IP);
 				dev_entry->packet.func = batgat_func;
 			}
-			
+
 			dev_entry->packet.dev = tmp_dev;
 			dev_entry->ifindex = tmp_dev->ifindex;
 
@@ -185,7 +191,7 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 			break;
 
 	}
-	
+
 	if(tmp!=NULL)
 		kfree(tmp);
 
@@ -196,14 +202,14 @@ clean_error:
 clean_error_without:
 	if(tmp)
 		kfree(tmp);
-	
+
 	return -EFAULT;
 }
 
 int
 init_module()
 {
-	
+
 	/* register our device - kernel assigns a free major number */
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
 
@@ -228,10 +234,10 @@ init_module()
 	printk( "B.A.T.M.A.N. GW: I was assigned major number %d. To talk to\n", Major );
 	printk( "B.A.T.M.A.N. GW: the driver, create a dev file with 'mknod /dev/batgat c %d 0'.\n", Major );
 	printk( "B.A.T.M.A.N. GW: Remove the device file and module when done.\n" );
-		
+
 	/* init device list */
 	INIT_LIST_HEAD(&device_list);
-	
+
 	/* init gw_client_list */
 	INIT_LIST_HEAD(&gw_client_list);
 
@@ -250,7 +256,7 @@ cleanup_module()
 	int ret, i;
 	struct gw_element *gw_element = NULL;
 	struct dev_element *dev_entry = NULL;
-	
+
 	struct list_head *ptr = NULL;
 	struct list_head *ptr_tmp = NULL;
 
@@ -267,7 +273,7 @@ cleanup_module()
 
 	if ( ret < 0 )
 		printk( "B.A.T.M.A.N. GW: Unregistering the character device failed with %d\n", ret );
-	
+
 	if(!list_empty(&gw_client_list)) {
 
 		list_for_each_safe(ptr,ptr_tmp,&gw_client_list) {
@@ -312,7 +318,7 @@ batgat_open(struct inode *inode, struct file *filp)
 
 }
 
-static int 
+static int
 batgat_release(struct inode *inode, struct file *file)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
@@ -340,7 +346,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 	/* debug vars */
 	char ip1[20],ip2[20];
-	
+
 	/**************/
 
 	/* check if is a batman packet */
@@ -377,7 +383,7 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			goto exit_batgat;
 
 	}
-	
+
 exit_batgat:
 	kfree_skb(skb);
 	return 0;
@@ -397,9 +403,9 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 	to.sin_family = AF_INET;
 	to.sin_addr.s_addr = dest;
 	to.sin_port = htons( (unsigned short)BATMAN_PORT );
-	
+
 	msg.msg_name = NULL;
-	
+
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	iov.iov_base = buffer;
@@ -434,7 +440,7 @@ get_virtual_ip(unsigned int ifindex, uint32_t client_addr)
 	struct list_head *gw_ptr = NULL;
 	uint8_t i,first_free = 0;
 	char ip[20];
-	
+
 	/* search if interface index exists in gw_client_list */
 	list_for_each(gw_ptr, &gw_client_list) {
 		gw_element = list_entry(gw_ptr, struct gw_element, list);
@@ -448,17 +454,17 @@ get_virtual_ip(unsigned int ifindex, uint32_t client_addr)
 	if(gw_element == NULL)
 		return 0;
 	gw_element->ifindex = ifindex;
-	
+
 	for(i=0;i< 255;i++)
 		gw_element->client[i] = NULL;
-	
+
 	list_add_tail(&gw_element->list, &gw_client_list);
 
 ifi_found:
 	/* assign ip */
 
 	for (i = 1;i<255;i++) {
-	
+
 	if (gw_element->client[i] != NULL) {
 
 		if ( gw_element->client[i]->addr == client_addr ) {
@@ -512,7 +518,7 @@ raw_print(void *data, unsigned int length)
 	}
 	printk("\n\n");
 }
-	
+
 static void
 ip2string(unsigned int sip,char *buffer)
 {
