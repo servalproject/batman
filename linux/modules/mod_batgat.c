@@ -53,6 +53,7 @@ static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet
 static int tun_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
 
 /* helpers */
+static int is_not_valid_vip(uint32_t vip, uint32_t source);
 static int send_packet(uint32_t dest,unsigned char *buffer,int buffer_len);
 static unsigned short get_virtual_ip(unsigned int ifindex, uint32_t client_addr);
 static void raw_print(void *data, unsigned int length);
@@ -341,6 +342,7 @@ static int
 batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
 {
 	struct iphdr *iph = ip_hdr(skb);
+	struct iphdr *real_iph = NULL;
 	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE];
 	uint32_t ip_address;
 
@@ -378,6 +380,12 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			break;
 
 		case TUNNEL_DATA:
+
+			real_iph = (struct iphdr*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr) + 1);
+
+			if(is_not_valid_vip(real_iph->saddr,iph->saddr))
+				break;
+
 			break;
 		default:
 			goto exit_batgat;
@@ -390,6 +398,42 @@ exit_batgat:
 }
 
 /* helpers */
+
+static int
+is_not_valid_vip(uint32_t vip, uint32_t source)
+{
+	unsigned char *check_ip,send_buffer[VIP_BUFFER_SIZE];
+	struct gw_element *gw_entry = NULL;
+	struct list_head *ptr;
+
+	check_ip = (unsigned char *)&vip;
+
+	if(check_ip[0] != 169 && check_ip[1] != 254) {
+		goto send_ip_invalid;
+	}
+
+	list_for_each(ptr, &gw_client_list) {
+		gw_entry = list_entry(ptr, struct gw_element, list);
+		if(gw_entry->ifindex == check_ip[2])
+			break;
+		else
+			gw_entry = NULL;
+	}
+
+send_ip_invalid:
+	if(!gw_entry || gw_entry->client[check_ip[3]] == NULL) {
+
+		send_buffer[0] = TUNNEL_IP_INVALID;
+		memset(&send_buffer[1], 0, VIP_BUFFER_SIZE - 1);
+		send_packet(source, send_buffer, VIP_BUFFER_SIZE);
+		printk("B.A.T.M.A.N. GW: tunnel ip %d.%d.%d.%d is invalid\n",check_ip[0],check_ip[1],check_ip[2],check_ip[3]);
+		return 1;
+
+	}
+
+	return 0;
+
+}
 
 static int
 send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
