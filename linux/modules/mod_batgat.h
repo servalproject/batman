@@ -17,7 +17,7 @@
  *
  */
 
-#include <linux/list.h>
+#include <linux/if.h>
 
 /* io controls */
 #define IOCSETDEV 1
@@ -38,13 +38,8 @@ struct gw_client {
 };
 
 struct dev_element {
-	struct list_head list;
 	struct packet_type packet;
-	uint32_t ifindex;
-};
-
-struct gw_element {
-	struct list_head list;
-	struct gw_client *client[256];
-	unsigned short ifindex;
+	struct socket *sock;
+	char name[IFNAMSIZ];
+	uint8_t rem;
 };

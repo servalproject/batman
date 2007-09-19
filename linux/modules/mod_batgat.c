@@ -67,11 +67,10 @@ static struct file_operations fops = {
 };
 
 static int Major;            /* Major number assigned to our device driver */
-static struct list_head device_list;
-static struct list_head gw_client_list;
-static struct socket *sock=NULL;
 
-
+static struct dev_element **dev_array=NULL;
+// static struct gw_client **gw_client;
+static int index = 0;
 
 static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
@@ -79,12 +78,15 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 	char *tmp = NULL, *colon_ptr;
 	int command,length,i;
 
-	struct dev_element *dev_entry = NULL;
-	struct gw_element *gw_element = NULL;
-	struct list_head *dev_ptr = NULL;
-	struct list_head *gw_ptr = NULL;
-	struct list_head *gw_ptr_tmp = NULL;
 	struct net_device *tmp_dev = NULL;
+
+	struct in_device *in_dev;
+	struct in_ifaddr **ifap = NULL;
+	struct in_ifaddr *ifa = NULL;
+
+	/* debug vars */
+	unsigned char ip[20];
+	/**************/
 
 
 	/* cmd comes with 2 short values */
@@ -128,70 +130,85 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 
 		case IOCSETDEV:
 
-			if( (dev_entry = kmalloc(sizeof(struct dev_element), GFP_KERNEL)) == NULL) {
+
+			dev_array = (struct dev_element**)krealloc(dev_array,sizeof(struct dev_element*)*(index + 1), GFP_KERNEL);
+
+			if(dev_array == NULL || ( dev_array[index] = (struct dev_element*)kmalloc(sizeof(struct dev_element),GFP_KERNEL)) == NULL ) {
 				printk("B.A.T.M.A.N. GW: Allocate memory for device list\n");
 				goto clean_error;
 			}
 
-			/* assing for tun packets another callback */
-			if(strstr(tmp,"tun")) {
-				printk("B.A.T.M.A.N. GW: assign %s tun handler\n", tmp);
-				dev_entry->packet.type = __constant_htons(ETH_P_ALL);
-				dev_entry->packet.func = tun_func;
-			} else {
-				printk("B.A.T.M.A.N. GW: assign %s normal handler\n", tmp);
-				dev_entry->packet.type = __constant_htons(ETH_P_IP);
-				dev_entry->packet.func = batgat_func;
+
+			/* get ip address from interface */
+			if((in_dev = __in_dev_get_rtnl(tmp_dev)) != NULL ) {
+				
+				for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL; ifap = &ifa->ifa_next) {
+
+					if (!strcmp(tmp, ifa->ifa_label)) {
+						ip2string(ifa->ifa_local,ip);
+						printk("found %s with ip %s\n", ifa->ifa_label, ip);
+						/* TODO: create socket and bind to address */
+						break;
+					}
+
+				}
+
+			} else
+				return -ENODEV;
+
+			if(ifa == NULL) {
+				printk(KERN_ERR "B.A.T.M.A.N. GW: can't find interface address for %s\n",tmp);
+				goto clean_error;
 			}
 
-			dev_entry->packet.dev = tmp_dev;
-			dev_entry->ifindex = tmp_dev->ifindex;
+			/* init socket */
+			if(sock_create(PF_INET,SOCK_DGRAM,IPPROTO_UDP,&dev_array[index]->sock) < 0) {
+				printk(KERN_ERR "B.A.T.M.A.N. GW: Error creating socket\n");
+				goto clean_error;
+			} else
+				printk("B.A.T.M.A.N. GW: create socket for %s\n",tmp);
 
-			/* insert in device list */
-			list_add_tail(&dev_entry->list, &device_list);
-			/* register our function for packets from device */
-			dev_add_pack(&dev_entry->packet);
-			dev_put(tmp_dev);
+
+
+			/* assing for tun packets another callback */
+			if(strstr(tmp,"tun")) {
+				printk("B.A.T.M.A.N. GW: assign %s tun handler id %d\n", tmp, index);
+				dev_array[index]->packet.type = __constant_htons(ETH_P_ALL);
+				dev_array[index]->packet.func = tun_func;
+			} else {
+				printk("B.A.T.M.A.N. GW: assign %s normal handler id %d\n", tmp, index);
+				dev_array[index]->packet.type = __constant_htons(ETH_P_IP);
+				dev_array[index]->packet.func = batgat_func;
+			}
+			dev_add_pack(&dev_array[index]->packet);
+			dev_array[index]->rem = 0;
+			strlcpy(dev_array[index]->name, tmp,length+1);
+			index++;
+
 			break;
 
 		case IOCREMDEV:
 
-			if(!list_empty(&gw_client_list)) {
+			for(i=0;i<index;i++) {
+				if(strncmp(dev_array[i]->name,tmp,length+1) == 0) {
+					printk("element %d free %s\n",i,dev_array[i]->name);
+					dev_remove_pack(&dev_array[i]->packet);
+					dev_array[i]->rem = 1;
 
-				list_for_each_safe(gw_ptr,gw_ptr_tmp,&gw_client_list) {
-					gw_element = list_entry(gw_ptr, struct gw_element, list);
-					if(gw_element->ifindex == tmp_dev->ifindex) {
-						for(i=0;i < 255;i++) {
-							if(gw_element->client[i] != NULL)
-								kfree(gw_element->client[i]);
-						}
-						list_del(gw_ptr);
-						kfree(gw_element);
-						break;
-					}
+					if(dev_array[i]->sock)
+						sock_release(dev_array[i]->sock);
+					dev_array[i]->sock = NULL;
+					
+				} else {
+					printk("element %d don't free given %s current %s\n",i,tmp,dev_array[i]->name);
 				}
-			} else
-				printk("B.A.T.M.A.N. GW: No clients to delete.\n");
-
-
-			if(!list_empty(&device_list)) {
-				list_for_each(dev_ptr, &device_list) {
-					dev_entry = list_entry(dev_ptr, struct dev_element, list);
-					if(dev_entry->ifindex == tmp_dev->ifindex) {
-						dev_remove_pack(&dev_entry->packet);
-						dev_put(tmp_dev);
-						list_del(&dev_entry->list);
-						kfree(dev_entry);
-						printk("B.A.T.M.A.N. GW: Remove device %s...\n", tmp);
-						break;
-					}
-				}
-			} else
-				printk("B.A.T.M.A.N. GW: No devices to delete.\n");
+			}
 
 			break;
 
 	}
+
+	dev_put(tmp_dev);
 
 	if(tmp!=NULL)
 		kfree(tmp);
@@ -236,31 +253,13 @@ init_module()
 	printk( "B.A.T.M.A.N. GW: the driver, create a dev file with 'mknod /dev/batgat c %d 0'.\n", Major );
 	printk( "B.A.T.M.A.N. GW: Remove the device file and module when done.\n" );
 
-	/* init device list */
-	INIT_LIST_HEAD(&device_list);
-
-	/* init gw_client_list */
-	INIT_LIST_HEAD(&gw_client_list);
-
-	/* init socket */
-	if(sock_create(PF_INET,SOCK_DGRAM,IPPROTO_UDP,&sock) < 0) {
-		printk(KERN_ERR "B.A.T.M.A.N. GW: Error creating socket\n");
-		return -EIO;
-	}
-
 	return(0);
 }
 
 void
 cleanup_module()
 {
-	int ret, i;
-	struct gw_element *gw_element = NULL;
-	struct dev_element *dev_entry = NULL;
-
-	struct list_head *ptr = NULL;
-	struct list_head *ptr_tmp = NULL;
-
+	int ret,i;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batgat", 0 );
@@ -275,33 +274,26 @@ cleanup_module()
 	if ( ret < 0 )
 		printk( "B.A.T.M.A.N. GW: Unregistering the character device failed with %d\n", ret );
 
-	if(!list_empty(&gw_client_list)) {
+	for(i=0;i<index;i++) {
+		if(dev_array[i] != NULL) {
+			printk("cleanup %s\n",dev_array[i]->name);
 
-		list_for_each_safe(ptr,ptr_tmp,&gw_client_list) {
-			gw_element = list_entry(ptr,struct gw_element,list);
+			if(!dev_array[i]->rem)
+				dev_remove_pack(&dev_array[i]->packet);
 
-			for(i=0;i < 255;i++) {
-				if(gw_element->client[i] != NULL)
-					kfree(gw_element->client[i]);
-			}
-			list_del(ptr);
-			kfree(gw_element);
-		}
-
-	}
-
-	if(!list_empty(&device_list)) {
-		list_for_each_safe(ptr,ptr_tmp, &device_list) {
-			dev_entry = list_entry(ptr, struct dev_element, list);
-			dev_remove_pack(&dev_entry->packet);
-			list_del(&dev_entry->list);
-			kfree(dev_entry);
-			printk("B.A.T.M.A.N. GW: device list not empty...clean it\n");
+			if(dev_array[i]->sock)
+				sock_release(dev_array[i]->sock);
+					
+			kfree(dev_array[i]);
 		}
 	}
 
-	if(sock)
-		sock_release(sock);
+	if(!(index-=i)) {
+		kfree(dev_array);
+		printk("cleanup array\n");
+	} else {
+		printk("index not clean\n");
+	}
 
 	printk( "B.A.T.M.A.N. GW: Unload complete\n" );
 }
@@ -403,33 +395,31 @@ static int
 is_not_valid_vip(uint32_t vip, uint32_t source)
 {
 	unsigned char *check_ip,send_buffer[VIP_BUFFER_SIZE];
-	struct gw_element *gw_entry = NULL;
-	struct list_head *ptr;
-
+	
 	check_ip = (unsigned char *)&vip;
 
-	if(check_ip[0] != 169 && check_ip[1] != 254) {
-		goto send_ip_invalid;
-	}
+// 	if(check_ip[0] != 169 && check_ip[1] != 254) {
+// 		goto send_ip_invalid;
+// 	}
 
-	list_for_each(ptr, &gw_client_list) {
-		gw_entry = list_entry(ptr, struct gw_element, list);
-		if(gw_entry->ifindex == check_ip[2])
-			break;
-		else
-			gw_entry = NULL;
-	}
+// 	list_for_each(ptr, &gw_client_list) {
+// 		gw_entry = list_entry(ptr, struct gw_element, list);
+// 		if(gw_entry->ifindex == check_ip[2])
+// 			break;
+// 		else
+// 			gw_entry = NULL;
+// 	}
 
-send_ip_invalid:
-	if(!gw_entry || gw_entry->client[check_ip[3]] == NULL) {
-
-		send_buffer[0] = TUNNEL_IP_INVALID;
-		memset(&send_buffer[1], 0, VIP_BUFFER_SIZE - 1);
-		send_packet(source, send_buffer, VIP_BUFFER_SIZE);
-		printk("B.A.T.M.A.N. GW: tunnel ip %d.%d.%d.%d is invalid\n",check_ip[0],check_ip[1],check_ip[2],check_ip[3]);
-		return 1;
-
-	}
+// send_ip_invalid:
+// 	if(!gw_entry || gw_entry->client[check_ip[3]] == NULL) {
+// 
+// 		send_buffer[0] = TUNNEL_IP_INVALID;
+// 		memset(&send_buffer[1], 0, VIP_BUFFER_SIZE - 1);
+// 		send_packet(source, send_buffer, VIP_BUFFER_SIZE);
+// 		printk("B.A.T.M.A.N. GW: tunnel ip %d.%d.%d.%d is invalid\n",check_ip[0],check_ip[1],check_ip[2],check_ip[3]);
+// 		return 1;
+// 
+// 	}
 
 	return 0;
 
@@ -442,7 +432,7 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 	struct msghdr msg;
 	mm_segment_t oldfs;
 	struct sockaddr_in to;
-	int error,len;
+	int error=0,len=0;
 
 	to.sin_family = AF_INET;
 	to.sin_addr.s_addr = dest;
@@ -458,7 +448,7 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 	msg.msg_iov = &iov;
 	msg.msg_flags = MSG_DONTWAIT;
 
-	error = sock->ops->connect(sock,(struct sockaddr *)&to,sizeof(to),0);
+// 	error = sock->ops->connect(sock,(struct sockaddr *)&to,sizeof(to),0);
 	oldfs = get_fs();
 	set_fs( KERNEL_DS );
 
@@ -467,7 +457,7 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 		return 0;
 	}
 
-	len = sock_sendmsg( sock, &msg, buffer_len );
+// 	len = sock_sendmsg( sock, &msg, buffer_len );
 
 	if( len < 0 )
 		printk( KERN_ERR "B.A.T.M.A.N. GW: sock_sendmsg failed: %d\n",len);
@@ -480,64 +470,63 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 static unsigned short
 get_virtual_ip(unsigned int ifindex, uint32_t client_addr)
 {
-	struct gw_element *gw_element = NULL;
-	struct list_head *gw_ptr = NULL;
+	
 	uint8_t i,first_free = 0;
 	char ip[20];
 
 	/* search if interface index exists in gw_client_list */
-	list_for_each(gw_ptr, &gw_client_list) {
-		gw_element = list_entry(gw_ptr, struct gw_element, list);
-		if(gw_element->ifindex == ifindex)
-			goto ifi_found;
-	}
+// 	list_for_each(gw_ptr, &gw_client_list) {
+// 		gw_element = list_entry(gw_ptr, struct gw_element, list);
+// 		if(gw_element->ifindex == ifindex)
+// 			goto ifi_found;
+// 	}
 
 	/* create gw_element */
-	gw_element = kmalloc(sizeof(struct gw_element), GFP_KERNEL);
+// 	gw_element = kmalloc(sizeof(struct gw_element), GFP_KERNEL);
 
-	if(gw_element == NULL)
-		return 0;
-	gw_element->ifindex = ifindex;
+// 	if(gw_element == NULL)
+// 		return 0;
+// 	gw_element->ifindex = ifindex;
+// 
+// 	for(i=0;i< 255;i++)
+// 		gw_element->client[i] = NULL;
+// 
+// 	list_add_tail(&gw_element->list, &gw_client_list);
 
-	for(i=0;i< 255;i++)
-		gw_element->client[i] = NULL;
-
-	list_add_tail(&gw_element->list, &gw_client_list);
-
-ifi_found:
+// ifi_found:
 	/* assign ip */
 
-	for (i = 1;i<255;i++) {
-
-	if (gw_element->client[i] != NULL) {
-
-		if ( gw_element->client[i]->addr == client_addr ) {
-			ip2string(client_addr,ip);
-			printk("B.A.T.M.A.N. GW: client %s already exists. return %d\n", ip, i);
-			return i;
-
-		}
-
-	} else {
-
-		if ( first_free == 0 )
-			first_free = i;
-
-	}
-
-	}
-
-	if ( first_free == 0 ) {
-		/* TODO: list is full */
-		return -1;
-
-	}
-
-	gw_element->client[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
-	gw_element->client[first_free]->addr = client_addr;
-
-	/* TODO: check syscall for time*/
-	gw_element->client[first_free]->last_keep_alive = 0;
+// 	for (i = 1;i<255;i++) {
+// 
+// 	if (gw_element->client[i] != NULL) {
+// 
+// 		if ( gw_element->client[i]->addr == client_addr ) {
+// 			ip2string(client_addr,ip);
+// 			printk("B.A.T.M.A.N. GW: client %s already exists. return %d\n", ip, i);
+// 			return i;
+// 
+// 		}
+// 
+// 	} else {
+// 
+// 		if ( first_free == 0 )
+// 			first_free = i;
+// 
+// 	}
+// 
+// 	}
+// 
+// 	if ( first_free == 0 ) {
+// 		/* TODO: list is full */
+// 		return -1;
+// 
+// 	}
+// 
+// 	gw_element->client[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
+// 	gw_element->client[first_free]->addr = client_addr;
+// 
+// 	/* TODO: check syscall for time*/
+// 	gw_element->client[first_free]->last_keep_alive = 0;
 
 	return first_free;
 }
