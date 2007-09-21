@@ -76,6 +76,13 @@ static int Major;            /* Major number assigned to our device driver */
 static struct dev_element **dev_array=NULL;
 static int dev_index = 0;
 
+/* testing */
+struct socket *raw_sock;
+struct msghdr msg;
+struct iovec iov;
+struct sockaddr_in addr_out;
+/***********/
+
 
 static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
@@ -259,6 +266,25 @@ init_module()
 
 	dev_add_pack(&packet);
 
+	/* testing */
+	
+	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &raw_sock ) ) < 0 ) {
+
+		printk( "B.A.T.M.A.N.: Can't create raw socket\n");
+		return 1;
+
+	}
+
+	addr_out.sin_family = PF_INET;
+
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+	msg.msg_name = &addr_out;
+	msg.msg_namelen = sizeof(addr_out);
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+
 	return(0);
 }
 
@@ -329,7 +355,32 @@ batgat_release(struct inode *inode, struct file *file)
 static int
 tun_func(struct sk_buff *skb)
 {
-	printk("tun handler\n");
+	struct iphdr *iph = ip_hdr(skb);
+	unsigned char *tmp_skb;
+
+	int dev_addr = -1;
+	int client_addr = -1;
+
+	char ip1[20],ip2[20];
+	ip2string(iph->saddr,ip1);
+	ip2string(iph->daddr,ip2);
+
+	printk("data from %s to tunnel, %s -> %s.....",skb->dev->name,ip1,ip2);
+
+	dev_addr = (ntohl(iph->daddr)>>8)&255;
+	client_addr = ntohl(iph->daddr)&255;
+
+	if( ((ntohl(iph->daddr)>>24)&255) == 169 && dev_addr <= dev_index && dev_array[dev_addr]->gw_client[client_addr] != NULL ) {
+
+		skb_push(skb,1);
+		tmp_skb = (unsigned char*)skb->data;
+		tmp_skb[0] = TUNNEL_DATA;
+		send_packet(dev_addr,dev_array[dev_addr]->gw_client[client_addr]->addr, tmp_skb, skb->len);
+		printk("forward packet\n");
+
+	} else
+		printk("drop packet\n");
+	
 	return 0;
 }
 
@@ -356,8 +407,16 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 	/* check if is a batman packet */
 	if(!(ntohs(eth->h_proto) == ETH_P_IP && iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST &&
-		    ntohs(((struct udphdr*)(skb->data + sizeof(struct iphdr)))->source) == BATMAN_PORT))
+		    ntohs(((struct udphdr*)(skb->data + sizeof(struct iphdr)))->source) == BATMAN_PORT)) {
+
+		if(((ntohl(iph->saddr)>>24)&255)==169) {
+			ip2string(iph->saddr,ip1);
+			ip2string(iph->daddr,ip2);
+			printk("packet drop in batgat_func %s -> %s eth proto %u ip proto %u pkt type %u port %u\n",ip1,ip2,ntohs(eth->h_proto),iph->protocol,skb->pkt_type,
+			       ntohs(((struct udphdr*)(skb->data + sizeof(struct iphdr)))->source));
+		}
 		goto exit_batgat;
+	}
 
 	buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
 
@@ -402,6 +461,36 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 			if(is_not_valid_vip(real_iph->saddr,iph))
 				break;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+
+// 			skb_pull(skb,TRANSPORT_PACKET_SIZE);
+// 			skb->network_header = skb->data;
+// 			skb->transport_header = skb->data;
+
+			
+
+			/* testing */
+			iov.iov_base = real_iph;
+			iov.iov_len = skb->len - (sizeof(struct iphdr) + sizeof(struct udphdr) + 1);
+
+			addr_out.sin_port = 0;
+			addr_out.sin_addr.s_addr = real_iph->daddr;
+
+
+
+			i = sock_sendmsg(raw_sock,&msg,skb->len - 29);
+			
+			/**********/
+
+			ip2string(real_iph->saddr, ip1);
+			ip2string(real_iph->daddr, ip2);
+			printk("debug: %d get data from tunnel %s data %s -> %s paket type %u\n",i,dv->name,ip1,ip2,skb->pkt_type);
+
+#else
+			/* TODO: change pointer for Kernel < 2.6.22 */
+
+#endif
 
 			break;
 		default:
