@@ -50,12 +50,12 @@ static int batgat_open(struct inode *inode, struct file *filp);
 static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
-static int tun_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
+static int tun_func(struct sk_buff *skb);
 
 /* helpers */
-static int is_not_valid_vip(uint32_t vip, uint32_t source);
-static int send_packet(uint32_t dest,unsigned char *buffer,int buffer_len);
-static unsigned short get_virtual_ip(unsigned int ifindex, uint32_t client_addr);
+static int is_not_valid_vip(uint32_t vip, struct iphdr *iph);
+static int send_packet(uint32_t dev_addr, uint32_t dest,unsigned char *buffer,int buffer_len);
+static unsigned short get_virtual_ip(unsigned int dev_addr, uint32_t client_addr);
 static void raw_print(void *data, unsigned int length);
 static void ip2string(unsigned int sip,char *buffer);
 
@@ -66,11 +66,16 @@ static struct file_operations fops = {
 	.ioctl = batgat_ioctl,
 };
 
+static struct packet_type packet = {
+	.type = __constant_htons(ETH_P_ALL),
+	.func = batgat_func,
+};
+
 static int Major;            /* Major number assigned to our device driver */
 
 static struct dev_element **dev_array=NULL;
-// static struct gw_client **gw_client;
-static int index = 0;
+static int dev_index = 0;
+
 
 static int
 batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
@@ -83,6 +88,8 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 	struct in_device *in_dev;
 	struct in_ifaddr **ifap = NULL;
 	struct in_ifaddr *ifa = NULL;
+
+	struct sockaddr_in sa;
 
 	/* debug vars */
 	unsigned char ip[20];
@@ -131,9 +138,9 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 		case IOCSETDEV:
 
 
-			dev_array = (struct dev_element**)krealloc(dev_array,sizeof(struct dev_element*)*(index + 1), GFP_KERNEL);
+			dev_array = (struct dev_element**)krealloc(dev_array,sizeof(struct dev_element*)*(dev_index + 1), GFP_KERNEL);
 
-			if(dev_array == NULL || ( dev_array[index] = (struct dev_element*)kmalloc(sizeof(struct dev_element),GFP_KERNEL)) == NULL ) {
+			if(dev_array == NULL || ( dev_array[dev_index] = (struct dev_element*)kmalloc(sizeof(struct dev_element),GFP_KERNEL)) == NULL ) {
 				printk("B.A.T.M.A.N. GW: Allocate memory for device list\n");
 				goto clean_error;
 			}
@@ -162,39 +169,36 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 			}
 
 			/* init socket */
-			if(sock_create(PF_INET,SOCK_DGRAM,IPPROTO_UDP,&dev_array[index]->sock) < 0) {
+			if(sock_create(PF_INET,SOCK_DGRAM,IPPROTO_UDP,&dev_array[dev_index]->sock) < 0) {
 				printk(KERN_ERR "B.A.T.M.A.N. GW: Error creating socket\n");
 				goto clean_error;
 			} else
 				printk("B.A.T.M.A.N. GW: create socket for %s\n",tmp);
 
+			/* TODO: no socket for tun */
+			sa.sin_port = htons(BATMAN_PORT);
+			sa.sin_family = AF_INET;
+			sa.sin_addr.s_addr = ifa->ifa_local;
 
+			if(dev_array[dev_index]->sock->ops->bind(dev_array[dev_index]->sock, (struct sockaddr*)&sa,sizeof(struct sockaddr_in)) < 0) {
+				printk(KERN_ERR "B.A.T.M.A.N. GW: Error binding socket\n");
+				goto clean_error;
+			} else
+				printk("B.A.T.M.A.N. GW: bind socket for %s\n",tmp);
 
-			/* assing for tun packets another callback */
-			if(strstr(tmp,"tun")) {
-				printk("B.A.T.M.A.N. GW: assign %s tun handler id %d\n", tmp, index);
-				dev_array[index]->packet.type = __constant_htons(ETH_P_ALL);
-				dev_array[index]->packet.func = tun_func;
-			} else {
-				printk("B.A.T.M.A.N. GW: assign %s normal handler id %d\n", tmp, index);
-				dev_array[index]->packet.type = __constant_htons(ETH_P_IP);
-				dev_array[index]->packet.func = batgat_func;
-			}
-			dev_add_pack(&dev_array[index]->packet);
-			dev_array[index]->rem = 0;
-			strlcpy(dev_array[index]->name, tmp,length+1);
-			index++;
+			memset(dev_array[dev_index]->gw_client,0,sizeof(struct gw_client *)*254);
+			dev_array[dev_index]->addr = ifa->ifa_local;
+			strlcpy(dev_array[dev_index]->name, tmp,length+1);
+
+			dev_index++;
 
 			break;
 
 		case IOCREMDEV:
 
-			for(i=0;i<index;i++) {
+			for(i=0;i<dev_index;i++) {
 				if(strncmp(dev_array[i]->name,tmp,length+1) == 0) {
 					printk("element %d free %s\n",i,dev_array[i]->name);
-					dev_remove_pack(&dev_array[i]->packet);
-					dev_array[i]->rem = 1;
-
 					if(dev_array[i]->sock)
 						sock_release(dev_array[i]->sock);
 					dev_array[i]->sock = NULL;
@@ -237,7 +241,7 @@ init_module()
 	}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batgat", 0 ) ) {
+	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batgat", 0 ) )
 		printk( "B.A.T.M.A.N. GW: Could not create /dev/batgat \n" );
 #else
 	batman_class = class_create( THIS_MODULE, "batgat" );
@@ -252,6 +256,8 @@ init_module()
 	printk( "B.A.T.M.A.N. GW: I was assigned major number %d. To talk to\n", Major );
 	printk( "B.A.T.M.A.N. GW: the driver, create a dev file with 'mknod /dev/batgat c %d 0'.\n", Major );
 	printk( "B.A.T.M.A.N. GW: Remove the device file and module when done.\n" );
+
+	dev_add_pack(&packet);
 
 	return(0);
 }
@@ -274,12 +280,9 @@ cleanup_module()
 	if ( ret < 0 )
 		printk( "B.A.T.M.A.N. GW: Unregistering the character device failed with %d\n", ret );
 
-	for(i=0;i<index;i++) {
+	for(i=0;i<dev_index;i++) {
 		if(dev_array[i] != NULL) {
 			printk("cleanup %s\n",dev_array[i]->name);
-
-			if(!dev_array[i]->rem)
-				dev_remove_pack(&dev_array[i]->packet);
 
 			if(dev_array[i]->sock)
 				sock_release(dev_array[i]->sock);
@@ -288,13 +291,14 @@ cleanup_module()
 		}
 	}
 
-	if(!(index-=i)) {
+	if(!(dev_index-=i)) {
 		kfree(dev_array);
 		printk("cleanup array\n");
 	} else {
-		printk("index not clean\n");
+		printk("dev_index not clean\n");
 	}
-
+	
+	dev_remove_pack(&packet);
 	printk( "B.A.T.M.A.N. GW: Unload complete\n" );
 }
 
@@ -323,10 +327,9 @@ batgat_release(struct inode *inode, struct file *file)
 }
 
 static int
-tun_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
+tun_func(struct sk_buff *skb)
 {
-	printk("receive tun packet\n");
-	kfree_skb(skb);
+	printk("tun handler\n");
 	return 0;
 }
 
@@ -335,16 +338,25 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 {
 	struct iphdr *iph = ip_hdr(skb);
 	struct iphdr *real_iph = NULL;
+	struct ethhdr *eth = (struct ethhdr*)skb_mac_header(skb);
+	
 	unsigned char *buffer,vip_buffer[VIP_BUFFER_SIZE];
-	uint32_t ip_address;
+	uint32_t ip_address,i;
+	int send_dev_index = -1;
 
 	/* debug vars */
 	char ip1[20],ip2[20];
 
 	/**************/
 
+	if(strstr(dv->name, "tun")) {
+		tun_func(skb);
+		goto exit_batgat;
+	}
+
 	/* check if is a batman packet */
-	if(!(iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST && ntohs(((struct udphdr*)(skb->data + sizeof(struct iphdr)))->source) == BATMAN_PORT))
+	if(!(ntohs(eth->h_proto) == ETH_P_IP && iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST &&
+		    ntohs(((struct udphdr*)(skb->data + sizeof(struct iphdr)))->source) == BATMAN_PORT))
 		goto exit_batgat;
 
 	buffer = (unsigned char*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr));
@@ -353,12 +365,25 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 		case TUNNEL_IP_REQUEST:
 
-			if((ip_address = (unsigned int)get_virtual_ip(skb->dev->ifindex, iph->saddr)) == 0) {
-				printk(KERN_ERR "B.A.T.M.A.N. GW: don't get a virtual ip\n");
-				break;
+			for(i=0;i < dev_index;i++) {
+				if(dev_array[i]->addr == iph->daddr) {
+					send_dev_index = i;
+					break;
+				}
 			}
 
-			ip_address = 169 + ( 254<<8 ) + ((uint8_t)(skb->dev->ifindex)<<16 ) + (ip_address<<24 );
+			if(send_dev_index < 0) {
+				ip2string(iph->daddr,ip1);
+				printk("B.A.T.M.A.N. GW: device with %s not in dev_array\n",ip1);
+				goto exit_batgat;
+			}
+
+			if((ip_address = (unsigned int)get_virtual_ip(send_dev_index, iph->saddr)) == 0) {
+				printk(KERN_ERR "B.A.T.M.A.N. GW: don't get a virtual ip\n");
+				goto exit_batgat;
+			}
+
+			ip_address = 169 + ( 254<<8 ) + ((uint8_t)(send_dev_index)<<16 ) + (ip_address<<24 );
 			vip_buffer[0] = TUNNEL_DATA;
 			memcpy(&vip_buffer[1], &ip_address, sizeof(ip_address));
 
@@ -368,14 +393,14 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 			printk("B.A.T.M.A.N. GW: assign client %s vip %s\n", ip1, ip2);
 			/****************/
 
-			send_packet(iph->saddr, vip_buffer, VIP_BUFFER_SIZE);
+			send_packet(send_dev_index,iph->saddr,vip_buffer,VIP_BUFFER_SIZE);
 			break;
 
 		case TUNNEL_DATA:
 
 			real_iph = (struct iphdr*) (skb->data + sizeof(struct iphdr) + sizeof(struct udphdr) + 1);
 
-			if(is_not_valid_vip(real_iph->saddr,iph->saddr))
+			if(is_not_valid_vip(real_iph->saddr,iph))
 				break;
 
 			break;
@@ -392,41 +417,45 @@ exit_batgat:
 /* helpers */
 
 static int
-is_not_valid_vip(uint32_t vip, uint32_t source)
+is_not_valid_vip(uint32_t vip, struct iphdr *iph)
 {
 	unsigned char *check_ip,send_buffer[VIP_BUFFER_SIZE];
+	int send_dev_index = -1,i;
 	
 	check_ip = (unsigned char *)&vip;
 
-// 	if(check_ip[0] != 169 && check_ip[1] != 254) {
-// 		goto send_ip_invalid;
-// 	}
+	/* check if device in array with destination ip address */
+	for(i=0;i < dev_index;i++) {
+		if(dev_array[i]->addr == iph->daddr) {
+			send_dev_index = i;
+			break;
+		}
+	}
 
-// 	list_for_each(ptr, &gw_client_list) {
-// 		gw_entry = list_entry(ptr, struct gw_element, list);
-// 		if(gw_entry->ifindex == check_ip[2])
-// 			break;
-// 		else
-// 			gw_entry = NULL;
-// 	}
+	if(send_dev_index < 0) {
+		printk("B.A.T.M.A.N. GW: destination address don't match with dev_array");
+		return 1;
+	}
+	
+	if(check_ip[0] != 169 && check_ip[1] != 254)
+		goto send_ip_invalid;
 
-// send_ip_invalid:
-// 	if(!gw_entry || gw_entry->client[check_ip[3]] == NULL) {
-// 
-// 		send_buffer[0] = TUNNEL_IP_INVALID;
-// 		memset(&send_buffer[1], 0, VIP_BUFFER_SIZE - 1);
-// 		send_packet(source, send_buffer, VIP_BUFFER_SIZE);
-// 		printk("B.A.T.M.A.N. GW: tunnel ip %d.%d.%d.%d is invalid\n",check_ip[0],check_ip[1],check_ip[2],check_ip[3]);
-// 		return 1;
-// 
-// 	}
 
-	return 0;
+	if(dev_array[send_dev_index]->gw_client[check_ip[3]] != NULL && dev_array[send_dev_index]->gw_client[check_ip[3]]->addr == iph->saddr)
+		return 0;
+
+send_ip_invalid:
+
+	send_buffer[0] = TUNNEL_IP_INVALID;
+	memset(&send_buffer[1], 0, VIP_BUFFER_SIZE - 1);
+	send_packet(send_dev_index,iph->saddr, send_buffer, VIP_BUFFER_SIZE);
+	printk("B.A.T.M.A.N. GW: tunnel ip %d.%d.%d.%d is invalid\n",check_ip[0],check_ip[1],check_ip[2],check_ip[3]);
+	return 1;
 
 }
 
 static int
-send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
+send_packet(uint32_t dev_addr, uint32_t dest,unsigned char *buffer,int buffer_len)
 {
 	struct iovec iov;
 	struct msghdr msg;
@@ -448,16 +477,17 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 	msg.msg_iov = &iov;
 	msg.msg_flags = MSG_DONTWAIT;
 
-// 	error = sock->ops->connect(sock,(struct sockaddr *)&to,sizeof(to),0);
-	oldfs = get_fs();
-	set_fs( KERNEL_DS );
+	error = dev_array[dev_addr]->sock->ops->connect(dev_array[dev_addr]->sock,(struct sockaddr *)&to,sizeof(to),0);
 
 	if(error != 0) {
 		printk(KERN_ERR "B.A.T.M.A.N. GW: can't connect to socket: %d\n",error);
 		return 0;
 	}
+	
+	oldfs = get_fs();
+	set_fs( KERNEL_DS );
 
-// 	len = sock_sendmsg( sock, &msg, buffer_len );
+ 	len = sock_sendmsg( dev_array[dev_addr]->sock, &msg, buffer_len );
 
 	if( len < 0 )
 		printk( KERN_ERR "B.A.T.M.A.N. GW: sock_sendmsg failed: %d\n",len);
@@ -468,65 +498,42 @@ send_packet(uint32_t dest,unsigned char *buffer,int buffer_len)
 }
 
 static unsigned short
-get_virtual_ip(unsigned int ifindex, uint32_t client_addr)
+get_virtual_ip(uint32_t dev_addr, uint32_t client_addr)
 {
 	
 	uint8_t i,first_free = 0;
+
+	/* debug vars */
 	char ip[20];
+	/**************/
 
-	/* search if interface index exists in gw_client_list */
-// 	list_for_each(gw_ptr, &gw_client_list) {
-// 		gw_element = list_entry(gw_ptr, struct gw_element, list);
-// 		if(gw_element->ifindex == ifindex)
-// 			goto ifi_found;
-// 	}
+ 	for (i = 1;i<254;i++) {
 
-	/* create gw_element */
-// 	gw_element = kmalloc(sizeof(struct gw_element), GFP_KERNEL);
+		if(dev_array[dev_addr]->gw_client[i] != NULL) {
+			if(dev_array[dev_addr]->gw_client[i]->addr == client_addr) {
+				ip2string(client_addr,ip);
+				printk("B.A.T.M.A.N. GW: client %s already exists. return %d\n", ip, i);
+				return i;
+			}
+		} else {
+			if ( first_free == 0 )
+				first_free = i;
+		}
 
-// 	if(gw_element == NULL)
-// 		return 0;
-// 	gw_element->ifindex = ifindex;
-// 
-// 	for(i=0;i< 255;i++)
-// 		gw_element->client[i] = NULL;
-// 
-// 	list_add_tail(&gw_element->list, &gw_client_list);
+	}
 
-// ifi_found:
-	/* assign ip */
 
-// 	for (i = 1;i<255;i++) {
-// 
-// 	if (gw_element->client[i] != NULL) {
-// 
-// 		if ( gw_element->client[i]->addr == client_addr ) {
-// 			ip2string(client_addr,ip);
-// 			printk("B.A.T.M.A.N. GW: client %s already exists. return %d\n", ip, i);
-// 			return i;
-// 
-// 		}
-// 
-// 	} else {
-// 
-// 		if ( first_free == 0 )
-// 			first_free = i;
-// 
-// 	}
-// 
-// 	}
-// 
-// 	if ( first_free == 0 ) {
-// 		/* TODO: list is full */
-// 		return -1;
-// 
-// 	}
-// 
-// 	gw_element->client[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
-// 	gw_element->client[first_free]->addr = client_addr;
-// 
-// 	/* TODO: check syscall for time*/
-// 	gw_element->client[first_free]->last_keep_alive = 0;
+	if ( first_free == 0 ) {
+		/* TODO: list is full */
+		return -1;
+
+	}
+
+	dev_array[dev_addr]->gw_client[first_free] = kmalloc(sizeof(struct gw_client),GFP_KERNEL);
+	dev_array[dev_addr]->gw_client[first_free]->addr = client_addr;
+
+	/* TODO: check syscall for time*/
+	dev_array[dev_addr]->gw_client[first_free]->last_keep_alive = 0;
 
 	return first_free;
 }
