@@ -378,11 +378,11 @@ void restore_defaults() {
 						if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->tun_dev) < 0) {
 							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->tun_dev,strerror(errno) );
 						}
-						add_del_route( batman_if->tun_ip, 24, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
+						add_del_route( batman_if->tun_ip, 24, 0, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
 						del_dev_tun(batman_if->tun_fd);
 					}
 				}
-				
+
 			}
 
 		}
@@ -406,7 +406,7 @@ void restore_defaults() {
 	add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_UNREACH - 1, 0, 1, 1 );
 
 	/* delete unreachable routing table entry */
-	add_del_route( 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 2, 1 );
+	add_del_route( 0, 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 2, 1 );
 
 	if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 		del_default_route();
@@ -460,7 +460,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 							if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->tun_dev) < 0) {
 								debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->tun_dev,strerror(errno) );
 							}
-							add_del_route( batman_if->tun_ip, 24, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
+							add_del_route( batman_if->tun_ip, 24, 0, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
 							del_dev_tun(batman_if->tun_fd);
 						}
 					}

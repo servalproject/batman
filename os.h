@@ -37,7 +37,7 @@ void segmentation_fault( int32_t sig );
 void restore_and_exit( uint8_t is_sigsegv );
 
 /* route.c */
-void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del );
+void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del );
 void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, char *iif, int8_t dst_rule, int8_t del );
 int add_del_interface_rules( int8_t del );
 int flush_routes_rules( int8_t rt_table );

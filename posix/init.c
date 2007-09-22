@@ -524,7 +524,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_UNREACH - 1, 0, 1, 0 );
 
 		/* add unreachable routing table entry */
-		add_del_route( 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 2, 0 );
+		add_del_route( 0, 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 2, 0 );
 
 		if ( routing_class > 0 ) {
 
@@ -912,7 +912,7 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 			restore_defaults();
 			exit(EXIT_FAILURE);
 		}
-		add_del_route( batman_if->tun_ip, 24, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 0 );
+		add_del_route( batman_if->tun_ip, 24, 0, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 0 );
 
 		cmd = (unsigned short)IOCSETDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
 		if(ioctl(batman_if->udp_tunnel_sock,cmd,batman_if->tun_dev) < 0 ) {

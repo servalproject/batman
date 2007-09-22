@@ -204,7 +204,7 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 		netmask = ( uint32_t )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
 
 		if ( ( netmask > 0 ) && ( netmask < 33 ) )
-			add_del_route( hna, netmask, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, del );
+			add_del_route( hna, netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, del );
 
 		hna_buff_count++;
 
@@ -379,7 +379,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 			if ( orig_node->hna_buff_len > 0 )
 				add_del_hna( orig_node, 1 );
 
-			add_del_route( orig_node->orig, 32, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
+			add_del_route( orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
 
 		}
 
@@ -392,7 +392,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 				debug_output( 4, "Route changed\n" );
 			}
 
-			add_del_route( orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0 );
+			add_del_route( orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0 );
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
@@ -634,14 +634,14 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
 		send_count = (int)( ( ( (float)total_count / (float)SEQ_RANGE ) / ( (float)neigh_node->real_packet_count / (float)SEQ_RANGE ) ) * SEQ_RANGE );
 
-		debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, packets to be forwarded: %3i, packet_count: %i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, send_count, neigh_node->packet_count );
+		debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, packets to be forwarded: %3i, packet_count: %i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, send_count, neigh_node->packet_count );
 
 		if ( neigh_node->packet_count < send_count )
 			return 1;
 
 	} else {
 
-		debug_output( 3, "bidirectional: unknown neighbor \n" );
+		debug_output( 4, "bidirectional: unknown neighbor \n" );
 		return 1;
 
 	}
@@ -863,10 +863,10 @@ int8_t batman() {
 			num_hna++;
 
 			/* add throw routing entries for own hna */
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 0 );
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 0 );
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 0 );
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 0 );
 
 		}
 
@@ -1181,10 +1181,10 @@ int8_t batman() {
 		hna_node = list_entry( list_pos, struct hna_node, list );
 
 		/* add throw routing entries for own hna */
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 1 );
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 1 );
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 1 );
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 1 );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 1 );
 
 		debugFree( hna_node, 1103 );
 

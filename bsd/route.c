@@ -60,7 +60,7 @@ static inline int32_t n_bits(uint8_t n)
 		n = 32;
 	for (i = 0; i < n; i++)
 		result |= (0x80000000 >> i);
-	
+
 	return result;
 }
 
@@ -121,7 +121,7 @@ static uint32_t get_dev_addr(char *dev)
 	struct sockaddr_in *addr;
 
 	memset(&ifr, 0, sizeof(ifr));
-	
+
 	strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
 
 	so = socket(AF_INET, SOCK_DGRAM, 0);
@@ -139,7 +139,7 @@ static uint32_t get_dev_addr(char *dev)
 	return addr->sin_addr.s_addr;
 }
 
-void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router,
+void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip,
 		int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del)
 {
 	char dest_str[16], router_str[16];

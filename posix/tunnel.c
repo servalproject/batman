@@ -181,7 +181,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( add_dev_tun( curr_gw_data->batman_if, 0, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0 ) {
 
-		add_del_route( 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
+		add_del_route( 0, 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
 
 	} else {
 
@@ -348,7 +348,7 @@ void *client_to_gw_tun( void *arg ) {
 				break;
 
 			/* kernel deletes routes after setting the interface ip to 0 */
-			add_del_route( 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
+			add_del_route( 0, 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
 
 		}
 
@@ -367,7 +367,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-	add_del_route( 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
+	add_del_route( 0, 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
 
 	close( udp_sock );
 
@@ -458,7 +458,7 @@ void *gw_listen( void *arg ) {
 	if ( add_dev_tun( batman_if, my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
 		return NULL;
 
-	add_del_route( my_tun_ip, 24, 0, tun_ifi, tun_dev, 254, 0, 0 );
+	add_del_route( my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 0 );
 
 
 	FD_ZERO(&wait_sockets);
@@ -615,7 +615,7 @@ void *gw_listen( void *arg ) {
 	}
 
 	/* delete tun device and routes on exit */
-	add_del_route( my_tun_ip, 24, 0, tun_ifi, tun_dev, 254, 0, 1 );
+	add_del_route( my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 1 );
 
 	del_dev_tun( tun_fd );
 

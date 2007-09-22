@@ -96,11 +96,11 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(uint16_t), 402 );
 	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(uint16_t) );
-	
+
 	/*TODO: this fix actually postpones the problem to the moment of wrap-arounds but its probably less confusing this way!
 	*/
 	for ( i=0; i < found_ifs; i++ ) {
-		orig_node->bidirect_link[i] = ((uint16_t) (0 - 2 - BIDIRECT_TIMEOUT) ); 
+		orig_node->bidirect_link[i] = ((uint16_t) (0 - 2 - BIDIRECT_TIMEOUT) );
 	}
 
 	orig_node->rcvd_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
@@ -324,7 +324,7 @@ void purge_orig( uint32_t curr_time ) {
 						if ( orig_node->hna_buff_len > 0 )
 							add_del_hna( orig_node, 1 );
 
-						add_del_route( orig_node->orig, 32, orig_node->router->addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
+						add_del_route( orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
 
 						orig_node->router = NULL;
 
