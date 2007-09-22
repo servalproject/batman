@@ -17,7 +17,6 @@
  *
  */
 
-#include <linux/if.h>
 
 /* io controls */
 #define IOCSETDEV 1
@@ -30,18 +29,3 @@
 #define TUNNEL_DATA 0x01
 #define TUNNEL_IP_REQUEST 0x02
 #define TUNNEL_IP_INVALID 0x03
-
-/* tunnel clients */
-struct gw_client {
-	uint32_t addr;
-	uint32_t last_keep_alive;
-};
-
-struct dev_element {
-	struct socket *sock;
-	struct packet_type packet;
-	struct gw_client *gw_client[254];
-	uint32_t addr;
-	char name[IFNAMSIZ];
-	uint8_t free;
-};
