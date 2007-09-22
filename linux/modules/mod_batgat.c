@@ -50,7 +50,7 @@ static int batgat_open(struct inode *inode, struct file *filp);
 static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 static int batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt, struct net_device *orig_dev);
-static int tun_func(struct sk_buff *skb);
+static int tun_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev);
 
 /* helpers */
 static int is_not_valid_vip(uint32_t vip, struct iphdr *iph);
@@ -64,11 +64,6 @@ static struct file_operations fops = {
 	.open = batgat_open,
 	.release = batgat_release,
 	.ioctl = batgat_ioctl,
-};
-
-static struct packet_type packet = {
-	.type = __constant_htons(ETH_P_ALL),
-	.func = batgat_func,
 };
 
 static int Major;            /* Major number assigned to our device driver */
@@ -130,6 +125,9 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 			goto clean_error_without;
 		}
 
+		if(command == IOCREMDEV)
+			dev_put(tmp_dev);
+
 		if ( colon_ptr != NULL )
 			*colon_ptr = ':';
 
@@ -161,7 +159,6 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					if (!strcmp(tmp, ifa->ifa_label)) {
 						ip2string(ifa->ifa_local,ip);
 						printk("found %s with ip %s\n", ifa->ifa_label, ip);
-						/* TODO: create socket and bind to address */
 						break;
 					}
 
@@ -175,23 +172,38 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 				goto clean_error;
 			}
 
-			/* init socket */
-			if(sock_create(PF_INET,SOCK_DGRAM,IPPROTO_UDP,&dev_array[dev_index]->sock) < 0) {
-				printk(KERN_ERR "B.A.T.M.A.N. GW: Error creating socket\n");
-				goto clean_error;
-			} else
-				printk("B.A.T.M.A.N. GW: create socket for %s\n",tmp);
+			if(strstr(tmp,"tun")) {
 
-			/* TODO: no socket for tun */
-			sa.sin_port = htons(BATMAN_PORT);
-			sa.sin_family = AF_INET;
-			sa.sin_addr.s_addr = ifa->ifa_local;
+				dev_array[dev_index]->packet.type = htons(ETH_P_ALL);
+				dev_array[dev_index]->packet.func = tun_func;
+				dev_array[dev_index]->packet.dev = tmp_dev;
+				dev_array[dev_index]->sock = NULL;
 
-			if(dev_array[dev_index]->sock->ops->bind(dev_array[dev_index]->sock, (struct sockaddr*)&sa,sizeof(struct sockaddr_in)) < 0) {
-				printk(KERN_ERR "B.A.T.M.A.N. GW: Error binding socket\n");
-				goto clean_error;
-			} else
-				printk("B.A.T.M.A.N. GW: bind socket for %s\n",tmp);
+			} else {
+				dev_array[dev_index]->packet.type = htons(ETH_P_IP);
+				dev_array[dev_index]->packet.func = batgat_func;
+				dev_array[dev_index]->packet.dev = tmp_dev;
+
+				sa.sin_port = htons(BATMAN_PORT);
+				sa.sin_family = AF_INET;
+				sa.sin_addr.s_addr = ifa->ifa_local;
+
+				/* init socket */
+				if(sock_create(PF_INET,SOCK_DGRAM,IPPROTO_UDP,&dev_array[dev_index]->sock) < 0) {
+					printk(KERN_ERR "B.A.T.M.A.N. GW: Error creating socket\n");
+					goto clean_error;
+				} else
+					printk("B.A.T.M.A.N. GW: create socket for %s\n",tmp);
+
+				if(dev_array[dev_index]->sock->ops->bind(dev_array[dev_index]->sock, (struct sockaddr*)&sa,sizeof(struct sockaddr_in)) < 0) {
+					printk(KERN_ERR "B.A.T.M.A.N. GW: Error binding socket\n");
+					goto clean_error;
+				} else
+					printk("B.A.T.M.A.N. GW: bind socket for %s\n",tmp);
+			}
+
+			dev_add_pack(&dev_array[dev_index]->packet);
+			dev_array[dev_index]->free = 0;
 
 			memset(dev_array[dev_index]->gw_client,0,sizeof(struct gw_client *)*254);
 			dev_array[dev_index]->addr = ifa->ifa_local;
@@ -209,6 +221,11 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 					if(dev_array[i]->sock)
 						sock_release(dev_array[i]->sock);
 					dev_array[i]->sock = NULL;
+
+					dev_put(dev_array[i]->packet.dev);
+					dev_remove_pack(&dev_array[i]->packet);
+
+					dev_array[i]->free = 1;
 					
 				} else {
 					printk("element %d don't free given %s current %s\n",i,tmp,dev_array[i]->name);
@@ -218,8 +235,6 @@ batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned
 			break;
 
 	}
-
-	dev_put(tmp_dev);
 
 	if(tmp!=NULL)
 		kfree(tmp);
@@ -263,8 +278,6 @@ init_module()
 	printk( "B.A.T.M.A.N. GW: I was assigned major number %d. To talk to\n", Major );
 	printk( "B.A.T.M.A.N. GW: the driver, create a dev file with 'mknod /dev/batgat c %d 0'.\n", Major );
 	printk( "B.A.T.M.A.N. GW: Remove the device file and module when done.\n" );
-
-	dev_add_pack(&packet);
 
 	/* testing */
 	
@@ -312,7 +325,12 @@ cleanup_module()
 
 			if(dev_array[i]->sock)
 				sock_release(dev_array[i]->sock);
-					
+
+			if(!dev_array[i]->free) {
+				dev_remove_pack(&dev_array[i]->packet);
+				dev_put(dev_array[i]->packet.dev);
+			}
+			
 			kfree(dev_array[i]);
 		}
 	}
@@ -323,8 +341,7 @@ cleanup_module()
 	} else {
 		printk("dev_index not clean\n");
 	}
-	
-	dev_remove_pack(&packet);
+
 	printk( "B.A.T.M.A.N. GW: Unload complete\n" );
 }
 
@@ -353,7 +370,7 @@ batgat_release(struct inode *inode, struct file *file)
 }
 
 static int
-tun_func(struct sk_buff *skb)
+tun_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,struct net_device *orig_dev)
 {
 	struct iphdr *iph = ip_hdr(skb);
 	unsigned char *tmp_skb;
@@ -400,10 +417,10 @@ batgat_func(struct sk_buff *skb, struct net_device *dv, struct packet_type *pt,s
 
 	/**************/
 
-	if(strstr(dv->name, "tun")) {
-		tun_func(skb);
-		goto exit_batgat;
-	}
+// 	if(strstr(dv->name, "tun")) {
+// 		tun_func(skb);
+// 		goto exit_batgat;
+// 	}
 
 	/* check if is a batman packet */
 	if(!(ntohs(eth->h_proto) == ETH_P_IP && iph->protocol == IPPROTO_UDP && skb->pkt_type == PACKET_HOST &&

@@ -39,7 +39,9 @@ struct gw_client {
 
 struct dev_element {
 	struct socket *sock;
+	struct packet_type packet;
 	struct gw_client *gw_client[254];
 	uint32_t addr;
 	char name[IFNAMSIZ];
+	uint8_t free;
 };
