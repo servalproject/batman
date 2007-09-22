@@ -380,7 +380,7 @@ void *client_to_gw_tun( void *arg ) {
 
 }
 
-int8_t get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_client[] ) {
+int8_t get_ip_addr( uint32_t client_addr, uint8_t *ip_byte_4, struct gw_client *gw_client[] ) {
 
 	uint8_t i, first_free = 0;
 
@@ -390,7 +390,7 @@ int8_t get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_cl
 
 			if ( gw_client[i]->addr == client_addr ) {
 
-				ip_buff[0] = i;
+				*ip_byte_4 = i;
 				return 1;
 
 			}
@@ -420,7 +420,7 @@ int8_t get_ip_addr( uint32_t client_addr, char *ip_buff, struct gw_client *gw_cl
 	gw_client[first_free]->addr = client_addr;
 	gw_client[first_free]->last_keep_alive = get_time();
 
-	ip_buff[0] = first_free;
+	*ip_byte_4 = first_free;
 
 	return 1;
 
@@ -434,16 +434,18 @@ void *gw_listen( void *arg ) {
 	struct timeval tv;
 	struct sockaddr_in addr, client_addr;
 	struct gw_client *gw_client[256];
-	char gw_addr[16], str[16], tun_dev[IFNAMSIZ], ip_buff[1];
+	char gw_addr[16], str[16], tun_dev[IFNAMSIZ];
 	unsigned char buff[1501];
 	int32_t res, max_sock, buff_len, tun_fd, tun_ifi;
-	uint32_t addr_len, client_timeout, current_time, my_tun_ip, tmp_client_ip;
-	uint8_t i;
+	uint32_t addr_len, client_timeout, current_time;
+	uint8_t i, my_tun_ip[4];
 	fd_set wait_sockets, tmp_wait_sockets;
 
 
-	ip_buff[0] = 0;
-	my_tun_ip = 169 + ( 254<<8 ) + ( batman_if->if_num<<16 ) + ( ip_buff[0]<<24 );
+	my_tun_ip[0] = 169;
+	my_tun_ip[1] = 254;
+	my_tun_ip[2] = batman_if->if_num;
+	my_tun_ip[3] = 0;
 
 	addr_len = sizeof (struct sockaddr_in);
 	client_timeout = get_time();
@@ -455,10 +457,10 @@ void *gw_listen( void *arg ) {
 	client_addr.sin_family = AF_INET;
 	client_addr.sin_port = htons(PORT + 1);
 
-	if ( add_dev_tun( batman_if, my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
+	if ( add_dev_tun( batman_if, *(uint32_t *)my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
 		return NULL;
 
-	add_del_route( my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 0 );
+	add_del_route( *(uint32_t *)my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 0 );
 
 
 	FD_ZERO(&wait_sockets);
@@ -506,10 +508,9 @@ void *gw_listen( void *arg ) {
 
 						} else if ( buff[0] == TUNNEL_IP_REQUEST ) {
 
-							if ( get_ip_addr( addr.sin_addr.s_addr, ip_buff, gw_client ) > 0 ) {
+							if ( get_ip_addr( addr.sin_addr.s_addr, &my_tun_ip[3], gw_client ) > 0 ) {
 
-								tmp_client_ip = my_tun_ip + ( ip_buff[0]<<24 );
-								memcpy( buff + 1, (char *)&tmp_client_ip, 4 );
+								memcpy( buff + 1, (char *)my_tun_ip, 4 );
 
 								if ( sendto( batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in) ) < 0 ) {
 
@@ -518,7 +519,7 @@ void *gw_listen( void *arg ) {
 
 								} else {
 
-									addr_to_string( tmp_client_ip, str, sizeof(str) );
+									addr_to_string( *(uint32_t *)my_tun_ip, str, sizeof(str) );
 									addr_to_string( addr.sin_addr.s_addr, gw_addr, sizeof(gw_addr) );
 									debug_output( 3, "Gateway - assigned %s to client: %s \n", str, gw_addr );
 
@@ -544,12 +545,12 @@ void *gw_listen( void *arg ) {
 
 				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
 
-					ip_buff[0] = buff[20];
+					my_tun_ip[3] = buff[20];
 
-					if ( gw_client[(uint8_t)ip_buff[0]] != NULL ) {
+					if ( gw_client[(uint8_t)my_tun_ip[3]] != NULL ) {
 
-						client_addr.sin_addr.s_addr = gw_client[(uint8_t)ip_buff[0]]->addr;
-						gw_client[(uint8_t)ip_buff[0]]->last_keep_alive = get_time();
+						client_addr.sin_addr.s_addr = gw_client[(uint8_t)my_tun_ip[3]]->addr;
+						gw_client[(uint8_t)my_tun_ip[3]]->last_keep_alive = get_time();
 
 						/* addr_to_string( client_addr.sin_addr.s_addr, str, sizeof(str) );
 						tmp_client_ip = buff[17] + ( buff[18]<<8 ) + ( buff[19]<<16 ) + ( buff[20]<<24 );
@@ -563,8 +564,7 @@ void *gw_listen( void *arg ) {
 
 					} else {
 
-						tmp_client_ip = buff[17] + ( buff[18]<<8 ) + ( buff[19]<<16 ) + ( buff[20]<<24 );
-						addr_to_string( tmp_client_ip, gw_addr, sizeof(gw_addr) );
+						addr_to_string( *(uint32_t *)my_tun_ip, gw_addr, sizeof(gw_addr) );
 						debug_output( 3, "Gateway - could not resolve packet: %s \n", gw_addr );
 
 					}
@@ -615,7 +615,8 @@ void *gw_listen( void *arg ) {
 	}
 
 	/* delete tun device and routes on exit */
-	add_del_route( my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 1 );
+	my_tun_ip[3] = 0;
+	add_del_route( *(uint32_t *)my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 1 );
 
 	del_dev_tun( tun_fd );
 
