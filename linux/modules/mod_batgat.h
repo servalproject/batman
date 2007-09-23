@@ -43,6 +43,7 @@ struct batgat_dev {
 	struct gw_client *client[254];
 	int thread_pid;
 	char name[IFNAMSIZ];
+	uint8_t index;
 };
 
 struct tun_dev {

@@ -51,7 +51,7 @@ static int register_batgat_device( struct net_device *dev, char *name );
 static int unregister_batgat_device( char *name );
 static int register_tun_device( struct net_device *dev, char *name );
 static int unregister_tun_device( char *name );
-
+static uint8_t get_virtual_ip( struct batgat_dev *dev, uint32_t client_addr);
 static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
 
 static void ip2string(unsigned int sip,char *buffer);
@@ -233,14 +233,14 @@ static int batgat_release(struct inode *inode, struct file *file)
 static int udp_server_thread(void *data)
 {
 	struct batgat_dev *dev_element = (struct batgat_dev*)data;
-
 	struct sockaddr_in client;
-	struct sockaddr *address;
-	unsigned char buffer[1500];
-	int len;
 	struct msghdr msg;
 	struct iovec iov;
+	
+	unsigned char buffer[1500];
+	int len;
 	mm_segment_t oldfs;
+	uint32_t ip_address;
 
 	if( dev_element->socket->sk == NULL ) {
 		return 0;
@@ -266,11 +266,17 @@ static int udp_server_thread(void *data)
 		set_fs( oldfs );
 
 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
-			address = (struct sockaddr *)&client;
-			printk(KERN_INFO "msg %d from %u.%u.%u.%u\n", buffer[0], (unsigned char)address->sa_data[2],(unsigned char)address->sa_data[3],
-				(unsigned char)address->sa_data[4], (unsigned char)address->sa_data[5] );
-			buffer[0] = 1;
+
+			if( ( ip_address = ( uint8_t )get_virtual_ip( dev_element, client.sin_addr.s_addr ) ) == 0 ) {
+				printk(KERN_ERR "batgat: don't get a virtual ip\n");
+				continue;
+			}
+
+			ip_address = 169 + ( 254<<8 ) + ((uint8_t)( dev_element->index )<<16 ) + (ip_address<<24 );
+			buffer[0] = TUNNEL_DATA;
+			memcpy( &buffer[1], &ip_address, sizeof( ip_address ) );
 			send_data( dev_element->socket, &client, buffer, len );
+
 		} else {
 			printk( "batgat: unkown packet option\n" );
 		}
@@ -348,6 +354,9 @@ static int register_batgat_device( struct net_device *dev, char *name )
 	}
 
 	strlcpy( dev_array[ batgat_dev_index ]->name, name, strlen( name ) + 1 );
+	dev_array[ batgat_dev_index ]->index = batgat_dev_index;
+	
+	memset(dev_array[ batgat_dev_index ]->client, 0, sizeof(struct gw_client *) * 254 );
 	
 	init_completion( &dev_array[ batgat_dev_index ]->thread_complete );
 	dev_array[ batgat_dev_index ]->thread_pid = kernel_thread( udp_server_thread, (void*)dev_array[ batgat_dev_index ], CLONE_KERNEL );
@@ -460,6 +469,46 @@ static int unregister_tun_device( char *name )
 
 };
 
+static uint8_t get_virtual_ip( struct batgat_dev *dev, uint32_t client_addr)
+{
+	
+	uint8_t i,first_free = 0;
+
+	/* debug vars */
+	char ip[20];
+	/**************/
+
+	for (i = 1;i<254;i++) {
+
+		if( dev->client[ i ] != NULL ) {
+			if( dev->client[ i ]->address == client_addr ) {
+				ip2string( client_addr, ip );
+				printk("batgat: client %s already exists. return %d\n", ip, i);
+				return i;
+			}
+		} else {
+			if ( first_free == 0 )
+				first_free = i;
+		}
+
+	}
+
+
+	if ( first_free == 0 ) {
+		/* TODO: list is full */
+		return -1;
+
+	}
+
+	dev->client[ first_free ] = kmalloc( sizeof( struct gw_client ), GFP_KERNEL );
+	dev->client[ first_free ]->address = client_addr;
+
+	/* TODO: check syscall for time*/
+	dev->client[ first_free ]->last_keep_alive = 0;
+
+	return first_free;
+}
+
 static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len )
 {
 	struct iovec iov;
@@ -481,7 +530,7 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 	error = socket->ops->connect( socket, (struct sockaddr *)client, sizeof(*client), 0 );
 
 	if( error != 0 ) {
-		printk(KERN_ERR "B.A.T.M.A.N. GW: can't connect to socket: %d\n",error);
+		printk(KERN_ERR "batgat: can't connect to socket: %d\n",error);
 		return 0;
 	}
 	
@@ -491,7 +540,7 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 	len = sock_sendmsg( socket, &msg, buffer_len );
 
 	if( len < 0 )
-		printk( KERN_ERR "B.A.T.M.A.N. GW: sock_sendmsg failed: %d\n",len);
+		printk( KERN_ERR "batgat: sock_sendmsg failed: %d\n",len);
 
 	set_fs( oldfs );
 	return( 0 );
