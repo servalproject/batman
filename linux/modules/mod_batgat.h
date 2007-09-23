@@ -32,10 +32,22 @@
 #define TUNNEL_IP_REQUEST 0x02
 #define TUNNEL_IP_INVALID 0x03
 
+struct gw_client {
+	uint32_t address;
+	uint32_t last_keep_alive;
+};
+
 struct batgat_dev {
 	struct completion thread_complete;
 	struct socket *socket;
+	struct gw_client *client[254];
 	int thread_pid;
-	uint8_t is_tun_interface;
+	char name[IFNAMSIZ];
+};
+
+struct tun_dev {
+	struct completion thread_complete;
+	struct socket *socket;
+	int thread_pid;
 	char name[IFNAMSIZ];
 };
