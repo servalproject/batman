@@ -17,6 +17,8 @@
  *
  */
 
+// #include <linux/net.h>		/* socket */
+// #include <linux/completion.h>	/* completion */
 
 /* io controls */
 #define IOCSETDEV 1
@@ -29,3 +31,11 @@
 #define TUNNEL_DATA 0x01
 #define TUNNEL_IP_REQUEST 0x02
 #define TUNNEL_IP_INVALID 0x03
+
+struct batgat_dev {
+	struct completion thread_complete;
+	struct socket *socket;
+	int thread_pid;
+	uint8_t is_tun_interface;
+	char name[IFNAMSIZ];
+};

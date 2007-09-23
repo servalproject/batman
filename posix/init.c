@@ -916,10 +916,11 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 
 		cmd = (unsigned short)IOCSETDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
 		if(ioctl(batman_if->udp_tunnel_sock,cmd,batman_if->tun_dev) < 0 ) {
-			batman_if->tun_dev[0] = 0;
-			debug_output( 0, "Error - can't add device %s or %s: %s\n", batman_if->tun_dev,strerror(errno) );
+			
+			debug_output( 0, "Error - can't add device %s: %s\n", batman_if->tun_dev,strerror(errno) );
 			restore_defaults();
 			exit(EXIT_FAILURE);
+
 		}
 
 	}
