@@ -42,6 +42,13 @@
 #define TUNNEL_IP_REQUEST 0x02
 #define TUNNEL_IP_INVALID 0x03
 
+#define GW_STATE_UNKNOWN  0x01
+#define GW_STATE_VERIFIED 0x02
+
+#define GW_STATE_UNKNOWN_TIMEOUT 60000
+#define GW_STATE_VERIFIED_TIMEOUT 5 * GW_STATE_UNKNOWN_TIMEOUT
+
+#define IP_LEASE_TIMEOUT 4 * GW_STATE_VERIFIED_TIMEOUT
 
 
 
@@ -133,8 +140,8 @@ void *client_to_gw_tun( void *arg ) {
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
 	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts;
-	uint32_t addr_len, current_time, ip_lease_timeout = 0, gw_timeout = 0, got_new_ip = 0, my_tun_addr = 0;
-	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN];
+	uint32_t addr_len, current_time, ip_lease_time = 0, gw_state_time = 0, got_new_ip = 0, my_tun_addr = 0;
+	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN], gw_state = GW_STATE_UNKNOWN;
 	unsigned char buff[1501];
 	fd_set wait_sockets, tmp_wait_sockets;
 
@@ -228,7 +235,8 @@ void *client_to_gw_tun( void *arg ) {
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
-							gw_timeout = 0;
+							gw_state = GW_STATE_VERIFIED;
+							gw_state_time = current_time;
 
 						/* gateway told us that we have no valid ip */
 						} else if ( buff[0] == TUNNEL_IP_INVALID ) {
@@ -273,7 +281,7 @@ void *client_to_gw_tun( void *arg ) {
 
 				}
 
-				ip_lease_timeout = current_time;
+				ip_lease_time = current_time;
 
 			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
 
@@ -300,7 +308,7 @@ void *client_to_gw_tun( void *arg ) {
 						if ( set_tun_addr( udp_sock, my_tun_addr, tun_if ) < 0 )
 							break;
 
-						ip_lease_timeout = current_time;
+						ip_lease_time = current_time;
 						got_new_ip = current_time;
 
 					}
@@ -308,7 +316,7 @@ void *client_to_gw_tun( void *arg ) {
 					buff[0] = TUNNEL_DATA;
 
 					/* fill in new ip - the packets in the buffer don't know it yet */
-					if ( got_new_ip + 1000 > ip_lease_timeout )
+					if ( got_new_ip + 1000 > ip_lease_time )
 						memcpy( buff + 13, (unsigned char *)&my_tun_addr, 4 );
 
 					if ( sendto( udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 )
@@ -323,8 +331,8 @@ void *client_to_gw_tun( void *arg ) {
 
 				}
 
-				if ( gw_timeout == 0 )
-					gw_timeout = current_time;
+				if ( ( gw_state == GW_STATE_UNKNOWN ) && ( gw_state_time == 0 ) )
+					gw_state_time = current_time;
 
 			}
 
@@ -337,7 +345,7 @@ void *client_to_gw_tun( void *arg ) {
 
 
 		/* drop unused IP */
-		if ( ( my_tun_addr != 0 ) && ( ( ip_lease_timeout + 120000 ) < current_time ) ) {
+		if ( ( my_tun_addr != 0 ) && ( ( ip_lease_time + IP_LEASE_TIMEOUT ) < current_time ) ) {
 
 			addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 			debug_output( 3, "Gateway client - releasing unused IP after timeout: %s \n", my_str );
@@ -353,7 +361,7 @@ void *client_to_gw_tun( void *arg ) {
 		}
 
 		/* drop connection to gateway if the gateway does not respond */
-		if ( ( gw_timeout > 0 ) && ( ( gw_timeout + 60000 ) < current_time ) ) {
+		if ( ( gw_state == GW_STATE_UNKNOWN ) && ( ( gw_state_time + GW_STATE_UNKNOWN_TIMEOUT ) < current_time ) ) {
 
 			debug_output( 3, "Gateway client - disconnecting from unresponsive gateway: %s \n", gw_str );
 
@@ -361,6 +369,14 @@ void *client_to_gw_tun( void *arg ) {
 			curr_gw_data->gw_node->unavail_factor++;
 
 			break;
+
+		}
+
+		/* change back to unknown state if gateway did not respond in time */
+		if ( ( gw_state == GW_STATE_VERIFIED ) && ( ( gw_state_time + GW_STATE_VERIFIED_TIMEOUT ) < current_time ) ) {
+
+			gw_state = GW_STATE_UNKNOWN;
+			gw_state_time = 0;
 
 		}
 
@@ -599,7 +615,7 @@ void *gw_listen( void *arg ) {
 
 				if ( gw_client[i] != NULL ) {
 
-					if ( ( gw_client[i]->last_keep_alive + 120000 ) < current_time ) {
+					if ( ( gw_client[i]->last_keep_alive + IP_LEASE_TIMEOUT ) < current_time ) {
 
 						debugFree( gw_client[i], 1216 );
 						gw_client[i] = NULL;
