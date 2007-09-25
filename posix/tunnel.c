@@ -448,11 +448,11 @@ void *gw_listen( void *arg ) {
 
 	struct batman_if *batman_if = (struct batman_if *)arg;
 	struct timeval tv;
-	struct sockaddr_in addr, client_addr;
+	struct sockaddr_in addr, client_addr, pack_dest;
 	struct gw_client *gw_client[256];
 	char gw_addr[16], str[16], tun_dev[IFNAMSIZ];
 	unsigned char buff[1501];
-	int32_t res, max_sock, buff_len, tun_fd, tun_ifi;
+	int32_t res, max_sock, buff_len, tun_fd, tun_ifi, raw_fd;
 	uint32_t addr_len, client_timeout, current_time;
 	uint8_t i, my_tun_ip[4];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -470,8 +470,17 @@ void *gw_listen( void *arg ) {
 		gw_client[i] = NULL;
 	}
 
+	if ( ( raw_fd = socket( PF_INET, SOCK_RAW, IPPROTO_RAW ) ) < 0 ) {
+
+		debug_output( 0, "Error - can't create raw socket: %s\n", strerror(errno) );
+		return NULL;
+
+	}
+
 	client_addr.sin_family = AF_INET;
 	client_addr.sin_port = htons(PORT + 1);
+
+	memset( &pack_dest, 0, sizeof(struct sockaddr_in) );
 
 	if ( add_dev_tun( batman_if, *(uint32_t *)my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
 		return NULL;
@@ -519,8 +528,8 @@ void *gw_listen( void *arg ) {
 
 							}
 
-							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
-								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
+							if ( sendto( raw_fd, buff + 1, buff_len - 1, 0, (struct sockaddr *)&pack_dest, sizeof(struct sockaddr_in) ) < 0 )
+								debug_output( 0, "Error - can't send packet: %s\n", strerror(errno) );
 
 						} else if ( buff[0] == TUNNEL_IP_REQUEST ) {
 
