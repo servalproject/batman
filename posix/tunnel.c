@@ -361,7 +361,7 @@ void *client_to_gw_tun( void *arg ) {
 		}
 
 		/* drop connection to gateway if the gateway does not respond */
-		if ( ( gw_state == GW_STATE_UNKNOWN ) && ( ( gw_state_time + GW_STATE_UNKNOWN_TIMEOUT ) < current_time ) ) {
+		if ( ( gw_state == GW_STATE_UNKNOWN ) && ( gw_state_time != 0 ) && ( ( gw_state_time + GW_STATE_UNKNOWN_TIMEOUT ) < current_time ) ) {
 
 			debug_output( 3, "Gateway client - disconnecting from unresponsive gateway: %s \n", gw_str );
 
