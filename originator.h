@@ -22,7 +22,7 @@
 int compare_orig( void *data1, void *data2 );
 int choose_orig( void *data, int32_t size );
 struct orig_node *get_orig_node( uint32_t addr );
-void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time );
+void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time, uint32_t lq );
 void purge_orig( uint32_t curr_time );
 void debug_orig();
 

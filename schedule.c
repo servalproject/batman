@@ -147,7 +147,7 @@ void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uin
 
 		}
 
-		((struct bat_packet *)forw_node_new->pack_buff)->lq = ( ((struct bat_packet *)forw_node_new->pack_buff)->lq * ( ( lq / SEQ_RANGE ) * 255 ) ) / 255;
+		((struct bat_packet *)forw_node_new->pack_buff)->lq = ( ((struct bat_packet *)forw_node_new->pack_buff)->lq * ( ( lq  * 255 ) / SEQ_RANGE ) / 255);
 
 		list_add( &forw_node_new->list, &forw_list );
 

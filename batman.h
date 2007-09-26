@@ -186,7 +186,7 @@ struct neigh_node
 	uint32_t addr;
 	uint8_t packet_count;
 	uint8_t real_packet_count;
-	uint8_t lq_recv[SEQ_RANGE];
+	uint8_t lq_recv[ SEQ_RANGE ];
 	uint8_t lq_index;
 	uint8_t lq_avg;
 	uint8_t  last_ttl;         /* ttl of last received packet */

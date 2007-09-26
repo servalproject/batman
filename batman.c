@@ -1048,7 +1048,7 @@ int8_t batman() {
 
 					/* update ranking */
 					if ( ( is_bidirectional ) && ( !is_duplicate ) )
-						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, curr_time );
+						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, curr_time, orig_neigh_node->lq_own );
 
 					is_bntog = isBntog( neigh, orig_node );
 

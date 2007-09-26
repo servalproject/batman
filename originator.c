@@ -130,12 +130,12 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
+void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time, uint32_t lq ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_packet_count = 0, is_new_seqno = 0;
+	uint8_t max_packet_count = 0, is_new_seqno = 0, max_lq = 0;
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -161,6 +161,13 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 			if ( ( tmp_neigh_node->packet_count > max_packet_count ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->packet_count >= max_packet_count ) ) ) {
 
 				max_packet_count = tmp_neigh_node->packet_count;
+				/*best_neigh_node = tmp_neigh_node;*/
+
+			}
+
+			if ( ( tmp_neigh_node->lq_avg > max_lq ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->lq_avg >= max_lq ) ) ) {
+
+				max_lq = tmp_neigh_node->lq_avg;
 				best_neigh_node = tmp_neigh_node;
 
 			}
@@ -201,7 +208,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 		bit_mark( neigh_node->seq_bits, 0 );
 		neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
 
-		ring_buffer_set(neigh_node->lq_recv, &neigh_node->lq_index, in->lq);
+		ring_buffer_set(neigh_node->lq_recv, &neigh_node->lq_index, ( in->lq * ( ( lq  * 255 ) / SEQ_RANGE ) ) / 255);
 		neigh_node->lq_avg = ring_buffer_avg(neigh_node->lq_recv);
 
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno );

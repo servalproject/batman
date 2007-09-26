@@ -23,20 +23,20 @@
 
 
 
-void ring_buffer_set( uint8_t lq_recv[], uint8_t *lq_index, uint8_t value )
+void ring_buffer_set(uint8_t lq_recv[], uint8_t *lq_index, uint8_t value)
 {
 	lq_recv[*lq_index] = value;
 	*lq_index = ( *lq_index + 1 ) % SEQ_RANGE;
 }
 
-uint8_t ring_buffer_avg( uint8_t lq_recv[] )
+uint8_t ring_buffer_avg(uint8_t lq_recv[])
 {
 	uint8_t *ptr;
 	uint16_t count = 0, i = 0, sum = 0;
 
 	ptr = lq_recv;
 
-	while ( i < 256 ) {
+	while ( i < SEQ_RANGE ) {
 
 		if ( *ptr != 0 ) {
 			count++;
