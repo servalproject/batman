@@ -46,8 +46,8 @@ endif
 
 LOG_BRANCH= trunk/batman
 
-SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c $(OS_C)
-SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h vis-types.h
+SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c ring_buffer.c $(OS_C)
+SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h vis-types.h ring_buffer.h
 
 BINARY_NAME=	batmand
 SOURCE_VERSION_HEADER= batman.h

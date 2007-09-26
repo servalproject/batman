@@ -154,6 +154,9 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 // 			bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
 // 			tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
 
+			ring_buffer_set(tmp_neigh_node->lq_recv, &tmp_neigh_node->lq_index, 0);
+			tmp_neigh_node->lq_avg = ring_buffer_avg(tmp_neigh_node->lq_recv);
+
 			/* if we got more packets via this neighbour or same amount of packets if it is currently our best neighbour (to avoid route flipping) */
 			if ( ( tmp_neigh_node->packet_count > max_packet_count ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->packet_count >= max_packet_count ) ) ) {
 
@@ -197,6 +200,9 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 		bit_mark( neigh_node->seq_bits, 0 );
 		neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
+
+		ring_buffer_set(neigh_node->lq_recv, &neigh_node->lq_index, in->lq);
+		neigh_node->lq_avg = ring_buffer_avg(neigh_node->lq_recv);
 
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno );
 
@@ -470,8 +476,8 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i):", str, str2, orig_node->router->packet_count );
-			debug_output( 4, "%''15s %''15s (%3i), last_valid: %u: \n", str, str2, orig_node->router->packet_count, orig_node->last_valid );
+			debug_output( 1, "%-15s %''15s (%3i %3i):", str, str2, orig_node->router->packet_count, orig_node->router->lq_avg );
+			debug_output( 4, "%''15s %''15s (%3i %3i), last_valid: %u: \n", str, str2, orig_node->router->packet_count, orig_node->last_valid, orig_node->router->lq_avg );
 
 			debug_out_size = 0;
 

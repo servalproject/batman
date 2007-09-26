@@ -1,5 +1,5 @@
-/* Copyright (C) 2006 B.A.T.M.A.N. contributors:
- * Simon Wunderlich, Marek Lindner
+/* Copyright (C) 2007 B.A.T.M.A.N. contributors:
+ * Marek Lindner
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -18,6 +18,11 @@
  */
 
 
-void schedule_own_packet( struct batman_if *batman_if );
-void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t lq );
-void send_outstanding_packets();
+
+#include <stdint.h>
+#include "batman.h"
+
+
+
+void ring_buffer_set( uint8_t lq_recv[], uint8_t *lq_index, uint8_t value );
+uint8_t ring_buffer_avg( uint8_t lq_recv[] );

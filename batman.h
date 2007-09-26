@@ -34,11 +34,12 @@
 #include "allocate.h"
 #include "profile.h"
 #include "vis-types.h"
+#include "ring_buffer.h"
 
 
 
 #define SOURCE_VERSION "0.3-alpha" //put exactly one distinct word inside the string like "0.3-pre-alpha" or "0.3-rc1" or "0.3"
-#define COMPAT_VERSION 3
+#define COMPAT_VERSION 4
 #define PORT 4305
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
@@ -159,6 +160,7 @@ struct bat_packet
 	uint16_t seqno;
 	uint8_t  gwflags;  /* flags related to gateway functions: gateway class */
 	uint8_t  version;  /* batman version field */
+	uint8_t  lq;
 } __attribute__((packed));
 
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
@@ -168,6 +170,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct batman_if *batman_if;
 	uint16_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
 	TYPE_OF_WORD *rcvd_own;
+	uint32_t lq_own;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
@@ -183,6 +186,9 @@ struct neigh_node
 	uint32_t addr;
 	uint8_t packet_count;
 	uint8_t real_packet_count;
+	uint8_t lq_recv[SEQ_RANGE];
+	uint8_t lq_index;
+	uint8_t lq_avg;
 	uint8_t  last_ttl;         /* ttl of last received packet */
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD seq_bits[ NUM_WORDS ];
