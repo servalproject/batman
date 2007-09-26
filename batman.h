@@ -239,9 +239,6 @@ struct batman_if
 	uint32_t netaddr;
 	uint8_t netmask;
 	struct bat_packet out;
-	/* FIXME! only for testing */
-	char tun_dev[16];
-	int32_t tun_fd,tun_ifi,tun_ip;
 };
 
 struct gw_client

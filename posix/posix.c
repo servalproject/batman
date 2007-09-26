@@ -368,19 +368,12 @@ void restore_defaults() {
 				pthread_join( batman_if->listen_thread_id, NULL );
 			else {
 				if(batman_if->dev != NULL ) {
+					
 					cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->dev)<<16);
 					if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
 						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
 					}
 
-					if(batman_if->tun_dev[0] != 0 ) {
-						cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
-						if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->tun_dev) < 0) {
-							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->tun_dev,strerror(errno) );
-						}
-						add_del_route( batman_if->tun_ip, 24, 0, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
-						del_dev_tun(batman_if->tun_fd);
-					}
 				}
 
 			}
@@ -450,19 +443,12 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 				else {
 
 					if(batman_if->dev != NULL ) {
+
 						cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->dev)<<16);
 						if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
 							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
 						}
 
-						if(batman_if->tun_dev[0] != 0 ) {
-							cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->tun_dev)<<16);
-							if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->tun_dev) < 0) {
-								debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->tun_dev,strerror(errno) );
-							}
-							add_del_route( batman_if->tun_ip, 24, 0, 0, batman_if->tun_ifi, batman_if->tun_dev, 254, 0, 1 );
-							del_dev_tun(batman_if->tun_fd);
-						}
 					}
 
 				}

@@ -37,7 +37,7 @@ struct gw_client {
 	uint32_t last_keep_alive;
 };
 
-struct batgat_dev {
+struct reg_device {
 	struct completion thread_complete;
 	struct socket *socket;
 	struct gw_client *client[254];
@@ -46,9 +46,9 @@ struct batgat_dev {
 	uint8_t index;
 };
 
-struct tun_dev {
-	struct completion thread_complete;
-	struct socket *socket;
-	int thread_pid;
-	char name[IFNAMSIZ];
-};
+// struct tun_dev {
+// 	struct completion thread_complete;
+// 	struct socket *socket;
+// 	int thread_pid;
+// 	char name[IFNAMSIZ];
+// };
