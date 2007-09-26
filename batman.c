@@ -398,7 +398,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 			orig_node->router = neigh_node;
 
 			/* add new announced network(s) */
-			if ( hna_buff_len > 0 ) {
+			if ( ( hna_buff_len > 0 ) && ( hna_recv_buff != NULL ) ) {
 
 				orig_node->hna_buff = debugMalloc( hna_buff_len, 101 );
 				orig_node->hna_buff_len = hna_buff_len;
@@ -421,7 +421,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 			if ( orig_node->hna_buff_len > 0 )
 				add_del_hna( orig_node, 1 );
 
-			if ( hna_buff_len > 0 ) {
+			if ( ( hna_buff_len > 0 ) && ( hna_recv_buff != NULL ) ) {
 
 				orig_node->hna_buff = debugMalloc( hna_buff_len, 102 );
 				orig_node->hna_buff_len = hna_buff_len;

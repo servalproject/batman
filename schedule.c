@@ -111,7 +111,7 @@ void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uin
 
 		INIT_LIST_HEAD( &forw_node_new->list );
 
-		if ( hna_buff_len > 0 ) {
+		if ( ( hna_buff_len > 0 ) && ( hna_recv_buff != NULL ) ) {
 
 			forw_node_new->pack_buff = debugMalloc( sizeof(struct bat_packet) + hna_buff_len, 505 );
 			memcpy( forw_node_new->pack_buff, in, sizeof(struct bat_packet) );

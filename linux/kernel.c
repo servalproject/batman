@@ -193,6 +193,8 @@ int8_t bind_to_iface( int32_t sock, char *dev ) {
 
 int8_t use_kernel_module( char *dev ) {
 
+	return -1;
+
 	int32_t fd, sock, dummy = 0;
 	char *colon_ptr;
 
