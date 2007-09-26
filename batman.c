@@ -650,7 +650,8 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 // 		return 1;
 
 	orig_node->last_seqno = in->seqno;
-	return 0;
+// 	return 0;
+	return 1;
 
 }
 
