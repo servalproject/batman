@@ -31,8 +31,10 @@ void ring_buffer_set( uint8_t lq_recv[], uint8_t *lq_index, uint8_t value )
 
 uint8_t ring_buffer_avg( uint8_t lq_recv[] )
 {
-	uint8_t count = 0, *ptr = lq_recv;
-	uint16_t i = 0, sum = 0;
+	uint8_t *ptr;
+	uint16_t count = 0, i = 0, sum = 0;
+
+	ptr = lq_recv;
 
 	while ( i < 256 ) {
 
@@ -42,8 +44,12 @@ uint8_t ring_buffer_avg( uint8_t lq_recv[] )
 		}
 
 		i++;
+		ptr++;
 
 	}
+
+	if ( count == 0 )
+		return 0;
 
 	return (uint8_t)(sum / count);
 }
