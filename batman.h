@@ -44,6 +44,7 @@
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
+#define TQ_MAX_VALUE 255
 
 #define UNIX_PATH "/var/run/batmand.socket"
 
@@ -77,12 +78,14 @@
 
 #define JITTER 100
 #define TTL 50                /* Time To Live of broadcast messages */
-#define BIDIRECT_TIMEOUT 1
-#define BIDIRECT_PENALTY 2
-#define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on SEQ_RANGE */
-#define SEQ_RANGE 64          /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
+#define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on TQ_LOCAL_WINDOW_SIZE */
+#define TQ_LOCAL_WINDOW_SIZE 32     /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
+#define TQ_TOTAL_WINDOW_SIZE 10
+#define TQ_LOCAL_BIDRECT_LIMIT TQ_LOCAL_WINDOW_SIZE / 10
+#define TQ_TOTAL_BIDRECT_LIMIT TQ_MAX_VALUE / 10
 
-#define NUM_WORDS ( SEQ_RANGE / WORD_BIT_SIZE )
+
+#define NUM_WORDS ( TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE )
 
 
 
@@ -160,7 +163,7 @@ struct bat_packet
 	uint16_t seqno;
 	uint8_t  gwflags;  /* flags related to gateway functions: gateway class */
 	uint8_t  version;  /* batman version field */
-	uint8_t  lq;
+	uint8_t  tq;
 } __attribute__((packed));
 
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
@@ -168,9 +171,8 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	uint32_t orig;
 	struct neigh_node *router;
 	struct batman_if *batman_if;
-	uint16_t *bidirect_link;    /* if node is a bidrectional neighbour, when my originator packet was broadcasted (replied) by this node and received by me */
 	TYPE_OF_WORD *rcvd_own;
-	uint32_t lq_own;
+	uint32_t tq_own;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
@@ -186,13 +188,13 @@ struct neigh_node
 	uint32_t addr;
 	uint8_t packet_count;
 	uint8_t real_packet_count;
-	uint8_t lq_recv[ SEQ_RANGE ];
-	uint8_t lq_index;
-	uint8_t lq_avg;
-	uint8_t  last_ttl;         /* ttl of last received packet */
+	uint8_t tq_recv[TQ_TOTAL_WINDOW_SIZE];
+	uint8_t tq_index;
+	uint8_t tq_avg;
+	uint8_t last_ttl;         /* ttl of last received packet */
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
-	TYPE_OF_WORD seq_bits[ NUM_WORDS ];
-	TYPE_OF_WORD real_bits[ NUM_WORDS ];
+	TYPE_OF_WORD seq_bits[TQ_LOCAL_WINDOW_SIZE];
+	TYPE_OF_WORD real_bits[TQ_LOCAL_WINDOW_SIZE];
 	struct batman_if *if_incoming;
 };
 

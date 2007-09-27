@@ -94,7 +94,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 
 
-void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t lq ) {
+void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing ) {
 
 	prof_start( PROF_schedule_forward_packet );
 	struct forw_node *forw_node_new;
@@ -146,8 +146,6 @@ void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uin
 			((struct bat_packet *)forw_node_new->pack_buff)->flags = 0x00;
 
 		}
-
-		((struct bat_packet *)forw_node_new->pack_buff)->lq = ( ((struct bat_packet *)forw_node_new->pack_buff)->lq * ( ( lq  * 255 ) / SEQ_RANGE ) / 255);
 
 		list_add( &forw_node_new->list, &forw_list );
 

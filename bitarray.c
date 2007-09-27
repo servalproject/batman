@@ -42,7 +42,7 @@ uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t cu
 	int16_t diff, word_offset, word_num;
 
 	diff= last_seqno- curr_seqno;
-	if ( diff < 0 || diff >= SEQ_RANGE ) {
+	if ( diff < 0 || diff >= TQ_LOCAL_WINDOW_SIZE ) {
 		return 0;
 
 	} else {
@@ -64,11 +64,11 @@ static char bit_string[130];
 char* bit_print( TYPE_OF_WORD *seq_bits ) {
 	int i,j,k=0,b=0;
 
-// 	printf("the last %d packets, we got %d:\n", SEQ_RANGE, bit_packet_count(seq_bits));
+// 	printf("the last %d packets, we got %d:\n", TQ_LOCAL_WINDOW_SIZE, bit_packet_count(seq_bits));
 	for ( i=0; i<NUM_WORDS; i++ ) {
 		for ( j=0; j<WORD_BIT_SIZE; j++) {
 			bit_string[k++] = ((seq_bits[i]>>j)%2 ? '1':'0'); /* print the j position */
-			if( ++b == SEQ_RANGE ) {
+			if( ++b == TQ_LOCAL_WINDOW_SIZE ) {
 				bit_string[k++]='|';
 			}
 		}
@@ -84,7 +84,7 @@ char* bit_print( TYPE_OF_WORD *seq_bits ) {
 void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n ) {
 	int32_t word_offset,word_num;
 
-	if ( n<0 || n >= SEQ_RANGE ) {			/* if too old, just drop it */
+	if ( n<0 || n >= TQ_LOCAL_WINDOW_SIZE ) {			/* if too old, just drop it */
 // 		printf("got old packet, dropping\n");
 		return;
 	}
@@ -146,7 +146,7 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int16_t seq_num_diff, int8_t set_ma
 
 	int i;
 
-	if ( ( seq_num_diff < 0 ) && ( seq_num_diff >= -SEQ_RANGE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
+	if ( ( seq_num_diff < 0 ) && ( seq_num_diff >= -TQ_LOCAL_WINDOW_SIZE ) ) {  /* we already got a sequence number higher than this one, so we just mark it. this should wrap around the integer just fine */
 
 		if ( set_mark )
 			bit_mark( seq_bits, -seq_num_diff );
@@ -155,12 +155,12 @@ char bit_get_packet( TYPE_OF_WORD *seq_bits, int16_t seq_num_diff, int8_t set_ma
 
 	}
 
-	if ( ( seq_num_diff > SEQ_RANGE ) || ( seq_num_diff < -SEQ_RANGE ) ) {        /* it seems we missed a lot of packets or the other host restarted */
+	if ( ( seq_num_diff > TQ_LOCAL_WINDOW_SIZE ) || ( seq_num_diff < -TQ_LOCAL_WINDOW_SIZE ) ) {        /* it seems we missed a lot of packets or the other host restarted */
 
-		 if ( seq_num_diff > SEQ_RANGE )
+		if ( seq_num_diff > TQ_LOCAL_WINDOW_SIZE )
 			debug_output( 4, "It seems we missed a lot of packets (%i) !\n",  seq_num_diff-1 );
 
-		if ( -seq_num_diff > SEQ_RANGE )
+		if ( -seq_num_diff > TQ_LOCAL_WINDOW_SIZE )
 			debug_output( 4, "Other host probably restarted !\n" );
 
 		for (i=0; i<NUM_WORDS; i++)

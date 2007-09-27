@@ -26,7 +26,7 @@
 void ring_buffer_set(uint8_t lq_recv[], uint8_t *lq_index, uint8_t value)
 {
 	lq_recv[*lq_index] = value;
-	*lq_index = ( *lq_index + 1 ) % SEQ_RANGE;
+	*lq_index = ( *lq_index + 1 ) % TQ_TOTAL_WINDOW_SIZE;
 }
 
 uint8_t ring_buffer_avg(uint8_t lq_recv[])
@@ -36,7 +36,7 @@ uint8_t ring_buffer_avg(uint8_t lq_recv[])
 
 	ptr = lq_recv;
 
-	while ( i < SEQ_RANGE ) {
+	while ( i < TQ_TOTAL_WINDOW_SIZE ) {
 
 		if ( *ptr != 0 ) {
 			count++;

@@ -226,13 +226,13 @@ void choose_gw() {
 	prof_start( PROF_choose_gw );
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
-	uint8_t max_gw_class = 0, max_packets = 0;
+	uint8_t max_gw_class = 0, max_tq = 0;
 	uint32_t current_time, max_gw_factor = 0, tmp_gw_factor = 0;
 	int download_speed, upload_speed;
 	static char orig_str[ADDR_STR_LEN];
 
 
-	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * SEQ_RANGE ) ) {
+	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -274,20 +274,20 @@ void choose_gw() {
 			case 1:   /* fast connection */
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				if ( ( ( tmp_gw_factor = ( ( ( gw_node->orig_node->router->packet_count * 100 ) / SEQ_RANGE ) *
-								     ( ( gw_node->orig_node->router->packet_count * 100 ) / SEQ_RANGE ) *
+				if ( ( ( tmp_gw_factor = ( ( ( gw_node->orig_node->router->tq_avg * 100 ) / TQ_LOCAL_WINDOW_SIZE ) *
+								     ( ( gw_node->orig_node->router->tq_avg * 100 ) / TQ_LOCAL_WINDOW_SIZE ) *
 								     ( download_speed / 64 ) ) ) > max_gw_factor ) ||
-								     ( ( tmp_gw_factor == max_gw_factor ) && ( gw_node->orig_node->router->packet_count > max_packets ) ) )
+								     ( ( tmp_gw_factor == max_gw_factor ) && ( gw_node->orig_node->router->tq_avg > max_tq ) ) )
 					tmp_curr_gw = gw_node;
 				break;
 
 			case 2:   /* stable connection (use best statistic) */
-				if ( gw_node->orig_node->router->packet_count > max_packets )
+				if ( gw_node->orig_node->router->tq_avg > max_tq )
 					tmp_curr_gw = gw_node;
 				break;
 
 			default:  /* fast-switch (use best statistic but change as soon as a better gateway appears) */
-				if ( gw_node->orig_node->router->packet_count > max_packets )
+				if ( gw_node->orig_node->router->tq_avg > max_tq )
 					tmp_curr_gw = gw_node;
 				break;
 
@@ -296,8 +296,8 @@ void choose_gw() {
 		if ( gw_node->orig_node->gwflags > max_gw_class )
 			max_gw_class = gw_node->orig_node->gwflags;
 
-		if ( gw_node->orig_node->router->packet_count > max_packets )
-			max_packets = gw_node->orig_node->router->packet_count;
+		if ( gw_node->orig_node->router->tq_avg > max_tq )
+			max_tq = gw_node->orig_node->router->tq_avg;
 
 		if ( tmp_gw_factor > max_gw_factor )
 			max_gw_factor = tmp_gw_factor;
@@ -307,7 +307,7 @@ void choose_gw() {
 			tmp_curr_gw = gw_node;
 
 			addr_to_string( tmp_curr_gw->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, packet_count: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->packet_count, tmp_gw_factor );
+			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, tq: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->tq_avg, tmp_gw_factor );
 
 			break;
 
@@ -335,7 +335,7 @@ void choose_gw() {
 		if ( ( curr_gateway != NULL ) && ( !is_aborted() ) ) {
 
 			addr_to_string( curr_gateway->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Adding default route to %s (gw_flags: %i, packet_count: %i, gw_product: %i)\n", orig_str, max_gw_class, max_packets, max_gw_factor );
+			debug_output( 3, "Adding default route to %s (gw_flags: %i, tq: %i, gw_product: %i)\n", orig_str, max_gw_class, max_tq, max_gw_factor );
 
 			add_default_route();
 
@@ -632,26 +632,33 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 		addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
 
 		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
-		orig_neigh_node->lq_own = (uint32_t)( ( ( (float)total_count / (float)SEQ_RANGE ) / ( (float)neigh_node->real_packet_count / (float)SEQ_RANGE ) ) * SEQ_RANGE );
+		orig_neigh_node->tq_own = (uint32_t)( ( ( (float)total_count / (float)TQ_LOCAL_WINDOW_SIZE ) / ( (float)neigh_node->real_packet_count / (float)TQ_LOCAL_WINDOW_SIZE ) ) * TQ_LOCAL_WINDOW_SIZE );
 
-		debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, packets to be forwarded: %3i, packet_count: %i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->lq_own, neigh_node->packet_count );
+		/*debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, packets to be forwarded: %3i, packet_count: %i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->lq_own, neigh_node->packet_count );*/
 
-		if ( neigh_node->packet_count < orig_neigh_node->lq_own )
+		((struct bat_packet *)&in)->tq = ( ((struct bat_packet *)&in)->tq * ( ( orig_neigh_node->tq_own  * TQ_MAX_VALUE ) / TQ_LOCAL_WINDOW_SIZE ) / TQ_MAX_VALUE);
+
+		/* is single hop (direct) neighbour and we receive too few packets it is not considered bidirectional */
+		if ( ( orig_node->orig == neigh ) && ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_LIMIT ) )
+			goto end;
+
+
+		/* if link has the minimum required transmission quality consider it bidirectional */
+		if ( ((struct bat_packet *)&in)->tq >= TQ_TOTAL_BIDRECT_LIMIT )
 			return 1;
 
 	} else {
+
+		((struct bat_packet *)&in)->tq = TQ_TOTAL_BIDRECT_LIMIT + 1;
 
 		debug_output( 4, "bidirectional: unknown neighbor \n" );
 		return 1;
 
 	}
 
-// 	if ( ( if_incoming->out.seqno - 2 - orig_neigh_node->bidirect_link[if_incoming->if_num] ) < BIDIRECT_TIMEOUT )
-// 		return 1;
-
+end:
 	orig_node->last_seqno = in->seqno;
-// 	return 0;
-	return 1;
+	return 0;
 
 }
 
@@ -682,7 +689,7 @@ void generate_vis_packet() {
 
 	((struct vis_packet *)vis_packet)->version = VIS_COMPAT_VERSION;
 	((struct vis_packet *)vis_packet)->gw_class = gateway_class;
-	((struct vis_packet *)vis_packet)->seq_range = SEQ_RANGE;
+	((struct vis_packet *)vis_packet)->seq_range = TQ_LOCAL_WINDOW_SIZE;
 
 	/* neighbor list */
 	while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
@@ -883,7 +890,7 @@ int8_t batman() {
 		batman_if->out.seqno = 1;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = COMPAT_VERSION;
-		batman_if->out.lq = 255;
+		batman_if->out.tq = 255;
 
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
 		set_rp_filter( 0 , batman_if->dev );
@@ -937,7 +944,7 @@ int8_t batman() {
 			has_directlink_flag = ((struct bat_packet *)&in)->flags & DIRECTLINK ? 1 : 0;
 			has_version = ((struct bat_packet *)&in)->version;
 
-			debug_output( 4, "Received BATMAN packet via NB: %s , IF: %s %s (from OG: %s, seqno %d, lq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, ((struct bat_packet *)&in)->seqno, ((struct bat_packet *)&in)->lq, ((struct bat_packet *)&in)->ttl, has_version, has_unidirectional_flag, has_directlink_flag );
+			debug_output( 4, "Received BATMAN packet via NB: %s , IF: %s %s (from OG: %s, seqno %d, tq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, ((struct bat_packet *)&in)->seqno, ((struct bat_packet *)&in)->tq, ((struct bat_packet *)&in)->ttl, has_version, has_unidirectional_flag, has_directlink_flag );
 
 			hna_buff_len -= sizeof(struct bat_packet);
 			hna_recv_buff = ( hna_buff_len > 4 ? in + sizeof(struct bat_packet) : NULL );
@@ -1001,7 +1008,7 @@ int8_t batman() {
 
 				orig_neigh_node = get_orig_node( neigh );
 
-				debug_output( 4, "received my own OGM via NB lastTxIfSeqno: %d, currRxSeqno: %d, prevRxSeqno: %d, currRxSeqno-prevRxSeqno %d \n", ( if_incoming->out.seqno - 2 ), ((struct bat_packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], ((struct bat_packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] );
+				/*debug_output( 4, "received my own OGM via NB lastTxIfSeqno: %d, currRxSeqno: %d, prevRxSeqno: %d, currRxSeqno-prevRxSeqno %d \n", ( if_incoming->out.seqno - 2 ), ((struct bat_packet *)&in)->seqno, orig_neigh_node->bidirect_link[if_incoming->if_num], ((struct bat_packet *)&in)->seqno - orig_neigh_node->bidirect_link[if_incoming->if_num] );*/
 
 				/* neighbour has to indicate direct link and it has to come via the corresponding interface */
 				/* if received seqno equals last send seqno save new seqno for bidirectional check */
@@ -1049,7 +1056,7 @@ int8_t batman() {
 
 					/* update ranking */
 					if ( ( is_bidirectional ) && ( !is_duplicate ) )
-						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, curr_time, orig_neigh_node->lq_own );
+						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, curr_time );
 
 					is_bntog = isBntog( neigh, orig_node );
 
@@ -1060,7 +1067,7 @@ int8_t batman() {
 						if ( is_bidirectional && is_bntog ) {
 
 							/* mark direct link on incoming interface */
-							schedule_forward_packet( (struct bat_packet *)in, 0, 1, hna_recv_buff, hna_buff_len, if_incoming, orig_neigh_node->lq_own );
+							schedule_forward_packet( (struct bat_packet *)in, 0, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 							debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link flag \n" );
 
@@ -1068,7 +1075,7 @@ int8_t batman() {
 						/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag if it is not our best link to it in order to prevent routing problems */
 						} else if ( ( is_bidirectional && !is_bntog ) || ( !is_bidirectional ) ) {
 
-							schedule_forward_packet( (struct bat_packet *)in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming, orig_neigh_node->lq_own );
+							schedule_forward_packet( (struct bat_packet *)in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 							debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
 
@@ -1081,7 +1088,7 @@ int8_t batman() {
 
 							if ( !is_duplicate ) {
 
-								schedule_forward_packet( (struct bat_packet *)in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming, orig_neigh_node->lq_own );
+								schedule_forward_packet( (struct bat_packet *)in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
 
 								debug_output( 4, "Forward packet: rebroadcast originator packet \n" );
 
@@ -1112,7 +1119,7 @@ int8_t batman() {
 								/* we are forwarding duplicate o-packets if they come via our best neighbour and ttl is valid */
 								if ( forward_duplicate_packet ) {
 
-									schedule_forward_packet( (struct bat_packet *)in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming, orig_neigh_node->lq_own );
+									schedule_forward_packet( (struct bat_packet *)in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
 
 									debug_output( 4, "Forward packet: duplicate packet received via best neighbour with best ttl \n" );
 

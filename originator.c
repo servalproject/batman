@@ -70,7 +70,6 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	struct orig_node *orig_node;
 	struct hashtable_t *swaphash;
 	static char orig_str[ADDR_STR_LEN];
-	uint16_t i;
 
 
 	orig_node = ((struct orig_node *)hash_find( orig_hash, &addr ));
@@ -93,15 +92,6 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->orig = addr;
 	orig_node->router = NULL;
 	orig_node->batman_if = NULL;
-
-	orig_node->bidirect_link = debugMalloc( found_ifs * sizeof(uint16_t), 402 );
-	memset( orig_node->bidirect_link, 0, found_ifs * sizeof(uint16_t) );
-
-	/*TODO: this fix actually postpones the problem to the moment of wrap-arounds but its probably less confusing this way!
-	*/
-	for ( i=0; i < found_ifs; i++ ) {
-		orig_node->bidirect_link[i] = ((uint16_t) (0 - 2 - BIDIRECT_TIMEOUT) );
-	}
 
 	orig_node->rcvd_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
 	memset( orig_node->rcvd_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );
@@ -130,12 +120,12 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time, uint32_t lq ) {
+void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_packet_count = 0, is_new_seqno = 0, max_lq = 0;
+	uint8_t max_packet_count = 0, is_new_seqno = 0, max_tq = 0;
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -154,8 +144,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 // 			bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
 // 			tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
 
-			ring_buffer_set(tmp_neigh_node->lq_recv, &tmp_neigh_node->lq_index, 0);
-			tmp_neigh_node->lq_avg = ring_buffer_avg(tmp_neigh_node->lq_recv);
+			ring_buffer_set(tmp_neigh_node->tq_recv, &tmp_neigh_node->tq_index, 0);
+			tmp_neigh_node->tq_avg = ring_buffer_avg(tmp_neigh_node->tq_recv);
 
 			/* if we got more packets via this neighbour or same amount of packets if it is currently our best neighbour (to avoid route flipping) */
 			if ( ( tmp_neigh_node->packet_count > max_packet_count ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->packet_count >= max_packet_count ) ) ) {
@@ -165,9 +155,9 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 			}
 
-			if ( ( tmp_neigh_node->lq_avg > max_lq ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->lq_avg >= max_lq ) ) ) {
+			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg >= max_tq ) ) ) {
 
-				max_lq = tmp_neigh_node->lq_avg;
+				max_tq = tmp_neigh_node->tq_avg;
 				best_neigh_node = tmp_neigh_node;
 
 			}
@@ -208,8 +198,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 		bit_mark( neigh_node->seq_bits, 0 );
 		neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
 
-		ring_buffer_set(neigh_node->lq_recv, &neigh_node->lq_index, ( in->lq * ( ( lq  * 255 ) / SEQ_RANGE ) ) / 255);
-		neigh_node->lq_avg = ring_buffer_avg(neigh_node->lq_recv);
+		ring_buffer_set(neigh_node->tq_recv, &neigh_node->tq_index, in->tq);
+		neigh_node->tq_avg = ring_buffer_avg(neigh_node->tq_recv);
 
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno );
 
@@ -307,7 +297,6 @@ void purge_orig( uint32_t curr_time ) {
 
 			update_routes( orig_node, NULL, NULL, 0 );
 
-			debugFree( orig_node->bidirect_link, 1402 );
 			debugFree( orig_node->rcvd_own, 1403 );
 			debugFree( orig_node, 1404 );
 
@@ -418,7 +407,7 @@ void debug_orig() {
 
 		} else {
 
-			debug_output( 2, "%''12s     %''15s (%s/%i) \n", "Gateway", "Router", "#", SEQ_RANGE );
+			debug_output( 2, "%''12s     %''15s (%s/%i) \n", "Gateway", "Router", "#", TQ_MAX_VALUE );
 
 			list_for_each( orig_pos, &gw_list ) {
 
@@ -432,7 +421,7 @@ void debug_orig() {
 
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				debug_output( 2, "%s %-15s %''15s (%3i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->packet_count, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
+				debug_output( 2, "%s %-15s %''15s (%3i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
@@ -453,7 +442,7 @@ void debug_orig() {
 		uptime_sec = (uint32_t)( get_time() / 1000 );
 
 		debug_output( 1, "BOD \n" );
-		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "Router", "#", SEQ_RANGE, "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
+		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "Router", "#", TQ_MAX_VALUE, "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
@@ -467,7 +456,7 @@ void debug_orig() {
 			}
 
 			debug_output( 4, "Originator list \n" );
-			debug_output( 4, "  %-12s %''14s (%s/%i): %''20s\n", "Originator", "Router", "#", SEQ_RANGE, "Potential routers" );
+			debug_output( 4, "  %-12s %''14s (%s/%i): %''20s\n", "Originator", "Router", "#", TQ_MAX_VALUE, "Potential routers" );
 
 		}
 
@@ -483,8 +472,8 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i %3i):", str, str2, orig_node->router->packet_count, orig_node->router->lq_avg );
-			debug_output( 4, "%''15s %''15s (%3i %3i), last_valid: %u: \n", str, str2, orig_node->router->packet_count, orig_node->last_valid, orig_node->router->lq_avg );
+			debug_output( 1, "%-15s %''15s (%3i):", str, str2, orig_node->router->tq_avg );
+			debug_output( 4, "%''15s %''15s (%3i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->last_valid );
 
 			debug_out_size = 0;
 
@@ -494,7 +483,7 @@ void debug_orig() {
 
 				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
-				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i)", str, neigh_node->packet_count );
+				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i)", str, neigh_node->tq_avg );
 
 				if ( debug_out_size + 30 > sizeof(debug_out_str) - 1 ) {
 
