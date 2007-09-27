@@ -607,7 +607,6 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
-	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	uint8_t total_count;
 
 
@@ -628,15 +627,16 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 	if ( neigh_node != NULL ) {
 
-		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
-		addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
-
 		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
 		orig_neigh_node->tq_own = (uint32_t)( ( ( (float)total_count / (float)TQ_LOCAL_WINDOW_SIZE ) / ( (float)neigh_node->real_packet_count / (float)TQ_LOCAL_WINDOW_SIZE ) ) * TQ_LOCAL_WINDOW_SIZE );
 
-		/*debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, packets to be forwarded: %3i, packet_count: %i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->lq_own, neigh_node->packet_count );*/
+		in->tq = (in->tq * ( ( orig_neigh_node->tq_own * TQ_MAX_VALUE ) / TQ_LOCAL_WINDOW_SIZE ) / TQ_MAX_VALUE);
 
-		((struct bat_packet *)&in)->tq = ( ((struct bat_packet *)&in)->tq * ( ( orig_neigh_node->tq_own  * TQ_MAX_VALUE ) / TQ_LOCAL_WINDOW_SIZE ) / TQ_MAX_VALUE);
+		/*static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
+		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
+		addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
+
+		debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq ); */
 
 		/* is single hop (direct) neighbour and we receive too few packets it is not considered bidirectional */
 		if ( ( orig_node->orig == neigh ) && ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_LIMIT ) )
@@ -644,12 +644,12 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 
 		/* if link has the minimum required transmission quality consider it bidirectional */
-		if ( ((struct bat_packet *)&in)->tq >= TQ_TOTAL_BIDRECT_LIMIT )
+		if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
 			return 1;
 
 	} else {
 
-		((struct bat_packet *)&in)->tq = TQ_TOTAL_BIDRECT_LIMIT + 1;
+		in->tq = TQ_TOTAL_BIDRECT_LIMIT + 1;
 
 		debug_output( 4, "bidirectional: unknown neighbor \n" );
 		return 1;
@@ -890,7 +890,7 @@ int8_t batman() {
 		batman_if->out.seqno = 1;
 		batman_if->out.gwflags = gateway_class;
 		batman_if->out.version = COMPAT_VERSION;
-		batman_if->out.tq = 255;
+		batman_if->out.tq = TQ_MAX_VALUE;
 
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
 		set_rp_filter( 0 , batman_if->dev );
