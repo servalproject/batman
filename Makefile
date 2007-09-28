@@ -46,6 +46,8 @@ endif
 
 LOG_BRANCH= trunk/batman
 
+SRC_FILES= "\(\.c\)\|\(\.h\)\|\(Makefile\)\|\(INSTALL\)\|\(LIESMICH\)\|\(README\)\|\(THANKS\)\|\(TRASH\)\|\(Doxyfile\)\|\(./posix\)\|\(./linux\)\|\(./bsd\)\|\(./man\)\|\(./doc\)"
+
 SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c ring_buffer.c $(OS_C)
 SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h vis-types.h ring_buffer.h
 
@@ -108,14 +110,19 @@ $(BINARY_NAME):	$(SRC_C) $(SRC_H) Makefile
 
 long:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe nokia770-oe clean-long
 
-axel:	sources i386 mipsel-kk-bc mips-kk-at mipsel-wr arm-oe clean-long
-
 sources:
 	mkdir -p $(FILE_NAME)
-	cp $(SRC_H) $(SRC_C) Makefile $(FILE_NAME)/
+	
+	for i in $$( find . | grep $(SRC_FILES) | grep -v "\.svn" ); do [ -d $$i ] && mkdir -p $(FILE_NAME)/$$i ; [ -f $$i ] && cp -Lvp $$i $(FILE_NAME)/$$i ;done
+	
 	$(BUILD_PATH)/wget --no-check-certificate -O changelog.html  https://dev.open-mesh.net/batman/log/$(LOG_BRANCH)/
 	html2text -o changelog.txt -nobs -ascii changelog.html
 	awk '/View revision/,/10\/01\/06 20:23:03/' changelog.txt > $(FILE_NAME)/CHANGELOG
+		
+		
+	for i in $$( find man |	grep -v "\.svn" ); do [ -f $$i ] && groff -man -Thtml $$i > $(FILE_NAME)/$$i.html ;done
+	
+	
 	tar czvf $(FILE_NAME).tgz $(FILE_NAME)
 
 	mkdir -p dl/misc
@@ -125,6 +132,8 @@ sources:
 	mkdir -p dl/sources
 	ln -f $(FILE_NAME).tgz dl/sources/
 	ln -f $(FILE_NAME).tgz dl/sources/$(FILE_CURRENT).tgz
+	mv  $(FILE_NAME) dl/sources/
+
 
 
 i386: i386-gc-elf-32-lsb-static i386-gc-elf-32-lsb-dynamic
@@ -164,6 +173,10 @@ mipsel-kk-elf-32-lsb-static:	$(SRC_C) $(SRC_H) Makefile
 	mkdir -p dl/meshcube
 	ln -f $(FILE_NAME).ipk dl/meshcube/
 	ln -f $(FILE_CURRENT).ipk dl/meshcube/
+
+	mkdir -p dl/mipsel-kamikaze
+	ln -f $(FILE_NAME).tgz dl/mipsel-kamikaze/
+	ln -f $(FILE_CURRENT).tgz dl/mipsel-kamikaze/
 
 
 mipsel-kk-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
