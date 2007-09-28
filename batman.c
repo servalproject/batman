@@ -638,7 +638,7 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 		debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq ); */
 
-		/* is single hop (direct) neighbour and we receive too few packets it is not considered bidirectional */
+		/* if it is a single hop (direct) neighbour and we receive too few packets it is not considered bidirectional */
 		if ( ( orig_node->orig == neigh ) && ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_LIMIT ) )
 			goto end;
 
