@@ -56,8 +56,8 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr);
 
 static struct file_operations fops = {
 	.open = batgat_open,
- .release = batgat_release,
- .ioctl = batgat_ioctl,
+	.release = batgat_release,
+	.ioctl = batgat_ioctl,
 };
 
 static int Major;					/* Major number assigned to our device driver */
@@ -136,13 +136,10 @@ void cleanup_module()
 	if ( ret < 0 )
 		DBG( "unregistering the character device failed with %d", ret );
 
-	DBG( "start cleanup reserved %d", reg_dev_reserved );
 	for( i = 0 ; i < reg_dev_reserved; i++ ) {
 
 		if( reg_dev_array[ i ] == NULL )
 			continue;
-
-		DBG( "clean %s", reg_dev_array[i]->name );
 
 		if( reg_dev_array[ i ]->thread_pid ) {
 
@@ -151,24 +148,20 @@ void cleanup_module()
 
 		}
 
-		if(reg_dev_array[i]->client == NULL)
-			DBG( "%d client is null", i );
-		else {
-			for( j = 0; j < 254; j++ ) {
-				if( reg_dev_array[ i ]->client[ j ] != NULL )
-					kfree( reg_dev_array[ i ]->client[ j ] );
-			}
+
+		for( j = 0; j < 254; j++ ) {
+			if( reg_dev_array[ i ]->client[ j ] != NULL )
+				kfree( reg_dev_array[ i ]->client[ j ] );
 		}
 
 		kfree( reg_dev_array[ i ] );
 
 	}
 	
-	DBG( "free reg_dev_array" );
 	kfree( reg_dev_array );
 	reg_dev_reserved -= i;
-	
 	sock_release( inet_sock );
+	
 	DBG( "unload module complete" );
 	return;
 }
@@ -200,7 +193,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	char *device_name = NULL, *colon_ptr = NULL;
 	uint16_t command, length;
 	struct net_device *reg_device = NULL;
-	int ret_value = 0, reg_ret = 0;
+	int ret_value = 0;
 
 	/* cmd comes with 2 short values */
 	command = cmd & 0x0000FFFF;
@@ -215,7 +208,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	if( command == IOCSETDEV || command == IOCREMDEV ) {
 
 		if( !access_ok( VERIFY_READ, ( void __user* )arg, length ) ) {
-			DBG( "cccess to memory area of arg not allowed" );
+			DBG( "access to memory area of arg not allowed" );
 			ret_value = -EFAULT;
 			goto end;
 		}
@@ -247,13 +240,13 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 		case IOCSETDEV:
 
-			if( ( reg_ret = register_batgat_device( reg_device, device_name ) ) < 0 )
+			if( register_batgat_device( reg_device, device_name ) < 0 )
 				ret_value = -EFAULT;
 
 			break;
 		case IOCREMDEV:
 
-			if( ( reg_ret = unregister_batgat_device( device_name ) ) < 0 )
+			if( unregister_batgat_device( device_name ) < 0 )
 				ret_value = -EFAULT;
 
 			break;
@@ -587,12 +580,15 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr)
 
 	if ( first_free == 0 ) {
 		/* TODO: list is full */
-		return -1;
+		return 0;
 
 	}
 
 	dev->client[ first_free ] = kmalloc( sizeof( struct gw_client ), GFP_KERNEL );
-	/* TODO: check kmalloc */
+
+	if( dev->client[ first_free ] == NULL )
+		return 0;
+
 	dev->client[ first_free ]->address = client_addr;
 
 	/* TODO: check syscall for time*/
