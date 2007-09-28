@@ -37,7 +37,7 @@
 #include "mod_batgat.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	#include <linux/devfs_fs_kernel.h>
+#include <linux/devfs_fs_kernel.h>
 #else
 	static struct class *batman_class;
 #endif
@@ -49,21 +49,21 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 static int udp_server_thread(void *data);
 static int register_batgat_device( struct net_device *dev, char *name );
 static int unregister_batgat_device( char *name );
-static int get_reg_index( char *name, uint8_t create );
+static int get_reg_index( char *name );
 static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
 static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr);
 
 
 static struct file_operations fops = {
 	.open = batgat_open,
-	.release = batgat_release,
-	.ioctl = batgat_ioctl,
+ .release = batgat_release,
+ .ioctl = batgat_ioctl,
 };
 
-static int Major;            /* Major number assigned to our device driver */
+static int Major;					/* Major number assigned to our device driver */
 
 static struct reg_device **reg_dev_array=NULL;
-static int reg_dev_counter = 0;
+static int reg_dev_reserved = 0;			/* memory reserved for elements count */
 
 struct socket *inet_sock;
 struct msghdr global_msg;
@@ -73,36 +73,35 @@ struct sockaddr_in global_addr_out;
 
 int init_module()
 {
-
 	/* register our device - kernel assigns a free major number */
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
 
-		printk( "batgat: Registering the character device failed with %d\n", Major );
+		DBG( "registering the character device failed with %d", Major );
 		return Major;
 
 	}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batgat", 0 ) )
-		printk( "batgat: Could not create /dev/batgat \n" );
+		DBG( "could not create /dev/batgat" );
 #else
 	batman_class = class_create( THIS_MODULE, "batgat" );
 
-	if ( IS_ERR(batman_class) )
-		printk( "batgat: Could not register class 'batgat' \n" );
+	if ( IS_ERR( batman_class ) )
+		DBG( "could not register class 'batgat'" );
 	else
 		class_device_create( batman_class, NULL, MKDEV( Major, 0 ), NULL, "batgat" );
 #endif
 
 
-	printk( "batgat: I was assigned major number %d. To talk to\n", Major );
-	printk( "batgat: the driver, create a dev file with 'mknod /dev/batgat c %d 0'.\n", Major );
-	printk( "batgat: Remove the device file and module when done.\n" );
+	DBG( "I was assigned major number %d. To talk to", Major );
+	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
+	DBG( "Remove the device file and module when done." );
 
 	/* init global socket to forward packets */
 	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
 
-		printk( "batgat: can't create raw socket\n");
+		DBG( "can't create raw socket");
 		return 1;
 
 	}
@@ -135,34 +134,42 @@ void cleanup_module()
 	ret = unregister_chrdev( Major, DRIVER_DEVICE );
 
 	if ( ret < 0 )
-		printk( "batgat: Unregistering the character device failed with %d\n", ret );
+		DBG( "unregistering the character device failed with %d", ret );
 
-	for( i = 0 ; i < reg_dev_counter; i++ ) {
+	DBG( "start cleanup reserved %d", reg_dev_reserved );
+	for( i = 0 ; i < reg_dev_reserved; i++ ) {
+
 		if( reg_dev_array[ i ] == NULL )
 			continue;
 
-		if( reg_dev_array[ i ]->socket != NULL )
-			sock_release( reg_dev_array[ i ]->socket );
-
-		for( j = 0; j < 254; j++ ) {
-			if( reg_dev_array[ i ]->client[ j ] != NULL )
-				kfree( reg_dev_array[ i ]->client[ j ] );
-		}
+		DBG( "clean %s", reg_dev_array[i]->name );
 
 		if( reg_dev_array[ i ]->thread_pid ) {
+
 			kill_proc( reg_dev_array[ i ]->thread_pid, SIGTERM, 0 );
-			wait_for_completion( &reg_dev_array[i]->thread_complete );
+			wait_for_completion( &reg_dev_array[ i ]->thread_complete );
+
+		}
+
+		if(reg_dev_array[i]->client == NULL)
+			DBG( "%d client is null", i );
+		else {
+			for( j = 0; j < 254; j++ ) {
+				if( reg_dev_array[ i ]->client[ j ] != NULL )
+					kfree( reg_dev_array[ i ]->client[ j ] );
+			}
 		}
 
 		kfree( reg_dev_array[ i ] );
 
 	}
-
-	reg_dev_counter -= i;
 	
+	DBG( "free reg_dev_array" );
 	kfree( reg_dev_array );
+	reg_dev_reserved -= i;
+	
 	sock_release( inet_sock );
-	printk( "batgat: unload module\n" );
+	DBG( "unload module complete" );
 	return;
 }
 
@@ -173,8 +180,6 @@ static int batgat_open(struct inode *inode, struct file *filp)
 #else
 	try_module_get(THIS_MODULE);
 #endif
-	/* TODO: for testing */
-	printk( "batgat: open\n" );
 	return( 0 );
 
 }
@@ -186,8 +191,6 @@ static int batgat_release(struct inode *inode, struct file *file)
 #else
 	module_put(THIS_MODULE);
 #endif
-	/* TODO: for testing */
-	printk( "batgat: release\n" );
 	return( 0 );
 }
 
@@ -197,14 +200,14 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	char *device_name = NULL, *colon_ptr = NULL;
 	uint16_t command, length;
 	struct net_device *reg_device = NULL;
-	int ret_value = 0;
+	int ret_value = 0, reg_ret = 0;
 
 	/* cmd comes with 2 short values */
 	command = cmd & 0x0000FFFF;
 	length = cmd >> 16;
 
 	if( length > IFNAMSIZ - 1 ) {
-		printk( "batgat: device name is too long\n" );
+		DBG( "device name is too long" );
 		ret_value = -EFAULT;
 		goto end;
 	}
@@ -212,13 +215,13 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	if( command == IOCSETDEV || command == IOCREMDEV ) {
 
 		if( !access_ok( VERIFY_READ, ( void __user* )arg, length ) ) {
-			printk( "batgat: Access to memory area of arg not allowed\n" );
+			DBG( "cccess to memory area of arg not allowed" );
 			ret_value = -EFAULT;
 			goto end;
 		}
 
 		if( ( device_name = kmalloc( length+1, GFP_KERNEL ) ) == NULL ) {
-			printk( "batgat: Allocate memory for devicename failed\n" );
+			DBG( "allocate memory for devicename failed" );
 			ret_value = -EFAULT;
 			goto end;
 		}
@@ -230,7 +233,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			*colon_ptr = 0;
 
 		if( ( reg_device = dev_get_by_name( device_name ) ) == NULL ) {
-			printk( "batgat: Did not find device %s\n", device_name );
+			DBG( "did not find device %s", device_name );
 			ret_value = -EFAULT;
 			goto end;
 		}
@@ -239,30 +242,30 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			*colon_ptr = ':';
 
 	}
-
+	
 	switch( command ) {
 
 		case IOCSETDEV:
 
-			if( register_batgat_device( reg_device, device_name ) < 0 )
+			if( ( reg_ret = register_batgat_device( reg_device, device_name ) ) < 0 )
 				ret_value = -EFAULT;
 
 			break;
 		case IOCREMDEV:
 
-			if( unregister_batgat_device( device_name ) < 0 )
+			if( ( reg_ret = unregister_batgat_device( device_name ) ) < 0 )
 				ret_value = -EFAULT;
 
 			break;
 		default:
-			printk( "batgat: ioctl %d is not supported\n",command );
+			DBG( "ioctl %d is not supported",command );
 			ret_value = -EFAULT;
 
 	}
 
 end:
 
-	if( reg_device )
+		if( reg_device )
 		dev_put( reg_device );
 
 	if( device_name )
@@ -280,19 +283,69 @@ static int register_batgat_device( struct net_device *dev, char *name )
 	struct sockaddr_in sa;
 	struct reg_device *device = NULL;
 
-	int index;
+	int index, i;
 
-	unregister_batgat_device( name );
-	
-	index = get_reg_index( name, 1 );
+	index = get_reg_index( name );
 
-	if( index < 0  ) {
-		printk("batgat: can't get/create dev_array entry %d\n", index );
-		goto error;
+	if( reg_dev_array == NULL || index < 0 ) {
+
+		index = reg_dev_reserved;
+
+		reg_dev_array = krealloc( reg_dev_array, ( sizeof( struct reg_device* )*( reg_dev_reserved + 1) ), GFP_USER );
+
+		if( reg_dev_array == NULL ) {
+
+			DBG( "not enough memory for reg_dev_array" );
+			return( -1 );
+
+		}
+
+		reg_dev_array[ index ] = NULL;
+		reg_dev_reserved++;
+
 	}
 
-	device = reg_dev_array[ index ];
+	/* not found in array */
+	if( reg_dev_array[ index ] == NULL ) {
+
+		device = kmalloc( sizeof( struct reg_device ), GFP_USER );
+
+		if( device == NULL ) {
+
+			DBG( "not enough memory for reg_device element" );
+			return( -2 );
+
+		}
+
+		device->socket = NULL;
+		device->thread_pid = 0;
+		memset(device->client, 0, sizeof(struct gw_client *) * 254 );
+		reg_dev_array[ index ] = device;
+
+	}
+
+	/* init array entry */
+	if( device == NULL )
+		device = reg_dev_array[ index ];
 	
+	if( device->thread_pid ) {
+
+		DBG( "found running thread for dev %s", name );
+		kill_proc( device->thread_pid, SIGTERM, 0 );
+		wait_for_completion( &device->thread_complete );
+		DBG( "thread terminated");
+
+	}
+
+	/* if client exist, resest client */
+	for( i = 0; i < 254; i++ ) {
+		if( device->client[ i ] != NULL ) {
+			kfree( device->client[ i ] );
+			device->client[ i ] = NULL;
+		}
+	}
+
+	/* search for interface address */
 	if( ( in_dev = __in_dev_get_rtnl( dev ) ) != NULL ) {
 
 		for ( ifap = &in_dev->ifa_list; ( ifa = *ifap ) != NULL; ifap = &ifa->ifa_next ) {
@@ -303,18 +356,26 @@ static int register_batgat_device( struct net_device *dev, char *name )
 		}
 
 	} else {
-		printk( "batgat: device %s not found\n", name );
+
+		DBG( "device %s not found", name );
 		goto error;
+
 	}
 
-	if(ifa == NULL) {
-		printk( KERN_ERR "batgat: can't find interface address for %s\n", name);
+	
+	if( ifa == NULL ) {
+
+		DBG( "can't find interface address for %s", name);
 		goto error;
+
 	}
+
 	
 	if( sock_create_kern( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &device->socket ) < 0 ) {
-		printk( KERN_ERR "batgat: error creating udp socket for %s\n", name );
+
+		DBG( "error creating udp socket for %s", name );
 		goto error;
+
 	}
 
 	sa.sin_family = AF_INET;
@@ -322,55 +383,63 @@ static int register_batgat_device( struct net_device *dev, char *name )
 	sa.sin_port = htons( (unsigned short)BATMAN_PORT );
 
 	if( device->socket->ops->bind( device->socket, (struct sockaddr *) &sa, sizeof( sa ) ) ) {
-		printk( KERN_ERR "batgat: can't bind socket\n");
+
+		DBG( "can't bind socket");
 		sock_release( device->socket );
 		goto error;
+
 	}
 
 	strlcpy( device->name, name, strlen( name ) + 1 );
 	device->index = index;
 	
-	memset(device->client, 0, sizeof(struct gw_client *) * 254 );
-	
 	init_completion( &device->thread_complete );
 	device->thread_pid = kernel_thread( udp_server_thread, (void*)device, CLONE_KERNEL );
 
 	if( device->thread_pid < 0 ) {
-		printk( "batgat: can't create thread\n" );
+
+		DBG( "can't create thread" );
 		sock_release( device->socket );
 		goto error;
+
 	}
-	
+
 	return( 0 );
 
 error:
-	if( device )
+
+	if( device )	
 		kfree( device );
 
-	return( -1 );
+	if( device->socket )
+		sock_release( device->socket );
 
+	device = NULL;
+
+	return( -1 );
 };
 
 static int unregister_batgat_device( char *name )
 {
 	struct reg_device *device;
 	int i;
-	int index = get_reg_index( name, 0 );
-	
-	if( index < 0 )
+	int index = get_reg_index( name );
+
+	if( index < 0 || reg_dev_array[ index ] == NULL )
 		return( -1 );
 
 	device = reg_dev_array[ index ];
 
 	if( device->thread_pid ) {
-		printk("batgat: wait for sigterm thread...\n");
+
+		DBG("wait for sigterm thread...");
 		kill_proc( device->thread_pid, SIGTERM, 0 );
 		wait_for_completion( &device->thread_complete );
-		printk("batgat: thread terminated\n");
+		DBG("thread terminated");
+
 	}
 
-	if( device->socket )
-		sock_release( device->socket );
+	device->thread_pid = 0;
 	
 	for( i = 0; i < 254; i++ ) {
 		if( device->client[ i ] != NULL )
@@ -378,55 +447,35 @@ static int unregister_batgat_device( char *name )
 	}
 
 	kfree( device );
-	device = NULL;
-	
+	reg_dev_array[ index ] = NULL;
+
 	return( 0 );
 }
 
 
-static int get_reg_index( char *name, uint8_t create )
+static int get_reg_index( char *name )
 {
-	int index = reg_dev_counter;
-	int i;
-
-	if( reg_dev_array == NULL ) {
-
-		if( !create ) {
-			printk( "batgat: reg_dev_array not initialized\n");
-			return( -1 );
-		}
-		
-		if( ( reg_dev_array = ( struct reg_device **)krealloc( reg_dev_array, sizeof( struct reg_device* )*( reg_dev_counter + 1), GFP_KERNEL ) ) == NULL ) {
-			printk( KERN_ERR "batgat: not enough memory for reg_dev_array\n" );
-			return( -2 );
-		}	
-		
-	} else {
-
-		for( i = 0; i < reg_dev_counter; i++ ) {
-			if( strncmp( name, reg_dev_array[i]->name, strlen(name) + 1 ) == 0 ) {
-				printk( "batgat: found dev in reg_dev_array\n");
-				index = i;
-				return( i );
-			}
-			if( index != reg_dev_counter && reg_dev_array[i] == NULL )
-				index = i;
-		}
-
-	}
-
-	if( !create ) {
-		printk( "batgat: dev not found in dev_reg_array\n" );
-		return( -3 );
-	}
+	int free_place = -1, i;
 	
-	if( ( reg_dev_array[ index ] = ( struct reg_device* )kmalloc( sizeof( struct reg_device ), GFP_KERNEL ) ) == NULL ) {
-		printk( KERN_ERR "batgat: not enough memory for reg_device element\n" );
-		return( -4 );
+	DBG( "search for %s", name );
+	
+	if( reg_dev_array != NULL ) {
+
+		for( i = 0; i < reg_dev_reserved; i++ ) {
+
+			if( reg_dev_array[ i ] != NULL && strncmp( name, reg_dev_array[i]->name, strlen(name) + 1 ) == 0 ) {
+
+				DBG( "found dev in reg_dev_array");
+				return( i );
+
+			} else if( reg_dev_array[ i ] == NULL )
+				free_place = i;
+
+		}
+
 	}
 
-	reg_dev_counter++;
-	return( index );
+	return( free_place );
 }
 
 static int udp_server_thread(void *data)
@@ -455,7 +504,7 @@ static int udp_server_thread(void *data)
 	msg.msg_iovlen = 1;
 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
 	
-	printk( "batgat: start udp_server thread for %s\n", dev_element->name );
+	DBG( "start udp_server thread for %s", dev_element->name );
 	daemonize( "udpserver" );
 	allow_signal( SIGTERM );
 	while( !signal_pending( current ) ) {
@@ -470,7 +519,7 @@ static int udp_server_thread(void *data)
 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
 			if( ( ip_address = ( uint8_t )get_virtual_ip( dev_element, client.sin_addr.s_addr ) ) == 0 ) {
-				printk(KERN_ERR "batgat: don't get a virtual ip\n");
+				DBG("don't get a virtual ip");
 				continue;
 			}
 
@@ -486,11 +535,12 @@ static int udp_server_thread(void *data)
 			check_ip = (unsigned char *)&iph->saddr;
 
 			if( check_ip[0] != 169 && check_ip[1] != 254 && dev_element->index != check_ip[2] && dev_element->client[ check_ip[3] ] == NULL ) {
-				printk("batgat: virtual ip %u.%u.%u.%u invalid\n", check_ip[0], check_ip[1], check_ip[2], check_ip[3] );
+				DBG( "virtual ip %u.%u.%u.%u invalid", check_ip[0], check_ip[1], check_ip[2], check_ip[3] );
 				buffer[0] = TUNNEL_IP_INVALID;
 				send_data( dev_element->socket, &client, buffer, len );
 				continue;
 			}
+			/* TODO: semaphore */
 
 			global_iov.iov_base = &buffer[1];
 			global_iov.iov_len = len - 1;
@@ -501,17 +551,15 @@ static int udp_server_thread(void *data)
 			oldfs = get_fs();
 			set_fs( KERNEL_DS );
 			ret = sock_sendmsg( inet_sock, &global_msg, len - 1);
-			set_fs( oldfs );	
-
-		} else {
-
-			printk( "batgat: unkown packet option\n" );
+			set_fs( oldfs );
 
 		}
 
 	}
 
+	sock_release( dev_element->socket );
 	complete( &dev_element->thread_complete );
+
 	return( 0 );
 }
 
@@ -525,7 +573,7 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr)
 		if( dev->client[ i ] != NULL ) {
 			if( dev->client[ i ]->address == client_addr ) {
 
-				printk( "batgat: client already exists. return %d\n", i );
+				DBG( "client already exists. return %d", i );
 				return i;
 
 			}
@@ -544,6 +592,7 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr)
 	}
 
 	dev->client[ first_free ] = kmalloc( sizeof( struct gw_client ), GFP_KERNEL );
+	/* TODO: check kmalloc */
 	dev->client[ first_free ]->address = client_addr;
 
 	/* TODO: check syscall for time*/
@@ -573,7 +622,7 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 	error = socket->ops->connect( socket, (struct sockaddr *)client, sizeof(*client), 0 );
 
 	if( error != 0 ) {
-		printk(KERN_ERR "batgat: can't connect to socket: %d\n",error);
+		DBG("can't connect to socket: %d",error);
 		return 0;
 	}
 	
@@ -583,7 +632,7 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 	len = sock_sendmsg( socket, &msg, buffer_len );
 
 	if( len < 0 )
-		printk( KERN_ERR "batgat: sock_sendmsg failed: %d\n",len);
+		DBG( "sock_sendmsg failed: %d",len);
 
 	set_fs( oldfs );
 	return( 0 );

@@ -32,6 +32,8 @@
 #define TUNNEL_IP_REQUEST 0x02
 #define TUNNEL_IP_INVALID 0x03
 
+#define DBG(msg,args...) do { printk(KERN_DEBUG "batgat: [%s:%u] " msg "\n", __func__ ,__LINE__, ##args); } while(0)
+
 struct gw_client {
 	uint32_t address;
 	uint32_t last_keep_alive;
@@ -45,10 +47,3 @@ struct reg_device {
 	char name[IFNAMSIZ];
 	uint8_t index;
 };
-
-// struct tun_dev {
-// 	struct completion thread_complete;
-// 	struct socket *socket;
-// 	int thread_pid;
-// 	char name[IFNAMSIZ];
-// };
