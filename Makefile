@@ -51,6 +51,8 @@ SRC_FILES= "\(\.c\)\|\(\.h\)\|\(Makefile\)\|\(INSTALL\)\|\(LIESMICH\)\|\(README\
 SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c ring_buffer.c $(OS_C)
 SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h vis-types.h ring_buffer.h
 
+PACKAGE_NAME=	batmand
+
 BINARY_NAME=	batmand
 SOURCE_VERSION_HEADER= batman.h
 
@@ -61,8 +63,8 @@ IPKG_BUILD_PATH=	$(BUILD_PATH)/ipkg-build
 
 BAT_VERSION=		$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
 IPKG_VERSION=		$(BAT_VERSION)-rv$(REVISION)
-FILE_NAME=		$(BINARY_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
-FILE_CURRENT=		$(BINARY_NAME)_$(BAT_VERSION)-current_$@
+FILE_NAME=		$(PACKAGE_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
+FILE_CURRENT=		$(PACKAGE_NAME)_$(BAT_VERSION)-current_$@
 
 
 IPKG_DEPENDS=		"kmod-tun libpthread"
@@ -132,7 +134,7 @@ sources:
 	mkdir -p dl/sources
 	ln -f $(FILE_NAME).tgz dl/sources/
 	ln -f $(FILE_NAME).tgz dl/sources/$(FILE_CURRENT).tgz
-	mv  $(FILE_NAME) dl/sources/
+	mv  $(FILE_NAME) dl/sources/$(FILE_CURRENT)
 
 
 
@@ -276,8 +278,8 @@ nokia770-oe-elf-32-lsb-dynamic:	$(SRC_C) $(SRC_H) Makefile
 
 
 clean:
-		rm -f batmand *.o
+		rm -f $(BINARY_NAME) *.o
 
 
 clean-long:
-		rm -rf batmand_*
+		rm -rf $(PACKAGE_NAME)_*
