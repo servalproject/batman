@@ -211,6 +211,12 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	if ( neigh_node->packet_count > max_packet_count ) {
 
 		max_packet_count = neigh_node->packet_count;
+
+	}
+
+	if ( neigh_node->tq_avg > max_tq ) {
+
+		max_tq = neigh_node->tq_avg;
 		best_neigh_node = neigh_node;
 
 	}
