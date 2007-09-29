@@ -79,7 +79,9 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 	/* set up tunnel device */
 	memset( &ifr_tun, 0, sizeof(ifr_tun) );
 	memset( &ifr_if, 0, sizeof(ifr_if) );
+
 	ifr_tun.ifr_flags = IFF_TUN | IFF_NO_PI;
+	strncpy( ifr_tun.ifr_name, "gate%d", IFNAMSIZ );
 
 	if ( ( *fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
