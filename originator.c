@@ -155,7 +155,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 			}
 
-			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg >= max_tq ) ) ) {
+			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg = max_tq ) ) ) {
 
 				max_tq = tmp_neigh_node->tq_avg;
 				best_neigh_node = tmp_neigh_node;
@@ -214,7 +214,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	}
 
-	if ( neigh_node->tq_avg > max_tq ) {
+	if ( ( neigh_node->tq_avg > max_tq ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg = max_tq ) ) ) {
 
 		max_tq = neigh_node->tq_avg;
 		best_neigh_node = neigh_node;
