@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <netinet/ip.h>
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
 #include <sys/sockio.h>
 #endif
@@ -530,8 +531,8 @@ void *gw_listen( void *arg ) {
 
 							}
 
-							/* fill in the destination address or the kernel will route us towards the loopback device */
-							pack_dest.sin_addr.s_addr = (unsigned int)*(buff + 17);
+							/* fill in the destination address or the kernel will route us towards the loopback interface */
+							pack_dest.sin_addr.s_addr = ((struct iphdr *)(buff + 1))->daddr;
 
 							if ( sendto( raw_fd, buff + 1, buff_len - 1, 0, (struct sockaddr *)&pack_dest, sizeof(struct sockaddr_in) ) < 0 )
 								debug_output( 0, "Error - can't send packet: %s\n", strerror(errno) );
