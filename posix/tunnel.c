@@ -482,6 +482,8 @@ void *gw_listen( void *arg ) {
 
 	memset( &pack_dest, 0, sizeof(struct sockaddr_in) );
 
+	pack_dest.sin_family = AF_INET;
+
 	if ( add_dev_tun( batman_if, *(uint32_t *)my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
 		return NULL;
 
@@ -527,6 +529,9 @@ void *gw_listen( void *arg ) {
 								continue;
 
 							}
+
+							/* fill in the destination address or the kernel will route us towards the loopback device */
+							pack_dest.sin_addr.s_addr = (unsigned int)*(buff + 17);
 
 							if ( sendto( raw_fd, buff + 1, buff_len - 1, 0, (struct sockaddr *)&pack_dest, sizeof(struct sockaddr_in) ) < 0 )
 								debug_output( 0, "Error - can't send packet: %s\n", strerror(errno) );
