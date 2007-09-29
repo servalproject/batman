@@ -241,6 +241,7 @@ struct batman_if
 	uint32_t netaddr;
 	uint8_t netmask;
 	struct bat_packet out;
+// 	struct batgat_ioc_args *gate_params;
 };
 
 struct gw_client
@@ -282,6 +283,12 @@ struct curr_gw_data {
 	unsigned int orig;
 	struct gw_node *gw_node;
 	struct batman_if *batman_if;
+};
+
+struct batgat_ioc_args {
+	char dev_name[16];
+	uint32_t universal;
+	uint32_t ifindex;
 };
 
 

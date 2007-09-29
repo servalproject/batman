@@ -48,3 +48,9 @@ struct reg_device {
 	char name[IFNAMSIZ];
 	uint8_t index;
 };
+
+struct batgat_ioc_args {
+	char dev_name[IFNAMSIZ];
+	uint32_t universal;
+	uint32_t ifindex;
+};

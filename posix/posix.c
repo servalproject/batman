@@ -30,7 +30,7 @@
 #include <sys/socket.h>
 #include <sys/times.h>
 #include <sys/ioctl.h>
-
+#include <net/if.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -349,7 +349,7 @@ void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
-	unsigned int cmd;
+	struct batgat_ioc_args args;
 
 	stop = 1;
 
@@ -368,11 +368,23 @@ void restore_defaults() {
 				pthread_join( batman_if->listen_thread_id, NULL );
 			else {
 				if(batman_if->dev != NULL ) {
-					
-					cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->dev)<<16);
-					if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+
+					strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
+					args.universal = strlen( batman_if->dev );
+						
+					if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0) {
 						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
 					}
+
+// 					if( batman_if->gate_params != NULL ) {
+
+// 						add_del_route( batman_if->gate_params->universal, 24, 0, 0,
+// 								batman_if->gate_params->ifindex, batman_if->gate_params->dev_name, 254, 0, 1 );
+
+// 						debugFree( batman_if->gate_params, 802 );
+// 						batman_if->gate_params = NULL;
+
+// 					}
 
 				}
 
@@ -426,7 +438,8 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 	struct batman_if *batman_if;
 	struct orig_node *orig_node;
 	struct hash_it_t *hashit = NULL;
-	unsigned int cmd;
+
+	struct batgat_ioc_args args;
 
 	if ( !unix_client ) {
 
@@ -444,10 +457,22 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 
 					if(batman_if->dev != NULL ) {
 
-						cmd = (unsigned short)IOCREMDEV + ((unsigned short)strlen(batman_if->dev)<<16);
-						if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0) {
+						strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
+						args.universal = strlen( batman_if->dev );
+						
+						if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0) {
 							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
 						}
+
+// 						if( batman_if->gate_params != NULL ) {
+
+// 							add_del_route( batman_if->gate_params->universal, 24, 0, 0,
+// 									batman_if->gate_params->ifindex, batman_if->gate_params->dev_name, 254, 0, 1 );
+
+// 							debugFree( batman_if->gate_params, 802 );
+// 							batman_if->gate_params = NULL;
+
+// 						}
 
 					}
 

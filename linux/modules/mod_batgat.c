@@ -31,6 +31,7 @@
 #include <linux/net.h>		/* socket */
 #include <linux/string.h>	/* strlen, strstr, strncmp ... */
 #include <linux/ip.h>		/* iphdr */
+#include <linux/if_arp.h>	/* ARPHRD_NONE */
 #include <net/sock.h>		/* sock */
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 
@@ -204,39 +205,35 @@ static int batgat_release(struct inode *inode, struct file *file)
 
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
 {
-	char *device_name = NULL, *colon_ptr = NULL;
-	uint16_t command, length;
+	char device_name[IFNAMSIZ], *colon_ptr = NULL;
+	uint8_t tmp_ip[4];
 	struct net_device *reg_device = NULL;
 	struct reg_device *ret_device = NULL;
+	struct batgat_ioc_args ioc;
 	
 	int ret_value = 0;
 
-	/* cmd comes with 2 short values */
-	command = cmd & 0x0000FFFF;
-	length = cmd >> 16;
 
-	if( length > IFNAMSIZ - 1 ) {
-		DBG( "device name is too long" );
-		ret_value = -EFAULT;
-		goto end;
-	}
-		
-	if( command == IOCSETDEV || command == IOCREMDEV ) {
+	if( cmd == IOCSETDEV || cmd == IOCREMDEV ) {
 
-		if( !access_ok( VERIFY_READ, ( void __user* )arg, length ) ) {
+		if( !access_ok( VERIFY_READ, ( void __user* )arg, sizeof( ioc ) ) ) {
 			DBG( "access to memory area of arg not allowed" );
 			ret_value = -EFAULT;
 			goto end;
 		}
 
-		if( ( device_name = kmalloc( length+1, GFP_KERNEL ) ) == NULL ) {
-			DBG( "allocate memory for devicename failed" );
+		if( __copy_from_user( &ioc, ( void __user* )arg, sizeof( ioc ) ) ) {
 			ret_value = -EFAULT;
 			goto end;
 		}
 
-		__copy_from_user( device_name, ( void __user* )arg, length );
-		device_name[ length ] = 0;
+		if( ioc.universal > IFNAMSIZ - 1 ) {
+			DBG( "device name is too long" );
+			ret_value = -EFAULT;
+			goto end;
+		}
+
+		strlcpy( device_name, ioc.dev_name, IFNAMSIZ - 1 );
 
 		if ( ( colon_ptr = strchr( device_name, ':' ) ) != NULL )
 			*colon_ptr = 0;
@@ -252,7 +249,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 	}
 	
-	switch( command ) {
+	switch( cmd ) {
 
 		case IOCSETDEV:
 
@@ -266,8 +263,23 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				ret_value = -EFAULT;
 
 			}
+
+			tmp_ip[0] = 169; tmp_ip[1] = 254; tmp_ip[2] = ret_device->index; tmp_ip[3] = 0;
+			ioc.universal = *(uint32_t*)tmp_ip;
+			ioc.ifindex = ret_device->bat_netdev->ifindex;
+
+			strlcpy( ioc.dev_name, ret_device->bat_netdev->name, IFNAMSIZ - 1 );
+
+			if( copy_to_user( ( void __user* )arg, &ioc, sizeof( ioc ) ) ) {
+
+				unregister_batgat_device( device_name );
+				ret_value = -EFAULT;
+
+			}
+
 			DBG( "device %s registered successfully", device_name);
 			break;
+
 		case IOCREMDEV:
 
 			if( unregister_batgat_device( device_name ) < 0 )
@@ -276,18 +288,15 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			DBG( "device %s unregistered successfully", device_name);
 			break;
 		default:
-			DBG( "ioctl %d is not supported",command );
+			DBG( "ioctl %d is not supported",cmd );
 			ret_value = -EFAULT;
 
 	}
 
 end:
 
-		if( reg_device )
+	if( reg_device )
 		dev_put( reg_device );
-
-	if( device_name )
-		kfree( device_name );
 
 	return( ret_value );
 
@@ -681,6 +690,10 @@ static int bat_netdev_send( struct sk_buff *skb, struct net_device *dev )
 static int bat_netdev_probe( struct net_device *dev )
 {
 	ether_setup( dev );
+	dev->mtu = 1471;
+	dev->type = ARPHRD_NONE;
+	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+	
 	return( 0 );
 }
 
@@ -709,29 +722,11 @@ static int create_bat_netdev( struct reg_device *dev )
 
 	if( dev->bat_netdev == NULL ) {
 
-		if( ( dev->bat_netdev = alloc_netdev(0, "bnd%d", bat_netdev_setup ) ) == NULL )
+		if( ( dev->bat_netdev = alloc_netdev(0, "gate%d", bat_netdev_setup ) ) == NULL )
 			return -ENOMEM;
 
 		if( ( register_netdev( dev->bat_netdev ) ) != 0 )
 			return -ENODEV;
-
-		/* setup ip address doesn't run */
-
-// 		memset( &ifr, 0, sizeof( ifr ) );
-// 		strcpy( ifr.ifr_ifrn.ifrn_name, dev->bat_netdev->name );
-// 
-// 		sin->sin_family = AF_INET;
-// 		sin->sin_addr.s_addr = *(uint32_t*)ip;
-// 		sin->sin_port = 0;
-// 
-// 		oldfs = get_fs();
-// 		set_fs(get_ds());
-// 		if( ( err =  devinet_ioctl( SIOCSIFADDR, (struct ifreq __user *)&ifr ) ) < 0 ) {
-// 			DBG( "ioctl failed (%d), can't set ip %u.%u.%u.%u for dev %s", err, ip[0], ip[1], ip[2], ip[3], dev->bat_netdev->name );
-// 			set_fs(oldfs);
-// 			return( -1 );
-// 		}
-// 		set_fs(oldfs);
 
 	} else {
 
