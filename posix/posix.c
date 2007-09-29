@@ -372,19 +372,8 @@ void restore_defaults() {
 					strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
 					args.universal = strlen( batman_if->dev );
 						
-					if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0) {
+					if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0)
 						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
-					}
-
-// 					if( batman_if->gate_params != NULL ) {
-
-// 						add_del_route( batman_if->gate_params->universal, 24, 0, 0,
-// 								batman_if->gate_params->ifindex, batman_if->gate_params->dev_name, 254, 0, 1 );
-
-// 						debugFree( batman_if->gate_params, 802 );
-// 						batman_if->gate_params = NULL;
-
-// 					}
 
 				}
 
@@ -460,19 +449,8 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 						strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
 						args.universal = strlen( batman_if->dev );
 						
-						if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0) {
+						if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0)
 							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
-						}
-
-// 						if( batman_if->gate_params != NULL ) {
-
-// 							add_del_route( batman_if->gate_params->universal, 24, 0, 0,
-// 									batman_if->gate_params->ifindex, batman_if->gate_params->dev_name, 254, 0, 1 );
-
-// 							debugFree( batman_if->gate_params, 802 );
-// 							batman_if->gate_params = NULL;
-
-// 						}
 
 					}
 

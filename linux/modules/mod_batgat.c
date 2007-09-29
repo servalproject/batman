@@ -518,7 +518,7 @@ static int udp_server_thread(void *data)
 	unsigned char buffer[1500];
 	int len;
 	mm_segment_t oldfs;
-	uint32_t ip_address;
+	uint8_t ip_address[4];
 	unsigned char *check_ip;
 	int ret;
 
@@ -547,12 +547,12 @@ static int udp_server_thread(void *data)
 
 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
-			if( ( ip_address = ( uint8_t )get_virtual_ip( dev_element, client.sin_addr.s_addr ) ) == 0 ) {
+			if( ( ip_address[3] = ( uint8_t )get_virtual_ip( dev_element, client.sin_addr.s_addr ) ) == 0 ) {
 				DBG("don't get a virtual ip");
 				continue;
 			}
 
-			ip_address = 169 + ( 254<<8 ) + ((uint8_t)( dev_element->index )<<16 ) + (ip_address<<24 );
+			ip_address[0] = 169; ip_address[1] = 254; ip_address[2] = dev_element->index;
 			buffer[0] = TUNNEL_DATA;
 			memcpy( &buffer[1], &ip_address, sizeof( ip_address ) );
 			send_data( dev_element->socket, &client, buffer, len );
@@ -692,7 +692,7 @@ static int bat_netdev_probe( struct net_device *dev )
 	ether_setup( dev );
 	dev->mtu = 1471;
 	dev->type = ARPHRD_NONE;
-	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST | IFF_UP | IFF_RUNNING;
 	
 	return( 0 );
 }
@@ -713,12 +713,6 @@ static int bat_netdev_close( struct net_device *dev )
 
 static int create_bat_netdev( struct reg_device *dev )
 {
-// 	mm_segment_t oldfs;
-// 	struct ifreq ifr;
-// 	struct sockaddr_in *sin = (void *) &ifr.ifr_ifru.ifru_addr;
-// 	int err;
-// 	uint8_t ip[4] = { 169, 254, dev->index, 0 };
-
 
 	if( dev->bat_netdev == NULL ) {
 
