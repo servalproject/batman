@@ -47,12 +47,18 @@ static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 
 static int udp_server_thread(void *data);
-static int register_batgat_device( struct net_device *dev, char *name );
+static struct reg_device *register_batgat_device( struct net_device *dev, char *name );
 static int unregister_batgat_device( char *name );
 static int get_reg_index( char *name );
 static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
 static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr);
 
+static void bat_netdev_setup( struct net_device *dev);
+static int create_bat_netdev( struct reg_device *dev );
+static int bat_netdev_probe( struct net_device *dev );
+static int bat_netdev_open( struct net_device *dev );
+static int bat_netdev_close( struct net_device *dev );
+static int bat_netdev_send( struct sk_buff *skb, struct net_device *dev );
 
 static struct file_operations fops = {
 	.open = batgat_open,
@@ -62,7 +68,7 @@ static struct file_operations fops = {
 
 static int Major;					/* Major number assigned to our device driver */
 
-static struct reg_device **reg_dev_array=NULL;
+static struct reg_device **reg_dev_array = NULL;
 static int reg_dev_reserved = 0;			/* memory reserved for elements count */
 
 struct socket *inet_sock;
@@ -150,8 +156,16 @@ void cleanup_module()
 
 
 		for( j = 0; j < 254; j++ ) {
+
 			if( reg_dev_array[ i ]->client[ j ] != NULL )
 				kfree( reg_dev_array[ i ]->client[ j ] );
+
+		}
+
+		if( reg_dev_array[ i ]->bat_netdev != NULL ) {
+
+			unregister_netdev( reg_dev_array[ i ]->bat_netdev );
+
 		}
 
 		kfree( reg_dev_array[ i ] );
@@ -193,6 +207,8 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	char *device_name = NULL, *colon_ptr = NULL;
 	uint16_t command, length;
 	struct net_device *reg_device = NULL;
+	struct reg_device *ret_device = NULL;
+	
 	int ret_value = 0;
 
 	/* cmd comes with 2 short values */
@@ -240,15 +256,24 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 		case IOCSETDEV:
 
-			if( register_batgat_device( reg_device, device_name ) < 0 )
+			if( ( ret_device = register_batgat_device( reg_device, device_name ) ) == NULL )
+
 				ret_value = -EFAULT;
 
+			else if( create_bat_netdev( ret_device ) < 0 ) {
+
+				unregister_batgat_device( device_name );
+				ret_value = -EFAULT;
+
+			}
+			DBG( "device %s registered successfully", device_name);
 			break;
 		case IOCREMDEV:
 
 			if( unregister_batgat_device( device_name ) < 0 )
 				ret_value = -EFAULT;
 
+			DBG( "device %s unregistered successfully", device_name);
 			break;
 		default:
 			DBG( "ioctl %d is not supported",command );
@@ -268,7 +293,7 @@ end:
 
 }
 
-static int register_batgat_device( struct net_device *dev, char *name )
+static struct reg_device *register_batgat_device( struct net_device *dev, char *name )
 {
 	struct in_device *in_dev = NULL;
 	struct in_ifaddr **ifap = NULL;
@@ -289,7 +314,7 @@ static int register_batgat_device( struct net_device *dev, char *name )
 		if( reg_dev_array == NULL ) {
 
 			DBG( "not enough memory for reg_dev_array" );
-			return( -1 );
+			return( NULL );
 
 		}
 
@@ -306,20 +331,30 @@ static int register_batgat_device( struct net_device *dev, char *name )
 		if( device == NULL ) {
 
 			DBG( "not enough memory for reg_device element" );
-			return( -2 );
+			return( NULL );
 
 		}
 
 		device->socket = NULL;
+		device->bat_netdev = NULL;
 		device->thread_pid = 0;
 		memset(device->client, 0, sizeof(struct gw_client *) * 254 );
 		reg_dev_array[ index ] = device;
 
+	} else {
+
+		device = reg_dev_array[ index ];
+
+		/* if client exist, resest client */
+		for( i = 0; i < 254; i++ ) {
+			if( device->client[ i ] != NULL ) {
+				kfree( device->client[ i ] );
+				device->client[ i ] = NULL;
+			}
+		}
+
 	}
 
-	/* init array entry */
-	if( device == NULL )
-		device = reg_dev_array[ index ];
 	
 	if( device->thread_pid ) {
 
@@ -328,14 +363,6 @@ static int register_batgat_device( struct net_device *dev, char *name )
 		wait_for_completion( &device->thread_complete );
 		DBG( "thread terminated");
 
-	}
-
-	/* if client exist, resest client */
-	for( i = 0; i < 254; i++ ) {
-		if( device->client[ i ] != NULL ) {
-			kfree( device->client[ i ] );
-			device->client[ i ] = NULL;
-		}
 	}
 
 	/* search for interface address */
@@ -397,7 +424,7 @@ static int register_batgat_device( struct net_device *dev, char *name )
 
 	}
 
-	return( 0 );
+	return( device );
 
 error:
 
@@ -409,7 +436,7 @@ error:
 
 	device = NULL;
 
-	return( -1 );
+	return( NULL );
 };
 
 static int unregister_batgat_device( char *name )
@@ -425,10 +452,8 @@ static int unregister_batgat_device( char *name )
 
 	if( device->thread_pid ) {
 
-		DBG("wait for sigterm thread...");
 		kill_proc( device->thread_pid, SIGTERM, 0 );
 		wait_for_completion( &device->thread_complete );
-		DBG("thread terminated");
 
 	}
 
@@ -437,6 +462,11 @@ static int unregister_batgat_device( char *name )
 	for( i = 0; i < 254; i++ ) {
 		if( device->client[ i ] != NULL )
 			kfree( device->client[ i ] );
+	}
+
+	if( device->bat_netdev != NULL ) {
+		unregister_netdev( device->bat_netdev );
+		device->bat_netdev = NULL;
 	}
 
 	kfree( device );
@@ -450,18 +480,16 @@ static int get_reg_index( char *name )
 {
 	int free_place = -1, i;
 	
-	DBG( "search for %s", name );
-	
 	if( reg_dev_array != NULL ) {
 
 		for( i = 0; i < reg_dev_reserved; i++ ) {
 
-			if( reg_dev_array[ i ] != NULL && strncmp( name, reg_dev_array[i]->name, strlen(name) + 1 ) == 0 ) {
+			if( reg_dev_array[ i ] != NULL && strncmp( name, reg_dev_array[i]->name, strlen(name) + 1 ) == 0 )
 
-				DBG( "found dev in reg_dev_array");
 				return( i );
 
-			} else if( reg_dev_array[ i ] == NULL )
+			else if( reg_dev_array[ i ] == NULL )
+
 				free_place = i;
 
 		}
@@ -496,8 +524,7 @@ static int udp_server_thread(void *data)
 	msg.msg_iov    = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-	
-	DBG( "start udp_server thread for %s", dev_element->name );
+
 	daemonize( "udpserver" );
 	allow_signal( SIGTERM );
 	while( !signal_pending( current ) ) {
@@ -632,6 +659,89 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 
 	set_fs( oldfs );
 	return( 0 );
+}
+
+/* bat_netdev part */
+
+static void bat_netdev_setup( struct net_device *dev)
+{
+	dev->init = bat_netdev_probe;
+	dev->open = bat_netdev_open;
+	dev->stop = bat_netdev_close;
+	dev->hard_start_xmit = bat_netdev_send;
+	dev->destructor = free_netdev;
+}
+
+static int bat_netdev_send( struct sk_buff *skb, struct net_device *dev )
+{
+	kfree_skb( skb );
+	return( 0 );
+}
+
+static int bat_netdev_probe( struct net_device *dev )
+{
+	ether_setup( dev );
+	return( 0 );
+}
+
+static int bat_netdev_open( struct net_device *dev )
+{
+	DBG( "receive open" );
+	netif_start_queue( dev );
+	return( 0 );
+}
+
+static int bat_netdev_close( struct net_device *dev )
+{
+	DBG( "receive close" );
+	netif_stop_queue( dev );
+	return( 0 );
+}
+
+static int create_bat_netdev( struct reg_device *dev )
+{
+// 	mm_segment_t oldfs;
+// 	struct ifreq ifr;
+// 	struct sockaddr_in *sin = (void *) &ifr.ifr_ifru.ifru_addr;
+// 	int err;
+// 	uint8_t ip[4] = { 169, 254, dev->index, 0 };
+
+
+	if( dev->bat_netdev == NULL ) {
+
+		if( ( dev->bat_netdev = alloc_netdev(0, "bnd%d", bat_netdev_setup ) ) == NULL )
+			return -ENOMEM;
+
+		if( ( register_netdev( dev->bat_netdev ) ) != 0 )
+			return -ENODEV;
+
+		/* setup ip address doesn't run */
+
+// 		memset( &ifr, 0, sizeof( ifr ) );
+// 		strcpy( ifr.ifr_ifrn.ifrn_name, dev->bat_netdev->name );
+// 
+// 		sin->sin_family = AF_INET;
+// 		sin->sin_addr.s_addr = *(uint32_t*)ip;
+// 		sin->sin_port = 0;
+// 
+// 		oldfs = get_fs();
+// 		set_fs(get_ds());
+// 		if( ( err =  devinet_ioctl( SIOCSIFADDR, (struct ifreq __user *)&ifr ) ) < 0 ) {
+// 			DBG( "ioctl failed (%d), can't set ip %u.%u.%u.%u for dev %s", err, ip[0], ip[1], ip[2], ip[3], dev->bat_netdev->name );
+// 			set_fs(oldfs);
+// 			return( -1 );
+// 		}
+// 		set_fs(oldfs);
+
+	} else {
+
+		DBG( "bat_netdev for %s is already created", dev->name );
+		return( -1 );
+
+	}
+
+	return( 0 );
+
 }
 
 MODULE_LICENSE("GPL");

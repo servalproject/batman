@@ -42,6 +42,7 @@ struct gw_client {
 struct reg_device {
 	struct completion thread_complete;
 	struct socket *socket;
+	struct net_device *bat_netdev;
 	struct gw_client *client[254];
 	int thread_pid;
 	char name[IFNAMSIZ];

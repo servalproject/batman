@@ -860,8 +860,12 @@ void init_interface ( struct batman_if *batman_if ) {
 void init_interface_gw ( struct batman_if *batman_if ) {
 
 	unsigned int cmd;
-
-	int32_t sock_opts;
+	static uint8_t index = 0;
+	uint8_t ip[4];
+	int32_t sock_opts, err, skfd;
+	struct ifreq ifr;
+	struct sockaddr_in sin;
+	char dev_name[IFNAMSIZ];
 
 	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
 
@@ -896,12 +900,60 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 	} else {
 
 		cmd = (unsigned short)IOCSETDEV + ((unsigned short)strlen(batman_if->dev)<<16);
-		if(ioctl(batman_if->udp_tunnel_sock,cmd, batman_if->dev) < 0 ) {
+		if( ioctl( batman_if->udp_tunnel_sock, cmd, batman_if->dev ) < 0 ) {
 			debug_output( 0, "Error - can't add device %s: %s\n", batman_if->dev,strerror(errno) );
 			batman_if->dev = NULL;
 			restore_defaults();
 			exit(EXIT_FAILURE);
 		}
+
+		ip[0] = 169; ip[1] = 254; ip[2] = index; ip[3] = 0;
+
+		/* set ip address of bnd dev */
+
+		snprintf( dev_name, IFNAMSIZ, "bnd%d", index );
+		memset( &ifr, 0, sizeof( ifr ) );
+		memset(&sin, 0, sizeof(struct sockaddr));
+
+		strncpy( ifr.ifr_name, dev_name, IFNAMSIZ );
+
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = *(uint32_t*)ip;
+		memcpy(&ifr.ifr_addr, &sin, sizeof(struct sockaddr));
+
+		if( ( skfd = socket( AF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
+			debug_output( 0, "Error - can't create socket to bnd\n" );
+			restore_defaults();
+			exit( EXIT_FAILURE );
+		}
+
+		if( ( err =  ioctl( skfd, SIOCSIFADDR, &ifr ) ) < 0 ) {
+			debug_output( 0, "Error - can't set IFADDR (%s), ip %u.%u.%u.%u for dev %s", strerror(err), ip[0], ip[1], ip[2], ip[3], dev_name );
+			close( skfd );
+			restore_defaults();
+			exit( EXIT_FAILURE );
+		}
+
+		memset( &ifr, 0, sizeof( ifr ) );
+		strncpy( ifr.ifr_name, dev_name, IFNAMSIZ );
+		if( ioctl( skfd, SIOCGIFFLAGS, &ifr ) < 0) {
+			debug_output( 0, "Error - can't get IFFLAGS for %s: unknown interface: %s\n", dev_name, strerror(errno) );
+			close( skfd );
+			restore_defaults();
+			exit( EXIT_FAILURE );
+		}
+		strncpy( ifr.ifr_name, dev_name, IFNAMSIZ );
+		ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
+
+		if( ioctl( skfd, SIOCSIFFLAGS, &ifr ) < 0) {
+			debug_output( 0, "Error - can't set IFFLAGS for %s: %s\n", dev_name, strerror(errno) );
+			close( skfd );
+			restore_defaults();
+			exit( EXIT_FAILURE );
+		}
+
+		close( skfd );
+		index++;
 
 	}
 
