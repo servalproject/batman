@@ -607,7 +607,7 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
-	uint8_t total_count;
+	uint8_t total_count, min_total_count;
 
 
 	list_for_each( list_pos, &orig_node->neigh_list ) {
@@ -628,9 +628,23 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 	if ( neigh_node != NULL ) {
 
 		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
-		orig_neigh_node->tq_own = (uint32_t)( ( ( (float)total_count / (float)TQ_LOCAL_WINDOW_SIZE ) / ( (float)neigh_node->real_packet_count / (float)TQ_LOCAL_WINDOW_SIZE ) ) * TQ_LOCAL_WINDOW_SIZE );
 
-		in->tq = (in->tq * ( ( orig_neigh_node->tq_own * TQ_MAX_VALUE ) / TQ_LOCAL_WINDOW_SIZE ) / TQ_MAX_VALUE);
+		/* pay attention to not get a value bigger than 100 % */
+		min_total_count = ( total_count > neigh_node->real_packet_count ? neigh_node->real_packet_count : total_count );
+
+		/* if we have too few packets (too less data) we set tq_own to zero */
+		if ( min_total_count < TQ_LOCAL_BIDRECT_STATS_MINUM ) {
+
+			orig_neigh_node->tq_own = 0;
+
+		} else {
+
+			/* neigh_node->real_packet_count is never zero as we only purge old information when getting new information */
+			orig_neigh_node->tq_own = (TQ_MAX_VALUE * min_total_count) / neigh_node->real_packet_count;
+
+		}
+
+		in->tq = ((in->tq * orig_neigh_node->tq_own) / TQ_MAX_VALUE);
 
 		static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
