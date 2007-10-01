@@ -628,6 +628,18 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	orig_node->last_valid = recv_time;
 	neigh_node->last_valid = recv_time;
 
+	list_for_each( list_pos, &orig_neigh_node->neigh_list ) {
+
+		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
+
+		if ( ( tmp_neigh_node->addr == orig_neigh_node->orig ) && ( tmp_neigh_node->if_incoming == if_incoming ) )
+			neigh_node = tmp_neigh_node;
+
+	}
+
+	if ( neigh_node == NULL )
+		neigh_node = create_neighbor(orig_neigh_node, orig_neigh_node->orig, if_incoming);
+
 	total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
 
 	/* pay attention to not get a value bigger than 100 % */
