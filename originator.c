@@ -35,7 +35,7 @@ struct neigh_node * create_neighbor(struct orig_node *orig_node, uint32_t neigh,
 
 	debug_output( 4, "Creating new last-hop neighbour of originator\n" );
 
-	neigh_node = debugMalloc( sizeof (struct neigh_node), 403 );
+	neigh_node = debugMalloc( sizeof(struct neigh_node), 403 );
 	memset( neigh_node, 0, sizeof(struct neigh_node) );
 	INIT_LIST_HEAD(&neigh_node->list);
 

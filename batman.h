@@ -194,8 +194,8 @@ struct neigh_node
 	uint8_t tq_avg;
 	uint8_t last_ttl;         /* ttl of last received packet */
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
-	TYPE_OF_WORD seq_bits[TQ_LOCAL_WINDOW_SIZE];
-	TYPE_OF_WORD real_bits[TQ_LOCAL_WINDOW_SIZE];
+	TYPE_OF_WORD seq_bits[NUM_WORDS];
+	TYPE_OF_WORD real_bits[NUM_WORDS];
 	struct batman_if *if_incoming;
 };
 
