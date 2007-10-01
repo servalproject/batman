@@ -139,7 +139,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint32_t rcvd_time ) {
+void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
@@ -199,9 +199,6 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 // 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
 	is_new_seqno = ! get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, in->seqno );
 
-
-	orig_node->last_valid = rcvd_time;
-	neigh_node->last_valid = rcvd_time;
 
 	if ( is_new_seqno ) {
 
