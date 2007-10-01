@@ -29,6 +29,25 @@
 
 
 
+struct neigh_node * create_neighbor(struct orig_node *orig_node, uint32_t neigh, struct batman_if *if_incoming) {
+
+	struct neigh_node *neigh_node;
+
+	debug_output( 4, "Creating new last-hop neighbour of originator\n" );
+
+	neigh_node = debugMalloc( sizeof (struct neigh_node), 403 );
+	memset( neigh_node, 0, sizeof(struct neigh_node) );
+	INIT_LIST_HEAD(&neigh_node->list);
+
+	neigh_node->addr = neigh;
+	neigh_node->if_incoming = if_incoming;
+
+	list_add_tail(&neigh_node->list, &orig_node->neigh_list);
+
+	return neigh_node;
+
+}
+
 /* needed for hash, compares 2 struct orig_node, but only their ip-addresses. assumes that
  * the ip address is the first field in the struct */
 int compare_orig( void *data1, void *data2 ) {
@@ -168,16 +187,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	if ( neigh_node == NULL ) {
 
-		debug_output( 4, "Creating new last-hop neighbour of originator\n" );
-
-		neigh_node = debugMalloc( sizeof (struct neigh_node), 403 );
-		memset( neigh_node, 0, sizeof(struct neigh_node) );
-		INIT_LIST_HEAD( &neigh_node->list );
-
-		neigh_node->addr = neigh;
-		neigh_node->if_incoming = if_incoming;
-
-		list_add_tail( &neigh_node->list, &orig_node->neigh_list );
+		neigh_node = create_neighbor(orig_node, neigh, if_incoming);
 
 	} else {
 

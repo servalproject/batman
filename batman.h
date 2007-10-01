@@ -81,9 +81,9 @@
 #define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on TQ_LOCAL_WINDOW_SIZE */
 #define TQ_LOCAL_WINDOW_SIZE 64     /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
 #define TQ_TOTAL_WINDOW_SIZE 10
-#define TQ_LOCAL_BIDRECT_LIMIT TQ_LOCAL_WINDOW_SIZE / 8
+#define TQ_LOCAL_BIDRECT_SEND_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
+#define TQ_LOCAL_BIDRECT_RECV_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
 #define TQ_TOTAL_BIDRECT_LIMIT TQ_MAX_VALUE / 10
-#define TQ_LOCAL_BIDRECT_STATS_MINUM TQ_LOCAL_WINDOW_SIZE / 10
 
 
 #define NUM_WORDS ( TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE )

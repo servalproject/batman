@@ -603,7 +603,7 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 
 
-int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming ) {
+int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming) {
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
@@ -614,63 +614,48 @@ int isBidirectionalNeigh( struct orig_node *orig_node, struct orig_node *orig_ne
 
 		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
-		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
-
+		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) )
 			neigh_node = tmp_neigh_node;
-
-		}
 
 		bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
 		tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
 
 	}
 
-	if ( neigh_node != NULL ) {
-
-		total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
-
-		/* pay attention to not get a value bigger than 100 % */
-		min_total_count = ( total_count > neigh_node->real_packet_count ? neigh_node->real_packet_count : total_count );
-
-		/* if we have too few packets (too less data) we set tq_own to zero */
-		if ( min_total_count < TQ_LOCAL_BIDRECT_STATS_MINUM ) {
-
-			orig_neigh_node->tq_own = 0;
-
-		} else {
-
-			/* neigh_node->real_packet_count is never zero as we only purge old information when getting new information */
-			orig_neigh_node->tq_own = (TQ_MAX_VALUE * min_total_count) / neigh_node->real_packet_count;
-
-		}
-
-		in->tq = ((in->tq * orig_neigh_node->tq_own) / TQ_MAX_VALUE);
-
-		static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
-		addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
-		addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
-
-		debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
-
-		/* if it is a single hop (direct) neighbour and we receive too few packets it is not considered bidirectional */
-		if ( ( orig_node->orig == neigh ) && ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_LIMIT ) )
-			goto end;
+	if ( neigh_node == NULL )
+		neigh_node = create_neighbor(orig_node, neigh, if_incoming);
 
 
-		/* if link has the minimum required transmission quality consider it bidirectional */
-		if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
-			return 1;
+	total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
+
+	/* pay attention to not get a value bigger than 100 % */
+	min_total_count = ( total_count > neigh_node->real_packet_count ? neigh_node->real_packet_count : total_count );
+
+	/* if we have too few packets (too less data) we set tq_own to zero */
+	/* if we receive too few packets it is not considered bidirectional */
+	if ( ( min_total_count < TQ_LOCAL_BIDRECT_SEND_MINIMUM ) || ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_RECV_MINIMUM ) ) {
+
+		orig_neigh_node->tq_own = 0;
 
 	} else {
 
-		in->tq = TQ_TOTAL_BIDRECT_LIMIT + 1;
-
-		debug_output( 4, "bidirectional: unknown neighbor \n" );
-		return 1;
+		/* neigh_node->real_packet_count is never zero as we only purge old information when getting new information */
+		orig_neigh_node->tq_own = (TQ_MAX_VALUE * min_total_count) / neigh_node->real_packet_count;
 
 	}
 
-end:
+	in->tq = ((in->tq * orig_neigh_node->tq_own) / TQ_MAX_VALUE);
+
+	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
+	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
+	addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
+
+	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, min_total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
+
+	/* if link has the minimum required transmission quality consider it bidirectional */
+	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
+		return 1;
+
 	orig_node->last_seqno = in->seqno;
 	return 0;
 

@@ -19,6 +19,11 @@
 
 
 
+#include "batman.h"
+
+
+
+struct neigh_node * create_neighbor(struct orig_node *orig_node, uint32_t neigh, struct batman_if *if_incoming);
 int compare_orig( void *data1, void *data2 );
 int choose_orig( void *data, int32_t size );
 struct orig_node *get_orig_node( uint32_t addr );
