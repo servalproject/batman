@@ -931,6 +931,26 @@ void init_interface_gw ( struct batman_if *batman_if ) {
 			exit( EXIT_FAILURE );
 		}
 
+
+		memset( &ifr, 0, sizeof( ifr ) );
+		strncpy( ifr.ifr_name, ioc.dev_name, IFNAMSIZ - 1 );
+		if( ioctl( skfd, SIOCGIFFLAGS, &ifr ) < 0) {
+			debug_output( 0, "Error - can't get IFFLAGS for %s: %s\n", ioc.dev_name, strerror(errno) );
+			close( skfd );
+			restore_defaults();
+			exit( EXIT_FAILURE );
+		}
+
+		strncpy( ifr.ifr_name, ioc.dev_name, IFNAMSIZ - 1 );
+		ifr.ifr_flags |= ( IFF_UP | IFF_RUNNING );
+
+		if( ioctl( skfd, SIOCSIFFLAGS, &ifr ) < 0) {
+			debug_output( 0, "Error - can't set IFFLAGS for %s: %s\n", ioc.dev_name, strerror(errno) );
+			close( skfd );
+			restore_defaults();
+			exit( EXIT_FAILURE );
+		}
+
 		close( skfd );
 
 		add_del_route( ioc.universal, 24, 0, 0, ioc.ifindex, ioc.dev_name, 254, 0, 0 );

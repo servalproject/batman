@@ -38,7 +38,7 @@
 #include "mod_batgat.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-#include <linux/devfs_fs_kernel.h>
+	#include <linux/devfs_fs_kernel.h>
 #else
 	static struct class *batman_class;
 #endif
@@ -56,10 +56,10 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr);
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev( struct reg_device *dev );
-static int bat_netdev_probe( struct net_device *dev );
 static int bat_netdev_open( struct net_device *dev );
 static int bat_netdev_close( struct net_device *dev );
-static int bat_netdev_send( struct sk_buff *skb, struct net_device *dev );
+static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev );
+
 
 static struct file_operations fops = {
 	.open = batgat_open,
@@ -406,7 +406,7 @@ static struct reg_device *register_batgat_device( struct net_device *dev, char *
 		goto error;
 
 	}
-
+	DBG( "prepare socket and thread for %s", name );
 	sa.sin_family = AF_INET;
 	sa.sin_addr.s_addr = ifa->ifa_local;
 	sa.sin_port = htons( (unsigned short)BATMAN_PORT );
@@ -523,6 +523,7 @@ static int udp_server_thread(void *data)
 	int ret;
 
 	if( dev_element->socket->sk == NULL ) {
+		DBG( "in thread socket not found for %s", dev_element->name );
 		return 0;
 	}
 	
@@ -536,6 +537,8 @@ static int udp_server_thread(void *data)
 
 	daemonize( "udpserver" );
 	allow_signal( SIGTERM );
+
+	DBG( "start thread for device %s", dev_element->name );
 	while( !signal_pending( current ) ) {
 
 		iov.iov_base = buffer;
@@ -642,7 +645,6 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 	int error=0,len=0;
 
 	msg.msg_name = NULL;
-
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	iov.iov_base = buffer;
@@ -674,26 +676,26 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 
 static void bat_netdev_setup( struct net_device *dev)
 {
-	dev->init = bat_netdev_probe;
+
+	ether_setup(dev);
 	dev->open = bat_netdev_open;
 	dev->stop = bat_netdev_close;
-	dev->hard_start_xmit = bat_netdev_send;
+	dev->hard_start_xmit = bat_netdev_xmit;
 	dev->destructor = free_netdev;
-}
 
-static int bat_netdev_send( struct sk_buff *skb, struct net_device *dev )
-{
-	kfree_skb( skb );
-	return( 0 );
-}
-
-static int bat_netdev_probe( struct net_device *dev )
-{
-	ether_setup( dev );
+	dev->features        |= NETIF_F_NO_CSUM;
+	dev->hard_header_cache = NULL;
 	dev->mtu = 1471;
-	dev->type = ARPHRD_NONE;
-	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST | IFF_UP | IFF_RUNNING;
+	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+	dev->hard_header_cache = NULL;
 	
+	return;
+}
+
+static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
+{
+	DBG( "xmit is not implemented" );
+	kfree_skb( skb );
 	return( 0 );
 }
 
@@ -713,15 +715,16 @@ static int bat_netdev_close( struct net_device *dev )
 
 static int create_bat_netdev( struct reg_device *dev )
 {
-
+	int ret;
+	
 	if( dev->bat_netdev == NULL ) {
 
-		if( ( dev->bat_netdev = alloc_netdev(0, "gate%d", bat_netdev_setup ) ) == NULL )
+		if( ( dev->bat_netdev = alloc_netdev( 0 , "gate%d", bat_netdev_setup ) ) == NULL )
 			return -ENOMEM;
 
-		if( ( register_netdev( dev->bat_netdev ) ) != 0 )
+		if( ( ret = register_netdev( dev->bat_netdev ) )< 0 )
 			return -ENODEV;
-
+		DBG( "register returned %d", ret );
 	} else {
 
 		DBG( "bat_netdev for %s is already created", dev->name );
@@ -732,6 +735,7 @@ static int create_bat_netdev( struct reg_device *dev )
 	return( 0 );
 
 }
+
 
 MODULE_LICENSE("GPL");
 

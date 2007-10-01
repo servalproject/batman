@@ -44,6 +44,7 @@ struct reg_device {
 	struct socket *socket;
 	struct net_device *bat_netdev;
 	struct gw_client *client[254];
+	struct packet_type packet;
 	int thread_pid;
 	char name[IFNAMSIZ];
 	uint8_t index;
