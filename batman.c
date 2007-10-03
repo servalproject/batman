@@ -603,34 +603,39 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 
 
-int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming) {
+int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming, uint8_t is_duplicate) {
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
 	uint8_t total_count, min_total_count;
 
 
-	list_for_each( list_pos, &orig_node->neigh_list ) {
+	if ( orig_node == orig_neigh_node ) {
 
-		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
+		list_for_each( list_pos, &orig_node->neigh_list ) {
 
-		if ( ( tmp_neigh_node->addr == orig_neigh_node->orig ) && ( tmp_neigh_node->if_incoming == if_incoming ) )
-			neigh_node = tmp_neigh_node;
+			tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
-		bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
-		tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
+			if ( ( tmp_neigh_node->addr == orig_neigh_node->orig ) && ( tmp_neigh_node->if_incoming == if_incoming ) )
+				neigh_node = tmp_neigh_node;
 
-	}
+			if ( !is_duplicate ) {
 
-	if ( neigh_node == NULL )
-		neigh_node = create_neighbor(orig_node, orig_neigh_node->orig, if_incoming);
+				bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
+				tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
 
-	orig_node->last_valid = recv_time;
-	neigh_node->last_valid = recv_time;
+			}
 
-	/* find packet count of one hop neighbor */
-	if (orig_node != orig_neigh_node) {
+		}
 
+		if ( neigh_node == NULL )
+			neigh_node = create_neighbor(orig_node, orig_neigh_node->orig, if_incoming);
+
+		neigh_node->last_valid = recv_time;
+
+	} else {
+
+		/* find packet count of corresponding one hop neighbor */
 		list_for_each( list_pos, &orig_neigh_node->neigh_list ) {
 
 			tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
@@ -644,6 +649,8 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 			neigh_node = create_neighbor(orig_neigh_node, orig_neigh_node->orig, if_incoming);
 
 	}
+
+	orig_node->last_valid = recv_time;
 
 	total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
 
@@ -670,6 +677,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 
 	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, min_total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
+	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, min_total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
 
 	/* if link has the minimum required transmission quality consider it bidirectional */
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
@@ -1070,11 +1078,11 @@ int8_t batman() {
 				} else {
 
 					is_duplicate = isDuplicate( orig_node, ((struct bat_packet *)&in)->seqno );
-					is_bidirectional = isBidirectionalNeigh( orig_node, orig_neigh_node, (struct bat_packet *)in, curr_time, if_incoming );
+					is_bidirectional = isBidirectionalNeigh( orig_node, orig_neigh_node, (struct bat_packet *)in, curr_time, if_incoming, is_duplicate );
 
 					/* update ranking */
-					if ( ( is_bidirectional ) && ( !is_duplicate ) )
-						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len );
+					if ( is_bidirectional )
+						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate );
 
 					is_bntog = isBntog( neigh, orig_node );
 
