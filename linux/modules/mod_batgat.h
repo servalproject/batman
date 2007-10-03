@@ -55,3 +55,7 @@ struct batgat_ioc_args {
 	uint32_t universal;
 	uint32_t ifindex;
 };
+
+struct gate_priv {
+	struct socket *tun_socket;
+};

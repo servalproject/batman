@@ -53,6 +53,8 @@ static int unregister_batgat_device( char *name );
 static int get_reg_index( char *name );
 static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
 static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr);
+static uint32_t get_client_address( uint8_t third_octet, uint8_t fourth_octet );
+static void raw_print(void *data, unsigned int length);
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev( struct reg_device *dev );
@@ -406,7 +408,7 @@ static struct reg_device *register_batgat_device( struct net_device *dev, char *
 		goto error;
 
 	}
-	DBG( "prepare socket and thread for %s", name );
+
 	sa.sin_family = AF_INET;
 	sa.sin_addr.s_addr = ifa->ifa_local;
 	sa.sin_port = htons( (unsigned short)BATMAN_PORT );
@@ -521,6 +523,7 @@ static int udp_server_thread(void *data)
 	uint8_t ip_address[4];
 	unsigned char *check_ip;
 	int ret;
+	uint32_t c_addr;
 
 	if( dev_element->socket->sk == NULL ) {
 		DBG( "in thread socket not found for %s", dev_element->name );
@@ -566,12 +569,17 @@ static int udp_server_thread(void *data)
 
 			check_ip = (unsigned char *)&iph->saddr;
 
-			if( check_ip[0] != 169 && check_ip[1] != 254 && dev_element->index != check_ip[2] && dev_element->client[ check_ip[3] ] == NULL ) {
+			c_addr = get_client_address( check_ip[2], check_ip[3] );
+
+			if( !c_addr || c_addr != client.sin_addr.s_addr ) {
+
 				DBG( "virtual ip %u.%u.%u.%u invalid", check_ip[0], check_ip[1], check_ip[2], check_ip[3] );
 				buffer[0] = TUNNEL_IP_INVALID;
 				send_data( dev_element->socket, &client, buffer, len );
 				continue;
+
 			}
+
 			/* TODO: semaphore */
 
 			global_iov.iov_base = &buffer[1];
@@ -672,10 +680,31 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 	return( 0 );
 }
 
+static uint32_t get_client_address( uint8_t third_octet, uint8_t fourth_octet ) {
+
+	if( third_octet > reg_dev_reserved ) {
+		DBG( "1. test failed %d <= %d", third_octet, reg_dev_reserved );
+		return 0;
+	}
+
+	if( reg_dev_array[ third_octet ] == NULL ) {
+		DBG( "2. test failed" );
+		return 0;
+	}
+
+	if( reg_dev_array[ third_octet ]->client[ fourth_octet ] == NULL ) {
+		DBG( "3. test failed" );
+		return 0;
+	} else
+		return( reg_dev_array[ third_octet ]->client[ fourth_octet ]->address );
+
+}
+
 /* bat_netdev part */
 
-static void bat_netdev_setup( struct net_device *dev)
+static void bat_netdev_setup( struct net_device *dev )
 {
+	struct gate_priv *priv;
 
 	ether_setup(dev);
 	dev->open = bat_netdev_open;
@@ -688,13 +717,39 @@ static void bat_netdev_setup( struct net_device *dev)
 	dev->mtu = 1471;
 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
 	dev->hard_header_cache = NULL;
+
+	priv = netdev_priv( dev );
+	memset( priv, 0, sizeof( struct gate_priv ) );
 	
 	return;
 }
 
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 {
-	DBG( "xmit is not implemented" );
+	struct sockaddr_in sa;
+	struct gate_priv *priv = netdev_priv( dev );
+	struct iphdr *iph = ip_hdr( skb );
+	unsigned char buffer[1500];
+	uint8_t dest[4];
+	uint32_t real_dest;
+
+	memcpy( dest, &iph->daddr, sizeof(int) );
+// 	DBG( "prepare forwarding %u.%u.%u.%u", dest[0], dest[1], dest[2], dest[3] );
+	if( dest[0] == 169 && dest[1] == 254 && ( real_dest = get_client_address( dest[2], dest[3] ) ) ) {
+
+// 		DBG( "forward to %u.%u.%u.%u", dest[0], dest[1], dest[2], dest[3] );
+		sa.sin_family = AF_INET;
+		sa.sin_addr.s_addr = real_dest;
+		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
+		
+		buffer[ 0 ] = TUNNEL_DATA;
+// 		raw_print( skb->data + sizeof( struct ethhdr ), skb->len - sizeof( struct ethhdr ) );
+		memcpy( &buffer[1], skb->data + sizeof( struct ethhdr ), skb->len - sizeof( struct ethhdr ) );
+
+		send_data( priv->tun_socket, &sa, buffer, skb->len - sizeof( struct ethhdr )  + 1 );
+
+	}
+
 	kfree_skb( skb );
 	return( 0 );
 }
@@ -715,16 +770,19 @@ static int bat_netdev_close( struct net_device *dev )
 
 static int create_bat_netdev( struct reg_device *dev )
 {
-	int ret;
-	
+	struct gate_priv *priv;
+
 	if( dev->bat_netdev == NULL ) {
 
-		if( ( dev->bat_netdev = alloc_netdev( 0 , "gate%d", bat_netdev_setup ) ) == NULL )
+		if( ( dev->bat_netdev = alloc_netdev( sizeof( struct gate_priv ) , "gate%d", bat_netdev_setup ) ) == NULL )
 			return -ENOMEM;
 
-		if( ( ret = register_netdev( dev->bat_netdev ) )< 0 )
+		if( ( register_netdev( dev->bat_netdev ) ) < 0 )
 			return -ENODEV;
-		DBG( "register returned %d", ret );
+
+		priv = netdev_priv( dev->bat_netdev );
+		priv->tun_socket = dev->socket;
+
 	} else {
 
 		DBG( "bat_netdev for %s is already created", dev->name );
@@ -736,6 +794,25 @@ static int create_bat_netdev( struct reg_device *dev )
 
 }
 
+static void raw_print(void *data, unsigned int length)
+{
+	unsigned char *buffer = (unsigned char *)data;
+	int i;
+
+	printk("\n");
+	for(i=0;i<length;i++) {
+		if( i == 0 )
+			printk("%p| ",&buffer[i]);
+
+		if( i != 0 && i%8 == 0 )
+			printk("  ");
+		if( i != 0 && i%16 == 0 )
+			printk("\n%p| ", &buffer[i]);
+
+		printk("%02x ", buffer[i] );
+	}
+	printk("\n\n");
+}
 
 MODULE_LICENSE("GPL");
 
