@@ -24,6 +24,7 @@
 #define DRIVER_DESC   "batman gateway module"
 #define DRIVER_DEVICE "batgat"
 
+
 #include <linux/version.h>	/* KERNEL_VERSION ... */
 #include <linux/fs.h>		/* fops ...*/
 #include <linux/inetdevice.h>	/* __in_dev_get_rtnl */
@@ -54,7 +55,6 @@ static int get_reg_index( char *name );
 static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
 static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr);
 static uint32_t get_client_address( uint8_t third_octet, uint8_t fourth_octet );
-static void raw_print(void *data, unsigned int length);
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev( struct reg_device *dev );
@@ -73,12 +73,6 @@ static int Major;					/* Major number assigned to our device driver */
 
 static struct reg_device **reg_dev_array = NULL;
 static int reg_dev_reserved = 0;			/* memory reserved for elements count */
-
-struct socket *inet_sock;
-struct msghdr global_msg;
-struct iovec global_iov;
-struct sockaddr_in global_addr_out;
-
 
 int init_module()
 {
@@ -106,24 +100,6 @@ int init_module()
 	DBG( "I was assigned major number %d. To talk to", Major );
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	DBG( "Remove the device file and module when done." );
-
-	/* init global socket to forward packets */
-	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
-
-		DBG( "can't create raw socket");
-		return 1;
-
-	}
-
-	global_addr_out.sin_family = AF_INET;
-
-	global_msg.msg_iov = &global_iov;
-	global_msg.msg_iovlen = 1;
-	global_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-	global_msg.msg_name = &global_addr_out;
-	global_msg.msg_namelen = sizeof(global_addr_out);
-	global_msg.msg_control = NULL;
-	global_msg.msg_controllen = 0;
 	
 	return(0);
 }
@@ -177,7 +153,6 @@ void cleanup_module()
 	
 	kfree( reg_dev_array );
 	reg_dev_reserved -= i;
-	sock_release( inet_sock );
 	
 	DBG( "unload module complete" );
 	return;
@@ -512,17 +487,19 @@ static int get_reg_index( char *name )
 
 static int udp_server_thread(void *data)
 {
+
 	struct reg_device *dev_element = (struct reg_device*)data;
-	struct sockaddr_in client;
-	struct msghdr msg;
-	struct iovec iov;
+	struct sockaddr_in client, inet_addr;
+	struct msghdr msg, inet_msg;
+	struct iovec iov, inet_iov;
 	struct iphdr *iph;
-	unsigned char buffer[1500];
-	int len;
+	struct socket *inet_sock;
+	
+	unsigned char buffer[1500], *check_ip;
+	int len, ret;
+	
 	mm_segment_t oldfs;
 	uint8_t ip_address[4];
-	unsigned char *check_ip;
-	int ret;
 	uint32_t c_addr;
 
 	if( dev_element->socket->sk == NULL ) {
@@ -537,6 +514,24 @@ static int udp_server_thread(void *data)
 	msg.msg_iov    = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+
+
+	/* init inet socket to forward packets */
+	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
+
+		DBG( "can't create raw socket");
+		return 0;
+
+	}
+
+	inet_addr.sin_family = AF_INET;
+	inet_msg.msg_iov = &inet_iov;
+	inet_msg.msg_iovlen = 1;
+	inet_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+	inet_msg.msg_name = &inet_addr;
+	inet_msg.msg_namelen = sizeof( inet_addr );
+	inet_msg.msg_control = NULL;
+	inet_msg.msg_controllen = 0;
 
 	daemonize( "udpserver" );
 	allow_signal( SIGTERM );
@@ -580,23 +575,21 @@ static int udp_server_thread(void *data)
 
 			}
 
-			/* TODO: semaphore */
+				inet_iov.iov_base = &buffer[1];
+				inet_iov.iov_len = len - 1;
 
-			global_iov.iov_base = &buffer[1];
-			global_iov.iov_len = len - 1;
+				inet_addr.sin_port = 0;
+				inet_addr.sin_addr.s_addr = iph->daddr;
 
-			global_addr_out.sin_port = 0;
-			global_addr_out.sin_addr.s_addr = iph->daddr;
-
-			oldfs = get_fs();
-			set_fs( KERNEL_DS );
-			ret = sock_sendmsg( inet_sock, &global_msg, len - 1);
-			set_fs( oldfs );
+				oldfs = get_fs();
+				set_fs( KERNEL_DS );
+				ret = sock_sendmsg( inet_sock, &inet_msg, len - 1);
+				set_fs( oldfs );
 
 		}
 
 	}
-
+	sock_release( inet_sock );
 	sock_release( dev_element->socket );
 	complete( &dev_element->thread_complete );
 
@@ -639,7 +632,7 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr)
 	dev->client[ first_free ]->address = client_addr;
 
 	/* TODO: check syscall for time*/
-	dev->client[ first_free ]->last_keep_alive = 0;
+	dev->client[ first_free ]->last_keep_alive = jiffies;
 
 	return first_free;
 }
@@ -682,21 +675,13 @@ static int send_data( struct socket *socket, struct sockaddr_in *client, unsigne
 
 static uint32_t get_client_address( uint8_t third_octet, uint8_t fourth_octet ) {
 
-	if( third_octet > reg_dev_reserved ) {
-		DBG( "1. test failed %d <= %d", third_octet, reg_dev_reserved );
-		return 0;
-	}
+	if( third_octet > reg_dev_reserved || reg_dev_array[ third_octet ] == NULL ||
+		   reg_dev_array[ third_octet ]->client[ fourth_octet ] == NULL )
 
-	if( reg_dev_array[ third_octet ] == NULL ) {
-		DBG( "2. test failed" );
 		return 0;
-	}
 
-	if( reg_dev_array[ third_octet ]->client[ fourth_octet ] == NULL ) {
-		DBG( "3. test failed" );
-		return 0;
-	} else
-		return( reg_dev_array[ third_octet ]->client[ fourth_octet ]->address );
+
+	return( reg_dev_array[ third_octet ]->client[ fourth_octet ]->address );
 
 }
 
@@ -734,16 +719,14 @@ static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 	uint32_t real_dest;
 
 	memcpy( dest, &iph->daddr, sizeof(int) );
-// 	DBG( "prepare forwarding %u.%u.%u.%u", dest[0], dest[1], dest[2], dest[3] );
+
 	if( dest[0] == 169 && dest[1] == 254 && ( real_dest = get_client_address( dest[2], dest[3] ) ) ) {
 
-// 		DBG( "forward to %u.%u.%u.%u", dest[0], dest[1], dest[2], dest[3] );
 		sa.sin_family = AF_INET;
 		sa.sin_addr.s_addr = real_dest;
 		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
 		
 		buffer[ 0 ] = TUNNEL_DATA;
-// 		raw_print( skb->data + sizeof( struct ethhdr ), skb->len - sizeof( struct ethhdr ) );
 		memcpy( &buffer[1], skb->data + sizeof( struct ethhdr ), skb->len - sizeof( struct ethhdr ) );
 
 		send_data( priv->tun_socket, &sa, buffer, skb->len - sizeof( struct ethhdr )  + 1 );
@@ -792,26 +775,6 @@ static int create_bat_netdev( struct reg_device *dev )
 
 	return( 0 );
 
-}
-
-static void raw_print(void *data, unsigned int length)
-{
-	unsigned char *buffer = (unsigned char *)data;
-	int i;
-
-	printk("\n");
-	for(i=0;i<length;i++) {
-		if( i == 0 )
-			printk("%p| ",&buffer[i]);
-
-		if( i != 0 && i%8 == 0 )
-			printk("  ");
-		if( i != 0 && i%16 == 0 )
-			printk("\n%p| ", &buffer[i]);
-
-		printk("%02x ", buffer[i] );
-	}
-	printk("\n\n");
 }
 
 MODULE_LICENSE("GPL");
