@@ -496,7 +496,7 @@ static int udp_server_thread(void *data)
 	struct socket *inet_sock;
 	
 	unsigned char buffer[1500], *check_ip;
-	int len, ret;
+	int len, ret, i;
 	
 	mm_segment_t oldfs;
 	uint8_t ip_address[4];
@@ -575,6 +575,8 @@ static int udp_server_thread(void *data)
 
 			}
 
+				dev_element->client[ check_ip[ 3 ] ]->last_keep_alive = jiffies;
+
 				inet_iov.iov_base = &buffer[1];
 				inet_iov.iov_len = len - 1;
 
@@ -588,7 +590,25 @@ static int udp_server_thread(void *data)
 
 		}
 
+		/* TODO: is not the best place to check lease time */
+
+		for( i = 0; i < 254; i++ ) {
+
+			if(dev_element->client[ i ] == NULL  )
+				continue;
+
+
+			if( ( jiffies - dev_element->client[ i ]->last_keep_alive ) / HZ > LEASE_TIME ) {
+
+				kfree( dev_element->client[ i ] );
+				dev_element->client[ i ] = NULL;
+
+			}
+
+		}
+
 	}
+
 	sock_release( inet_sock );
 	sock_release( dev_element->socket );
 	complete( &dev_element->thread_complete );
