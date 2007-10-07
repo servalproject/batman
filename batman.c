@@ -715,7 +715,7 @@ void generate_vis_packet() {
 
 	((struct vis_packet *)vis_packet)->version = VIS_COMPAT_VERSION;
 	((struct vis_packet *)vis_packet)->gw_class = gateway_class;
-	((struct vis_packet *)vis_packet)->seq_range = TQ_LOCAL_WINDOW_SIZE;
+	((struct vis_packet *)vis_packet)->tq_max = TQ_MAX_VALUE;
 
 	/* neighbor list */
 	while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
@@ -733,7 +733,7 @@ void generate_vis_packet() {
 
 			memcpy( &vis_data->ip, (unsigned char *)&orig_node->orig, 4 );
 
-			vis_data->data = orig_node->router->packet_count;
+			vis_data->data = orig_node->router->tq_avg;
 			vis_data->type = DATA_TYPE_NEIGH;
 
 		}
