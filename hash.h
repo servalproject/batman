@@ -16,6 +16,9 @@
  * 02110-1301, USA
  *
  */
+#ifndef _BATMAN_HASH_H
+#define _BATMAN_HASH_H
+
 
 
 typedef int (*hashdata_compare_cb)(void *, void *);
@@ -85,5 +88,6 @@ void 				 hash_debug( struct hashtable_t *hash);
 
 /* iterate though the hash. first element is selected with iter_in NULL.
  * use the returned iterator to access the elements until hash_it_t returns NULL. */
-struct hash_it_t *hash_iterate(struct hashtable_t *hash, struct hash_it_t *iter_in);
+struct hash_it_t 	*hash_iterate(struct hashtable_t *hash, struct hash_it_t *iter_in);
 
+#endif

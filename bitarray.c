@@ -31,7 +31,7 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 
 	int i;
 
-	for (i=0; i< NUM_WORDS; i++)
+	for (i = 0 ; i < (int)NUM_WORDS; i++)
 		seq_bits[i]= 0;
 
 };
