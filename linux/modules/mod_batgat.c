@@ -501,7 +501,7 @@ static int udp_server_thread(void *data)
 	mm_segment_t oldfs;
 	uint8_t ip_address[4];
 	uint32_t c_addr;
-	unsigned long time = 0;
+	unsigned long time = jiffies;
 
 	if( dev_element->socket->sk == NULL ) {
 		DBG( "in thread socket not found for %s", dev_element->name );
@@ -546,8 +546,6 @@ static int udp_server_thread(void *data)
 		set_fs( KERNEL_DS );
 		len = sock_recvmsg( dev_element->socket, &msg,sizeof(buffer), 0 );
 		set_fs( oldfs );
-
-		if( !time ) time = jiffies;
 		
 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
@@ -609,7 +607,7 @@ static int udp_server_thread(void *data)
 
 		}
 
-		time = 0;
+		time = jiffies;
 
 	}
 
