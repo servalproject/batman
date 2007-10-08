@@ -501,6 +501,7 @@ static int udp_server_thread(void *data)
 	mm_segment_t oldfs;
 	uint8_t ip_address[4];
 	uint32_t c_addr;
+	unsigned long time = 0;
 
 	if( dev_element->socket->sk == NULL ) {
 		DBG( "in thread socket not found for %s", dev_element->name );
@@ -514,6 +515,8 @@ static int udp_server_thread(void *data)
 	msg.msg_iov    = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+	iov.iov_base = buffer;
+	iov.iov_len  = sizeof( buffer );
 
 
 	/* init inet socket to forward packets */
@@ -539,13 +542,13 @@ static int udp_server_thread(void *data)
 	DBG( "start thread for device %s", dev_element->name );
 	while( !signal_pending( current ) ) {
 
-		iov.iov_base = buffer;
-		iov.iov_len  = sizeof(buffer);
 		oldfs = get_fs();
 		set_fs( KERNEL_DS );
 		len = sock_recvmsg( dev_element->socket, &msg,sizeof(buffer), 0 );
 		set_fs( oldfs );
 
+		if( !time ) time = jiffies;
+		
 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
 			if( ( ip_address[3] = ( uint8_t )get_virtual_ip( dev_element, client.sin_addr.s_addr ) ) == 0 ) {
@@ -560,9 +563,9 @@ static int udp_server_thread(void *data)
 
 		} else if( len > 0 && buffer[0] == TUNNEL_DATA ) {
 
-			iph = (struct iphdr*)(buffer + 1);
+			iph = ( struct iphdr*)(buffer + 1 );
 
-			check_ip = (unsigned char *)&iph->saddr;
+			check_ip = ( unsigned char * )&iph->saddr;
 
 			c_addr = get_client_address( check_ip[2], check_ip[3] );
 
@@ -575,28 +578,27 @@ static int udp_server_thread(void *data)
 
 			}
 
-				dev_element->client[ check_ip[ 3 ] ]->last_keep_alive = jiffies;
+			dev_element->client[ check_ip[ 3 ] ]->last_keep_alive = jiffies;
+			inet_iov.iov_base = &buffer[1];
+			inet_iov.iov_len = len - 1;
 
-				inet_iov.iov_base = &buffer[1];
-				inet_iov.iov_len = len - 1;
+			inet_addr.sin_port = 0;
+			inet_addr.sin_addr.s_addr = iph->daddr;
 
-				inet_addr.sin_port = 0;
-				inet_addr.sin_addr.s_addr = iph->daddr;
-
-				oldfs = get_fs();
-				set_fs( KERNEL_DS );
-				ret = sock_sendmsg( inet_sock, &inet_msg, len - 1);
-				set_fs( oldfs );
+			oldfs = get_fs();
+			set_fs( KERNEL_DS );
+			ret = sock_sendmsg( inet_sock, &inet_msg, len - 1);
+			set_fs( oldfs );
 
 		}
 
-		/* TODO: is not the best place to check lease time */
+		if( time / HZ < LEASE_TIME )
+			continue;
 
 		for( i = 0; i < 254; i++ ) {
 
 			if(dev_element->client[ i ] == NULL  )
 				continue;
-
 
 			if( ( jiffies - dev_element->client[ i ]->last_keep_alive ) / HZ > LEASE_TIME ) {
 
@@ -606,6 +608,8 @@ static int udp_server_thread(void *data)
 			}
 
 		}
+
+		time = 0;
 
 	}
 
@@ -651,7 +655,6 @@ static uint8_t get_virtual_ip( struct reg_device *dev, uint32_t client_addr)
 
 	dev->client[ first_free ]->address = client_addr;
 
-	/* TODO: check syscall for time*/
 	dev->client[ first_free ]->last_keep_alive = jiffies;
 
 	return first_free;
