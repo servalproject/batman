@@ -172,7 +172,8 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	uint32_t orig;
 	struct neigh_node *router;
 	struct batman_if *batman_if;
-	TYPE_OF_WORD *rcvd_own;
+	TYPE_OF_WORD *bcast_own;
+	uint8_t bcast_own_sum;
 	uint8_t tq_own;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
@@ -196,6 +197,7 @@ struct neigh_node
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD seq_bits[NUM_WORDS];
 	TYPE_OF_WORD real_bits[NUM_WORDS];
+	struct orig_node *orig_node;
 	struct batman_if *if_incoming;
 };
 

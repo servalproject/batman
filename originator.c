@@ -29,7 +29,7 @@
 
 
 
-struct neigh_node * create_neighbor(struct orig_node *orig_node, uint32_t neigh, struct batman_if *if_incoming) {
+struct neigh_node * create_neighbor(struct orig_node *orig_node, struct orig_node *orig_neigh_node, uint32_t neigh, struct batman_if *if_incoming) {
 
 	struct neigh_node *neigh_node;
 
@@ -40,6 +40,7 @@ struct neigh_node * create_neighbor(struct orig_node *orig_node, uint32_t neigh,
 	INIT_LIST_HEAD(&neigh_node->list);
 
 	neigh_node->addr = neigh;
+	neigh_node->orig_node = orig_neigh_node;
 	neigh_node->if_incoming = if_incoming;
 
 	list_add_tail(&neigh_node->list, &orig_node->neigh_list);
@@ -112,8 +113,8 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->router = NULL;
 	orig_node->batman_if = NULL;
 
-	orig_node->rcvd_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
-	memset( orig_node->rcvd_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );
+	orig_node->bcast_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
+	memset( orig_node->bcast_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );
 
 	hash_add( orig_hash, orig_node );
 
@@ -144,7 +145,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_packet_count = 0, is_new_seqno = 0, max_tq = 0;
+	uint8_t max_packet_count = 0, is_new_seqno = 0, max_tq = 0, max_bcast_own = 0;
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -178,9 +179,10 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 			}
 
-			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg = max_tq ) ) ) {
+			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg = max_tq ) ) ) {
 
 				max_tq = tmp_neigh_node->tq_avg;
+				max_bcast_own = tmp_neigh_node->orig_node->bcast_own_sum;
 				best_neigh_node = tmp_neigh_node;
 
 			}
@@ -191,7 +193,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	if ( neigh_node == NULL ) {
 
-		neigh_node = create_neighbor(orig_node, neigh, if_incoming);
+		neigh_node = create_neighbor(orig_node, get_orig_node( neigh ), neigh, if_incoming);
 
 	} else {
 
@@ -225,9 +227,10 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	}
 
-	if ( ( neigh_node->tq_avg > max_tq ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg = max_tq ) ) ) {
+	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg = max_tq ) ) ) {
 
 		max_tq = neigh_node->tq_avg;
+		max_bcast_own = neigh_node->orig_node->bcast_own_sum;
 		best_neigh_node = neigh_node;
 
 	}
@@ -273,7 +276,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		orig_node = hashit->bucket->data;
 
-		if ( (int)( ( orig_node->last_valid + PURGE_TIMEOUT ) < curr_time ) ) {
+		if ( (int)( ( orig_node->last_valid + ( 2 * PURGE_TIMEOUT ) ) < curr_time ) ) {
 
 			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 			debug_output( 4, "Originator timeout: originator %s, last_valid %u \n", orig_str, orig_node->last_valid );
@@ -314,7 +317,7 @@ void purge_orig( uint32_t curr_time ) {
 
 			update_routes( orig_node, NULL, NULL, 0 );
 
-			debugFree( orig_node->rcvd_own, 1403 );
+			debugFree( orig_node->bcast_own, 1403 );
 			debugFree( orig_node, 1404 );
 
 		} else {
@@ -438,7 +441,7 @@ void debug_orig() {
 
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				debug_output( 2, "%s %-15s %''15s (%3i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
+				debug_output( 2, "%s %-15s %''15s (%3i %2i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->bcast_own_sum, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
@@ -459,7 +462,7 @@ void debug_orig() {
 		uptime_sec = (uint32_t)( get_time() / 1000 );
 
 		debug_output( 1, "BOD \n" );
-		debug_output( 1, "  %-12s %''14s (%s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "Router", "#", TQ_MAX_VALUE, "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
+		debug_output( 1, "  %-12s %''14s (%s/%i %s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "Router", "#", TQ_MAX_VALUE, "#", TQ_LOCAL_WINDOW_SIZE, "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
@@ -473,7 +476,7 @@ void debug_orig() {
 			}
 
 			debug_output( 4, "Originator list \n" );
-			debug_output( 4, "  %-12s %''14s (%s/%i): %''20s\n", "Originator", "Router", "#", TQ_MAX_VALUE, "Potential routers" );
+			debug_output( 4, "  %-12s %''14s (%s/%i %s/%i): %''20s\n", "Originator", "Router", "#", TQ_MAX_VALUE, "#", TQ_LOCAL_WINDOW_SIZE, "Potential routers" );
 
 		}
 
@@ -489,8 +492,8 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i):", str, str2, orig_node->router->tq_avg );
-			debug_output( 4, "%''15s %''15s (%3i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->last_valid );
+			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, orig_node->router->tq_avg, orig_node->bcast_own_sum );
+			debug_output( 4, "%''15s %''15s (%3i %2i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->bcast_own_sum, orig_node->last_valid );
 
 			debug_out_size = 0;
 

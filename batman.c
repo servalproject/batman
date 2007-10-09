@@ -607,7 +607,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
-	uint8_t total_count, min_total_count;
+	uint8_t total_count;
 
 
 	if ( orig_node == orig_neigh_node ) {
@@ -629,7 +629,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 		}
 
 		if ( neigh_node == NULL )
-			neigh_node = create_neighbor(orig_node, orig_neigh_node->orig, if_incoming);
+			neigh_node = create_neighbor(orig_node, orig_neigh_node, orig_neigh_node->orig, if_incoming);
 
 		neigh_node->last_valid = recv_time;
 
@@ -646,27 +646,25 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 		}
 
 		if ( neigh_node == NULL )
-			neigh_node = create_neighbor(orig_neigh_node, orig_neigh_node->orig, if_incoming);
+			neigh_node = create_neighbor(orig_neigh_node, orig_neigh_node, orig_neigh_node->orig, if_incoming);
 
 	}
 
 	orig_node->last_valid = recv_time;
 
-	total_count = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]) );
-
 	/* pay attention to not get a value bigger than 100 % */
-	min_total_count = ( total_count > neigh_node->real_packet_count ? neigh_node->real_packet_count : total_count );
+	total_count = ( orig_neigh_node->bcast_own_sum > neigh_node->real_packet_count ? neigh_node->real_packet_count : orig_neigh_node->bcast_own_sum );
 
 	/* if we have too few packets (too less data) we set tq_own to zero */
 	/* if we receive too few packets it is not considered bidirectional */
-	if ( ( min_total_count < TQ_LOCAL_BIDRECT_SEND_MINIMUM ) || ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_RECV_MINIMUM ) ) {
+	if ( ( total_count < TQ_LOCAL_BIDRECT_SEND_MINIMUM ) || ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_RECV_MINIMUM ) ) {
 
 		orig_neigh_node->tq_own = 0;
 
 	} else {
 
 		/* neigh_node->real_packet_count is never zero as we only purge old information when getting new information */
-		orig_neigh_node->tq_own = (TQ_MAX_VALUE * min_total_count) / neigh_node->real_packet_count;
+		orig_neigh_node->tq_own = (TQ_MAX_VALUE * total_count) / neigh_node->real_packet_count;
 
 	}
 
@@ -676,8 +674,8 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 
-	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, min_total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
-	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, min_total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
+	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
+	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
 
 	/* if link has the minimum required transmission quality consider it bidirectional */
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
@@ -1050,8 +1048,12 @@ int8_t batman() {
 //
 // 				}
 
-				if ( ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) )
-					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->rcvd_own[if_incoming->if_num * NUM_WORDS]), 0 );
+				if ( ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
+
+					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]), 0 );
+					orig_neigh_node->bcast_own_sum = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]) );
+
+				}
 
 				debug_output( 4, "Drop packet: originator packet from myself (via neighbour) \n" );
 

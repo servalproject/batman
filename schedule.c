@@ -85,8 +85,8 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 	while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
 
 		orig_node = hashit->bucket->data;
-
-		bit_get_packet( (TYPE_OF_WORD *)&(orig_node->rcvd_own[batman_if->if_num * NUM_WORDS]), 1, 0 );
+		bit_get_packet( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]), 1, 0 );
+		orig_node->bcast_own_sum = bit_packet_count( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]) );
 
 	}
 
