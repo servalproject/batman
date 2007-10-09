@@ -140,7 +140,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate ) {
+void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate, uint32_t curr_time ) {
 
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
@@ -201,6 +201,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	}
 
+	neigh_node->last_valid = curr_time;
 
 // 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
 	is_new_seqno = ! get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, in->seqno );
@@ -441,7 +442,7 @@ void debug_orig() {
 
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				debug_output( 2, "%s %-15s %''15s (%3i %2i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->bcast_own_sum, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
+				debug_output( 2, "%s %-15s %''15s (%3i %2i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->router->orig_node->bcast_own_sum, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
@@ -492,8 +493,8 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, orig_node->router->tq_avg, orig_node->bcast_own_sum );
-			debug_output( 4, "%''15s %''15s (%3i %2i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->bcast_own_sum, orig_node->last_valid );
+			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum );
+			debug_output( 4, "%''15s %''15s (%3i %2i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum, orig_node->last_valid );
 
 			debug_out_size = 0;
 

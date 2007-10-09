@@ -721,7 +721,7 @@ void generate_vis_packet() {
 		orig_node = hashit->bucket->data;
 
 		/* we interested in 1 hop neighbours only */
-		if ( ( orig_node->router != NULL ) && ( orig_node->orig == orig_node->router->addr ) && ( orig_node->router->packet_count > 0 ) ) {
+		if ( ( orig_node->router != NULL ) && ( orig_node->orig == orig_node->router->addr ) && ( orig_node->router->tq_avg > 0 ) ) {
 
 			vis_packet_size += sizeof(struct vis_data);
 
@@ -1084,7 +1084,7 @@ int8_t batman() {
 
 					/* update ranking */
 					if ( is_bidirectional )
-						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate );
+						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time );
 
 					is_bntog = isBntog( neigh, orig_node );
 
