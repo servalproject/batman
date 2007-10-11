@@ -575,7 +575,7 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
 		neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
-		if ( get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, seqno ) ) {
+		if ( get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, seqno ) ) {
 
 			prof_stop( PROF_is_duplicate );
 			return 1;
@@ -618,13 +618,6 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 			if ( ( tmp_neigh_node->addr == orig_neigh_node->orig ) && ( tmp_neigh_node->if_incoming == if_incoming ) )
 				neigh_node = tmp_neigh_node;
-
-			if ( !is_duplicate ) {
-
-				bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
-				tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
-
-			}
 
 		}
 
@@ -690,7 +683,6 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
 		return 1;
 
-	orig_node->last_seqno = in->seqno;
 	return 0;
 
 }
@@ -1097,7 +1089,7 @@ int8_t batman() {
 					is_bidirectional = isBidirectionalNeigh( orig_node, orig_neigh_node, (struct bat_packet *)in, curr_time, if_incoming, is_duplicate );
 
 					/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
-					if ( ( is_bidirectional ) && ( ( !is_duplicate ) || ( ( orig_node->last_seqno == ((struct bat_packet *)&in)->seqno ) && ( orig_node->last_ttl - 1 <= ((struct bat_packet *)&in)->ttl ) ) ) )
+					if ( ( is_bidirectional ) && ( ( !is_duplicate ) || ( ( orig_node->last_real_seqno == ((struct bat_packet *)&in)->seqno ) && ( orig_node->last_ttl - 1 <= ((struct bat_packet *)&in)->ttl ) ) ) )
 						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time );
 
 					is_bntog = isBntog( neigh, orig_node );

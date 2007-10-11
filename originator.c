@@ -145,7 +145,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_packet_count = 0, is_new_seqno = 0, max_tq = 0, max_bcast_own = 0;
+	uint8_t is_new_seqno = 0, max_tq = 0, max_bcast_own = 0;
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -161,9 +161,6 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 		} else {
 
-// 			bit_get_packet( tmp_neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 0 );
-// 			tmp_neigh_node->packet_count = bit_packet_count( tmp_neigh_node->seq_bits );
-
 			if ( !is_duplicate ) {
 
 				ring_buffer_set(tmp_neigh_node->tq_recv, &tmp_neigh_node->tq_index, 0);
@@ -171,14 +168,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 			}
 
-			/* if we got more packets via this neighbour or same amount of packets if it is currently our best neighbour (to avoid route flipping) */
-			if ( ( tmp_neigh_node->packet_count > max_packet_count ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->packet_count >= max_packet_count ) ) ) {
-
-				max_packet_count = tmp_neigh_node->packet_count;
-				/*best_neigh_node = tmp_neigh_node;*/
-
-			}
-
+			/* if we got have a better tq value via this neighbour or same tq value if it is currently our best neighbour (to avoid route flipping) */
 			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg = max_tq ) ) ) {
 
 				max_tq = tmp_neigh_node->tq_avg;
@@ -204,29 +194,22 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	neigh_node->last_valid = curr_time;
 
 // 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
-	is_new_seqno = ! get_bit_status( neigh_node->seq_bits, orig_node->last_seqno, in->seqno );
+	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
 
 
 	if ( is_new_seqno ) {
 
-		bit_mark( neigh_node->seq_bits, 0 );
-		neigh_node->packet_count = bit_packet_count( neigh_node->seq_bits );
-
 		ring_buffer_set(neigh_node->tq_recv, &neigh_node->tq_index, in->tq);
 		neigh_node->tq_avg = ring_buffer_avg(neigh_node->tq_recv);
 
-		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_seqno, in->seqno );
+		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_real_seqno, in->seqno );
 
-		orig_node->last_seqno = in->seqno;
+// FIXME: is this neccessary ?
+//		orig_node->last_real_seqno = in->seqno;
 		orig_node->last_ttl = in->ttl;
 
 	}
 
-	if ( neigh_node->packet_count > max_packet_count ) {
-
-		max_packet_count = neigh_node->packet_count;
-
-	}
 
 	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg = max_tq ) ) ) {
 
@@ -248,8 +231,13 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	/* restart gateway selection if we have more packets and routing class 3 */
 	if ( ( routing_class == 3 ) && ( orig_node->gwflags != 0 ) && ( curr_gateway != NULL ) ) {
 
-		if ( ( curr_gateway->orig_node != orig_node ) && ( curr_gateway->orig_node->router->packet_count < orig_node->router->packet_count ) )
+		if ( ( curr_gateway->orig_node != orig_node )&& ((pref_gateway == 0) || (pref_gateway == orig_node->orig)) && ( curr_gateway->orig_node->router->tq_avg < orig_node->router->tq_avg ) ) {
+
 			curr_gateway = NULL;
+
+			debug_output(3, "Gateway client - restart gateway selection: better gateway found (tq curr: %i, tq new: %i) \n", curr_gateway->orig_node->router->tq_avg, orig_node->router->tq_avg);
+
+		}
 
 	}
 
@@ -359,7 +347,7 @@ void purge_orig( uint32_t curr_time ) {
 
 				} else {
 
-					if ( ( best_neigh_node == NULL ) || ( neigh_node->packet_count > best_neigh_node->packet_count ) )
+					if ( ( best_neigh_node == NULL ) || ( neigh_node->tq_avg > best_neigh_node->tq_avg ) )
 						best_neigh_node = neigh_node;
 
 					prev_list_head = &neigh_node->list;
@@ -368,7 +356,7 @@ void purge_orig( uint32_t curr_time ) {
 
 			}
 
-			if ( ( neigh_purged ) && ( ( best_neigh_node == NULL ) || ( orig_node->router == NULL ) || ( best_neigh_node->packet_count > orig_node->router->packet_count ) ) )
+			if ( ( neigh_purged ) && ( ( best_neigh_node == NULL ) || ( orig_node->router == NULL ) || ( best_neigh_node->tq_avg > orig_node->router->tq_avg ) ) )
 				update_routes( orig_node, best_neigh_node, orig_node->hna_buff, orig_node->hna_buff_len );
 
 		}
