@@ -94,7 +94,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 
 
-void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing ) {
+void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing) {
 
 	prof_start( PROF_schedule_forward_packet );
 	struct forw_node *forw_node_new;
@@ -128,6 +128,13 @@ void schedule_forward_packet( struct bat_packet *in, uint8_t unidirectional, uin
 
 
 		((struct bat_packet *)forw_node_new->pack_buff)->ttl--;
+
+		/* rebroadcast tq of our best ranking neighbor to ensure the rebroadcast of our best tq value */
+		if ((orig_node->router != NULL) && (orig_node->router->tq_avg != 0))
+			((struct bat_packet *)forw_node_new->pack_buff)->tq = orig_node->router->tq_avg;
+
+		debug_output( 4, "forwarding: tq_orig: %i, tq_forw: %i \n", in->tq, ((struct bat_packet *)forw_node_new->pack_buff)->tq );
+
 		forw_node_new->send_time = get_time();
 		forw_node_new->own = 0;
 
