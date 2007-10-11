@@ -54,6 +54,32 @@
 
 
 
+/* from Richard Stevens Book */
+uint16_t ip_sum_calc(uint16_t ip_header_len, uint16_t ip_header_buff[])
+{
+	uint32_t sum = 0;
+
+	while (ip_header_len > 1) {
+		sum += *ip_header_buff++;
+
+		if (sum & 0x80000000)   /* if high order bit set, fold */
+			sum = (sum & 0xFFFF) + (sum >> 16);
+
+		ip_header_len -= 2;
+	}
+
+	if (ip_header_len)       /* take care of left over byte */
+		sum += (uint16_t) *((unsigned char *)ip_header_buff);
+
+	while (sum >> 16)
+		sum = (sum & 0xFFFF) + (sum >> 16);
+
+	return ~sum;
+
+}
+
+
+
 int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr ) {
 
 	struct sockaddr_in sender_addr;
@@ -317,8 +343,13 @@ void *client_to_gw_tun( void *arg ) {
 					buff[0] = TUNNEL_DATA;
 
 					/* fill in new ip - the packets in the buffer don't know it yet */
-					if ( got_new_ip + 1000 > ip_lease_time )
-						memcpy( buff + 13, (unsigned char *)&my_tun_addr, 4 );
+					if ( got_new_ip + 1000 > ip_lease_time ) {
+
+						((struct iphdr *)(buff + 1))->saddr = my_tun_addr;
+						((struct iphdr *)(buff + 1))->check = 0;
+						((struct iphdr *)(buff + 1))->check = ip_sum_calc(((struct iphdr *)(buff + 1))->ihl*4,(uint16_t *)(buff + 1));
+
+					}
 
 					if ( sendto( udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 )
 						debug_output( 0, "Error - can't send data to gateway: %s\n", strerror(errno) );
@@ -449,11 +480,11 @@ void *gw_listen( void *arg ) {
 
 	struct batman_if *batman_if = (struct batman_if *)arg;
 	struct timeval tv;
-	struct sockaddr_in addr, client_addr, pack_dest;
+	struct sockaddr_in addr, client_addr;
 	struct gw_client *gw_client[256];
 	char gw_addr[16], str[16], tun_dev[IFNAMSIZ];
 	unsigned char buff[1501];
-	int32_t res, max_sock, buff_len, tun_fd, tun_ifi, raw_fd;
+	int32_t res, max_sock, buff_len, tun_fd, tun_ifi;
 	uint32_t addr_len, client_timeout, current_time;
 	uint8_t i, my_tun_ip[4];
 	fd_set wait_sockets, tmp_wait_sockets;
@@ -471,19 +502,8 @@ void *gw_listen( void *arg ) {
 		gw_client[i] = NULL;
 	}
 
-	if ( ( raw_fd = socket( PF_INET, SOCK_RAW, IPPROTO_RAW ) ) < 0 ) {
-
-		debug_output( 0, "Error - can't create raw socket: %s\n", strerror(errno) );
-		return NULL;
-
-	}
-
 	client_addr.sin_family = AF_INET;
 	client_addr.sin_port = htons(PORT + 1);
-
-	memset( &pack_dest, 0, sizeof(struct sockaddr_in) );
-
-	pack_dest.sin_family = AF_INET;
 
 	if ( add_dev_tun( batman_if, *(uint32_t *)my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
 		return NULL;
@@ -531,11 +551,8 @@ void *gw_listen( void *arg ) {
 
 							}
 
-							/* fill in the destination address or the kernel will route us towards the loopback interface */
-							pack_dest.sin_addr.s_addr = ((struct iphdr *)(buff + 1))->daddr;
-
-							if ( sendto( raw_fd, buff + 1, buff_len - 1, 0, (struct sockaddr *)&pack_dest, sizeof(struct sockaddr_in) ) < 0 )
-								debug_output( 0, "Error - can't send packet: %s\n", strerror(errno) );
+							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
+								debug_output( 0, "Error - can't write packet into tun: %s\n", strerror(errno) );
 
 						} else if ( buff[0] == TUNNEL_IP_REQUEST ) {
 
