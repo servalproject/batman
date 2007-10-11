@@ -347,7 +347,7 @@ void *client_to_gw_tun( void *arg ) {
 
 						((struct iphdr *)(buff + 1))->saddr = my_tun_addr;
 						((struct iphdr *)(buff + 1))->check = 0;
-						((struct iphdr *)(buff + 1))->check = ip_sum_calc(((struct iphdr *)(buff + 1))->ihl*4,(uint16_t *)(buff + 1));
+						((struct iphdr *)(buff + 1))->check = ip_sum_calc(((struct iphdr *)(buff + 1))->ihl*4, (uint16_t *)(buff + 1));
 
 					}
 

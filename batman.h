@@ -194,7 +194,6 @@ struct neigh_node
 	uint8_t tq_recv[TQ_TOTAL_WINDOW_SIZE];
 	uint8_t tq_index;
 	uint8_t tq_avg;
-	uint8_t last_ttl;         /* ttl of last received packet */
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD seq_bits[NUM_WORDS];
 	TYPE_OF_WORD real_bits[NUM_WORDS];

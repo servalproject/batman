@@ -219,7 +219,6 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 		orig_node->last_seqno = in->seqno;
 		orig_node->last_ttl = in->ttl;
-		neigh_node->last_ttl = in->ttl;
 
 	}
 
