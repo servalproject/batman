@@ -672,9 +672,10 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	/* this does affect the nearly-symmetric links only a little, 
 	 * but punishes asymetric links more. */
 	/* this will give a value between 0 and TQ_MAX_VALUE */
-	tq_asym_penality = TQ_MAX_VALUE - ((TQ_MAX_VALUE - neigh_node->real_packet_count) * (TQ_MAX_VALUE - neigh_node->real_packet_count)) / TQ_MAX_VALUE;
+	tq_asym_penality = TQ_MAX_VALUE - (TQ_MAX_VALUE * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count) * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count)) 
+										/ (TQ_LOCAL_WINDOW_SIZE * TQ_LOCAL_WINDOW_SIZE) ;
 	
-	in->tq = ((in->tq * orig_neigh_node->tq_own * tq_asym_penality) / (TQ_MAX_VALUE * TQ_MAX_VALUE));
+	in->tq = ((in->tq * orig_neigh_node->tq_own * tq_asym_penality) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
 
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
