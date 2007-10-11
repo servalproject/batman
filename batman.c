@@ -667,15 +667,23 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 		orig_neigh_node->tq_own = (TQ_MAX_VALUE * total_count) / neigh_node->real_packet_count;
 
 	}
-
-	in->tq = ((in->tq * orig_neigh_node->tq_own) / TQ_MAX_VALUE);
+	int tq_asym_penality;
+	/* 1 - ((1-x)**2), normalized to TQ_MAX_VALUE */
+	/* this does affect the nearly-symmetric links only a little, 
+	 * but punishes asymetric links more. */
+	/* this will give a value between 0 and TQ_MAX_VALUE */
+	tq_asym_penality = TQ_MAX_VALUE - ((TQ_MAX_VALUE - neigh_node->real_packet_count) * (TQ_MAX_VALUE - neigh_node->real_packet_count)) / TQ_MAX_VALUE;
+	
+	in->tq = ((in->tq * orig_neigh_node->tq_own * tq_asym_penality) / (TQ_MAX_VALUE * TQ_MAX_VALUE));
 
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 
-	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
-	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, total tq: %3i \n", orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, in->tq );
+	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penality: %3i, total tq: %3i \n", 
+					orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, tq_asym_penality, in->tq );
+	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penality: %3i, total tq: %3i \n", 
+					orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, tq_asym_penality, in->tq );
 
 	/* if link has the minimum required transmission quality consider it bidirectional */
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
