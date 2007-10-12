@@ -148,7 +148,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t is_new_seqno = 0, max_tq = 0, max_bcast_own = 0;
+	uint8_t max_tq = 0, max_bcast_own = 0;
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -196,22 +196,15 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	neigh_node->last_valid = curr_time;
 
+	ring_buffer_set(neigh_node->tq_recv, &neigh_node->tq_index, in->tq);
+	neigh_node->tq_avg = ring_buffer_avg(neigh_node->tq_recv);
+
 // 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
-	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
+// 	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
 
 
-	if ( is_new_seqno ) {
-
-		ring_buffer_set(neigh_node->tq_recv, &neigh_node->tq_index, in->tq);
-		neigh_node->tq_avg = ring_buffer_avg(neigh_node->tq_recv);
-
-		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_real_seqno, in->seqno );
-
-// FIXME: is this neccessary ?
-//		orig_node->last_real_seqno = in->seqno;
+	if ( !is_duplicate )
 		orig_node->last_ttl = in->ttl;
-
-	}
 
 
 	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {

@@ -843,8 +843,12 @@ uint8_t count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman
 
 	}
 
-	if ( is_new_seqno )
+	if ( is_new_seqno ) {
+
+		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_real_seqno, in->seqno );
 		orig_node->last_real_seqno = in->seqno;
+
+	}
 
 	return is_new_seqno;
 
