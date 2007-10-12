@@ -607,6 +607,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
+	int tq_asym_penality;
 	uint8_t total_count;
 
 
@@ -660,7 +661,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 		orig_neigh_node->tq_own = (TQ_MAX_VALUE * total_count) / neigh_node->real_packet_count;
 
 	}
-	int tq_asym_penality;
+
 	/* 1 - ((1-x)**2), normalized to TQ_MAX_VALUE */
 	/* this does affect the nearly-symmetric links only a little,
 	 * but punishes asymetric links more. */
@@ -1052,8 +1053,10 @@ int8_t batman() {
 
 				if ( ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
+					debug_output( 4, "count own bcast (is_my_orig): old = %i, ", orig_neigh_node->bcast_own_sum );
 					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]), 0 );
 					orig_neigh_node->bcast_own_sum = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]) );
+					debug_output( 4, "new = %i \n", orig_neigh_node->bcast_own_sum );
 
 				}
 

@@ -169,7 +169,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 			}
 
 			/* if we got have a better tq value via this neighbour or same tq value if it is currently our best neighbour (to avoid route flipping) */
-			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg = max_tq ) ) ) {
+			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg == max_tq ) ) ) {
 
 				max_tq = tmp_neigh_node->tq_avg;
 				max_bcast_own = tmp_neigh_node->orig_node->bcast_own_sum;
@@ -211,7 +211,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	}
 
 
-	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg = max_tq ) ) ) {
+	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {
 
 		max_tq = neigh_node->tq_avg;
 		max_bcast_own = neigh_node->orig_node->bcast_own_sum;
