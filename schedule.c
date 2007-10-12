@@ -86,10 +86,10 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 		orig_node = hashit->bucket->data;
 
-		debug_output( 4, "count own bcast (schedule_own_packet): old = %i, ", orig_node->bcast_own_sum );
+		debug_output( 4, "count own bcast (schedule_own_packet): old = %i, ", orig_node->bcast_own_sum[batman_if->if_num] );
 		bit_get_packet( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]), 1, 0 );
-		orig_node->bcast_own_sum = bit_packet_count( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]) );
-		debug_output( 4, "new = %i \n", orig_node->bcast_own_sum );
+		orig_node->bcast_own_sum[batman_if->if_num] = bit_packet_count( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]) );
+		debug_output( 4, "new = %i \n", orig_node->bcast_own_sum[batman_if->if_num] );
 
 	}
 

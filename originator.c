@@ -116,6 +116,9 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->bcast_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
 	memset( orig_node->bcast_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );
 
+	orig_node->bcast_own_sum = debugMalloc( found_ifs * sizeof(uint8_t), 405 );
+	memset( orig_node->bcast_own_sum, 0, found_ifs * sizeof(uint8_t) );
+
 	hash_add( orig_hash, orig_node );
 
 	if ( orig_hash->elements * 4 > orig_hash->size ) {
@@ -169,10 +172,10 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 			}
 
 			/* if we got have a better tq value via this neighbour or same tq value if it is currently our best neighbour (to avoid route flipping) */
-			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg == max_tq ) ) ) {
+			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg == max_tq ) ) ) {
 
 				max_tq = tmp_neigh_node->tq_avg;
-				max_bcast_own = tmp_neigh_node->orig_node->bcast_own_sum;
+				max_bcast_own = tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num];
 				best_neigh_node = tmp_neigh_node;
 
 			}
@@ -211,10 +214,10 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	}
 
 
-	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {
+	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {
 
 		max_tq = neigh_node->tq_avg;
-		max_bcast_own = neigh_node->orig_node->bcast_own_sum;
+		max_bcast_own = neigh_node->orig_node->bcast_own_sum[if_incoming->if_num];
 		best_neigh_node = neigh_node;
 
 	}
@@ -307,7 +310,8 @@ void purge_orig( uint32_t curr_time ) {
 			update_routes( orig_node, NULL, NULL, 0 );
 
 			debugFree( orig_node->bcast_own, 1403 );
-			debugFree( orig_node, 1404 );
+			debugFree( orig_node->bcast_own_sum, 1404 );
+			debugFree( orig_node, 1405 );
 
 		} else {
 
@@ -343,7 +347,7 @@ void purge_orig( uint32_t curr_time ) {
 
 					neigh_purged = 1;
 					list_del( prev_list_head, neigh_pos, &orig_node->neigh_list );
-					debugFree( neigh_node, 1405 );
+					debugFree( neigh_node, 1406 );
 
 				} else {
 
@@ -430,7 +434,7 @@ void debug_orig() {
 
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				debug_output( 2, "%s %-15s %''15s (%3i %2i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->router->orig_node->bcast_own_sum, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
+				debug_output( 2, "%s %-15s %''15s (%3i %2i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->router->orig_node->bcast_own_sum[gw_node->orig_node->router->if_incoming->if_num], gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
@@ -481,8 +485,8 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum );
-			debug_output( 4, "%''15s %''15s (%3i %2i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum, orig_node->last_valid );
+			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum[orig_node->router->if_incoming->if_num] );
+			debug_output( 4, "%''15s %''15s (%3i %2i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum[orig_node->router->if_incoming->if_num], orig_node->last_valid );
 
 			debug_out_size = 0;
 

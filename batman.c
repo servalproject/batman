@@ -647,7 +647,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	orig_node->last_valid = recv_time;
 
 	/* pay attention to not get a value bigger than 100 % */
-	total_count = ( orig_neigh_node->bcast_own_sum > neigh_node->real_packet_count ? neigh_node->real_packet_count : orig_neigh_node->bcast_own_sum );
+	total_count = ( orig_neigh_node->bcast_own_sum[if_incoming->if_num] > neigh_node->real_packet_count ? neigh_node->real_packet_count : orig_neigh_node->bcast_own_sum[if_incoming->if_num] );
 
 	/* if we have too few packets (too less data) we set tq_own to zero */
 	/* if we receive too few packets it is not considered bidirectional */
@@ -1053,10 +1053,10 @@ int8_t batman() {
 
 				if ( ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
-					debug_output( 4, "count own bcast (is_my_orig): old = %i, ", orig_neigh_node->bcast_own_sum );
+					debug_output( 4, "count own bcast (is_my_orig): old = %i, ", orig_neigh_node->bcast_own_sum[if_incoming->if_num] );
 					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]), 0 );
-					orig_neigh_node->bcast_own_sum = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]) );
-					debug_output( 4, "new = %i \n", orig_neigh_node->bcast_own_sum );
+					orig_neigh_node->bcast_own_sum[if_incoming->if_num] = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]) );
+					debug_output( 4, "new = %i \n", orig_neigh_node->bcast_own_sum[if_incoming->if_num] );
 
 				}
 
