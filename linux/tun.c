@@ -90,7 +90,7 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t tun_addr, char *tun_de
 
 	}
 
-	if ( ( ioctl( *fd, TUNSETIFF, (void *) &ifr_tun ) ) < 0 ) {
+	if ( ( ioctl( *fd, TUNSETIFF, (void *)&ifr_tun ) ) < 0 ) {
 
 		debug_output( 0, "Error - can't create tun device (TUNSETIFF): %s\n", strerror(errno) );
 		close(*fd);

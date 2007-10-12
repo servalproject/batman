@@ -810,7 +810,7 @@ void send_vis_packet() {
 
 
 
-void count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman_if *if_incoming ) {
+uint8_t count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman_if *if_incoming ) {
 
 	struct list_head *list_pos;
 	struct orig_node *orig_node;
@@ -844,6 +844,8 @@ void count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman_if
 
 	if ( is_new_seqno )
 		orig_node->last_real_seqno = in->seqno;
+
+	return is_new_seqno;
 
 }
 
@@ -1071,7 +1073,7 @@ int8_t batman() {
 
 			} else {
 
-				count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
+				is_duplicate = ! count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
 
 				orig_node = get_orig_node( ((struct bat_packet *)&in)->orig );
 
@@ -1085,7 +1087,6 @@ int8_t batman() {
 
 				} else {
 
-					is_duplicate = isDuplicate( orig_node, ((struct bat_packet *)&in)->seqno );
 					is_bidirectional = isBidirectionalNeigh( orig_node, orig_neigh_node, (struct bat_packet *)in, curr_time, if_incoming, is_duplicate );
 
 					/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
