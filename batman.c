@@ -828,7 +828,7 @@ uint8_t count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman
 		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
 		if ( !is_new_seqno )
-			is_new_seqno = get_bit_status( tmp_neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
+			is_new_seqno = ! get_bit_status( tmp_neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
 
 		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
 
