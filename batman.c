@@ -827,9 +827,12 @@ uint8_t count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman
 
 		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
+		if ( !is_new_seqno )
+			is_new_seqno = get_bit_status( tmp_neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
+
 		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
 
-			is_new_seqno = bit_get_packet( tmp_neigh_node->real_bits, in->seqno - orig_node->last_real_seqno, 1 );
+			bit_get_packet( tmp_neigh_node->real_bits, in->seqno - orig_node->last_real_seqno, 1 );
 // 			debug_output( 3, "count_real_packets (yes): neigh = %s, is_new = %s, seq = %i, last seq\n", orig_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );
 
 		} else {
@@ -1166,10 +1169,12 @@ int8_t batman() {
 
 			debug_orig();
 
-			checkIntegrity();
+			if ( debug_clients.clients_num[4] > 0 ) {
 
-			if ( debug_clients.clients_num[4] > 0 )
+				checkIntegrity();
 				prof_print();
+
+			}
 
 			if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
 				choose_gw();

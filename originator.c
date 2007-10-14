@@ -227,7 +227,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	/* restart gateway selection if we have more packets and routing class 3 */
 	if ( ( routing_class == 3 ) && ( orig_node->gwflags != 0 ) && ( curr_gateway != NULL ) ) {
 
-		if ( ( curr_gateway->orig_node != orig_node )&& ((pref_gateway == 0) || (pref_gateway == orig_node->orig)) && ( curr_gateway->orig_node->router->tq_avg < orig_node->router->tq_avg ) ) {
+		if ( ( curr_gateway->orig_node != orig_node ) && ((pref_gateway == 0) || (pref_gateway == orig_node->orig)) && ( curr_gateway->orig_node->router->tq_avg < orig_node->router->tq_avg ) ) {
 
 			curr_gateway = NULL;
 
