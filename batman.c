@@ -1168,7 +1168,7 @@ int8_t batman() {
 
 			checkIntegrity();
 
-			if ( debug_clients.clients_num[2] > 0 )
+			if ( debug_clients.clients_num[4] > 0 )
 				prof_print();
 
 			if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
