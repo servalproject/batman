@@ -811,34 +811,39 @@ void send_vis_packet() {
 
 
 
-uint8_t count_real_packets( uint32_t neigh, struct bat_packet *in, struct batman_if *if_incoming ) {
+uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming) {
 
 	struct list_head *list_pos;
 	struct orig_node *orig_node;
 	struct neigh_node *tmp_neigh_node;
-	uint8_t is_new_seqno = 0;
-	static char orig_str[ADDR_STR_LEN];
+	uint8_t is_new_seqno = 1;
 
 
-	addr_to_string( neigh, orig_str, ADDR_STR_LEN );
 	orig_node = get_orig_node( in->orig );
+
+	/*static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
+
+	addr_to_string( in->orig, orig_str, ADDR_STR_LEN );
+	addr_to_string( neigh, neigh_str, ADDR_STR_LEN );
+
+	debug_output( 3, "count_real_packets: orig = %s, neigh = %s, seq = %i, last seq = %i\n", orig_str, neigh_str, in->seqno, orig_node->last_real_seqno );*/
 
 	list_for_each( list_pos, &orig_node->neigh_list ) {
 
 		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
-		if ( !is_new_seqno )
+		if ( is_new_seqno )
 			is_new_seqno = ! get_bit_status( tmp_neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
 
 		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
 
 			bit_get_packet( tmp_neigh_node->real_bits, in->seqno - orig_node->last_real_seqno, 1 );
-// 			debug_output( 3, "count_real_packets (yes): neigh = %s, is_new = %s, seq = %i, last seq\n", orig_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );
+			/*debug_output( 3, "count_real_packets (yes): neigh = %s, is_new = %s, seq = %i, last seq = %i\n", neigh_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );*/
 
 		} else {
 
 			bit_get_packet( tmp_neigh_node->real_bits, in->seqno - orig_node->last_real_seqno, 0 );
-// 			debug_output( 3, "count_real_packets (no): neigh = %s, is_new = %s, seq = %i, last seq\n", orig_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );
+			/*debug_output( 3, "count_real_packets (no): neigh = %s, is_new = %s, seq = %i, last seq = %i\n", neigh_str, ( is_new_seqno ? "YES" : "NO" ), in->seqno, orig_node->last_real_seqno );*/
 
 		}
 
@@ -1071,19 +1076,19 @@ int8_t batman() {
 
 			} else if ( ((struct bat_packet *)&in)->flags & UNIDIRECTIONAL ) {
 
-				count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
+				count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
 
 				debug_output( 4, "Drop packet: originator packet with unidirectional flag \n" );
 
 			} else if ( ((struct bat_packet *)&in)->tq == 0 ) {
 
-				count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
+				count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
 
 				debug_output( 4, "Drop packet: originator packet with tq is 0 \n" );
 
 			} else {
 
-				is_duplicate = ! count_real_packets( neigh, (struct bat_packet *)in, if_incoming );
+				is_duplicate = ! count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
 
 				orig_node = get_orig_node( ((struct bat_packet *)&in)->orig );
 

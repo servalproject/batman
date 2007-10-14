@@ -186,7 +186,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	if ( neigh_node == NULL ) {
 
-		neigh_node = create_neighbor(orig_node, get_orig_node( neigh ), neigh, if_incoming);
+		neigh_node = create_neighbor(orig_node, get_orig_node(neigh), neigh, if_incoming);
 
 	} else {
 
