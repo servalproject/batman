@@ -85,6 +85,8 @@
 #define TQ_LOCAL_BIDRECT_RECV_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
 #define TQ_TOTAL_BIDRECT_LIMIT TQ_MAX_VALUE / 10
 
+#define PERFECT_TQ_PENALTY 5
+
 
 #define NUM_WORDS ( TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE )
 
@@ -175,6 +177,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	TYPE_OF_WORD *bcast_own;
 	uint8_t *bcast_own_sum;
 	uint8_t tq_own;
+	int tq_asym_penality;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
@@ -192,6 +195,7 @@ struct neigh_node
 	uint8_t tq_recv[TQ_TOTAL_WINDOW_SIZE];
 	uint8_t tq_index;
 	uint8_t tq_avg;
+	uint8_t last_ttl;
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD real_bits[NUM_WORDS];
 	struct orig_node *orig_node;

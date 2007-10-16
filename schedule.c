@@ -101,6 +101,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 	prof_start( PROF_schedule_forward_packet );
 	struct forw_node *forw_node_new;
+	uint8_t tq_avg = 0;
 
 	debug_output( 4, "schedule_forward_packet():  \n" );
 
@@ -133,10 +134,19 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		((struct bat_packet *)forw_node_new->pack_buff)->ttl--;
 
 		/* rebroadcast tq of our best ranking neighbor to ensure the rebroadcast of our best tq value */
-		if ((orig_node->router != NULL) && (orig_node->router->tq_avg != 0))
-			((struct bat_packet *)forw_node_new->pack_buff)->tq = orig_node->router->tq_avg;
+		if ((orig_node->router != NULL) && (orig_node->router->tq_avg != 0)) {
 
-		debug_output( 4, "forwarding: tq_orig: %i, tq_forw: %i \n", in->tq, ((struct bat_packet *)forw_node_new->pack_buff)->tq );
+			((struct bat_packet *)forw_node_new->pack_buff)->tq = orig_node->router->tq_avg;
+			((struct bat_packet *)forw_node_new->pack_buff)->ttl = orig_node->router->last_ttl;
+
+			tq_avg = orig_node->router->tq_avg;
+
+			if ((orig_node->router->orig_node->tq_own > TQ_MAX_VALUE - PERFECT_TQ_PENALTY) && (orig_node->router->orig_node->tq_asym_penality > TQ_MAX_VALUE - PERFECT_TQ_PENALTY))
+				((struct bat_packet *)forw_node_new->pack_buff)->tq -= PERFECT_TQ_PENALTY;
+
+		}
+
+		debug_output( 4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, ((struct bat_packet *)forw_node_new->pack_buff)->tq, in->ttl, ((struct bat_packet *)forw_node_new->pack_buff)->ttl );
 
 		forw_node_new->send_time = get_time();
 		forw_node_new->own = 0;

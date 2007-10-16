@@ -59,26 +59,26 @@
 int chksum(void *data, int len)
 {
 	uint16_t *sdata = data;
-	uint32_t sum;
+	uint32_t sum, tmp_sum;
 
 
-	for (sum = 0; len > 1; len -= 2)
-		sum += *sdata++;
+	for (tmp_sum = 0; len > 1; len -= 2)
+		tmp_sum += *sdata++;
 
 	if (len)
-		sum += (unsigned short)(*(unsigned char *)sdata);
+		tmp_sum += (unsigned short)(*(unsigned char *)sdata);
+
+	sum = (tmp_sum & 0xffff) + (tmp_sum >> 16);
+	sum += (sum >> 16);
 
 	return sum;
 }
 
 uint16_t chksum_l3(uint16_t l3_buff[], uint16_t l3_buff_len)
 {
-	uint32_t sum, tmp_sum;
+	uint32_t sum;
 
-	tmp_sum = chksum(l3_buff, l3_buff_len);
-
-	sum = (tmp_sum & 0xffff) + (tmp_sum >> 16);
-	sum += (sum >> 16);
+	sum = chksum(l3_buff, l3_buff_len);
 
 	return ~(sum & 0xffff);
 }
@@ -87,10 +87,7 @@ uint16_t chksum_l4(uint16_t l4_buff[], uint16_t l4_buff_len, uint32_t src, uint3
 {
 	uint32_t sum, tmp_sum;
 
-	tmp_sum = chksum(l4_buff, l4_buff_len);
-
-	sum = (tmp_sum & 0xffff) + (tmp_sum >> 16);
-	sum += (sum >> 16);
+	sum = chksum(l4_buff, l4_buff_len);
 
 	if (l4_buff_len % 2 != 0)
 		tmp_sum = (sum & 0xff << 8) | (sum & 0xff00 >> 8);

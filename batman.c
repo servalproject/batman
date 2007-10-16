@@ -607,7 +607,6 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
-	int tq_asym_penality;
 	uint8_t total_count;
 
 
@@ -666,19 +665,19 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	/* this does affect the nearly-symmetric links only a little,
 	 * but punishes asymetric links more. */
 	/* this will give a value between 0 and TQ_MAX_VALUE */
-	tq_asym_penality = TQ_MAX_VALUE - (TQ_MAX_VALUE * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count) * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count))
+	orig_neigh_node->tq_asym_penality = TQ_MAX_VALUE - (TQ_MAX_VALUE * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count) * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count))
 										/ (TQ_LOCAL_WINDOW_SIZE * TQ_LOCAL_WINDOW_SIZE);
 
-	in->tq = ((in->tq * orig_neigh_node->tq_own * tq_asym_penality) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
+	in->tq = ((in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penality) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
 
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 
 	debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penality: %3i, total tq: %3i \n",
-					orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, tq_asym_penality, in->tq );
+		      orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penality, in->tq );
 	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penality: %3i, total tq: %3i \n",
-					orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, tq_asym_penality, in->tq );
+		      orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penality, in->tq );
 
 	/* if link has the minimum required transmission quality consider it bidirectional */
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
@@ -816,7 +815,7 @@ uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_
 	struct list_head *list_pos;
 	struct orig_node *orig_node;
 	struct neigh_node *tmp_neigh_node;
-	uint8_t is_new_seqno = 1;
+	uint8_t is_duplicate = 0;
 
 
 	orig_node = get_orig_node( in->orig );
@@ -832,8 +831,8 @@ uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_
 
 		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
 
-		if ( is_new_seqno )
-			is_new_seqno = ! get_bit_status( tmp_neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
+		if ( !is_duplicate )
+			is_duplicate = get_bit_status( tmp_neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
 
 		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
 
@@ -851,14 +850,14 @@ uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_
 
 	}
 
-	if ( is_new_seqno ) {
+	if ( !is_duplicate ) {
 
 		debug_output( 4, "updating last_seqno: old %d, new %d \n", orig_node->last_real_seqno, in->seqno );
 		orig_node->last_real_seqno = in->seqno;
 
 	}
 
-	return is_new_seqno;
+	return is_duplicate;
 
 }
 
@@ -1088,7 +1087,7 @@ int8_t batman() {
 
 			} else {
 
-				is_duplicate = ! count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
+				is_duplicate = count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
 
 				orig_node = get_orig_node( ((struct bat_packet *)&in)->orig );
 

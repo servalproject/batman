@@ -203,8 +203,12 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 // 	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
 
 
-	if ( !is_duplicate )
+	if ( !is_duplicate ) {
+
 		orig_node->last_ttl = in->ttl;
+		neigh_node->last_ttl = in->ttl;
+
+	}
 
 
 	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {
