@@ -137,7 +137,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		if ((orig_node->router != NULL) && (orig_node->router->tq_avg != 0)) {
 
 			((struct bat_packet *)forw_node_new->pack_buff)->tq = orig_node->router->tq_avg;
-			((struct bat_packet *)forw_node_new->pack_buff)->ttl = orig_node->router->last_ttl;
+			((struct bat_packet *)forw_node_new->pack_buff)->ttl = orig_node->router->last_ttl - 1;
 
 			tq_avg = orig_node->router->tq_avg;
 
@@ -146,7 +146,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 		}
 
-		debug_output( 4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, ((struct bat_packet *)forw_node_new->pack_buff)->tq, in->ttl, ((struct bat_packet *)forw_node_new->pack_buff)->ttl );
+		debug_output( 4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, ((struct bat_packet *)forw_node_new->pack_buff)->tq, in->ttl - 1, ((struct bat_packet *)forw_node_new->pack_buff)->ttl );
 
 		forw_node_new->send_time = get_time();
 		forw_node_new->own = 0;
