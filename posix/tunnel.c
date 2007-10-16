@@ -27,6 +27,8 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
 #include <sys/sockio.h>
 #endif
@@ -54,28 +56,58 @@
 
 
 
-/* from Richard Stevens Book */
-uint16_t ip_sum_calc(uint16_t ip_header_len, uint16_t ip_header_buff[])
+int chksum(void *data, int len)
 {
-	uint32_t sum = 0;
+	uint16_t *sdata = data;
+	uint32_t sum;
 
-	while (ip_header_len > 1) {
-		sum += *ip_header_buff++;
 
-		if (sum & 0x80000000)   /* if high order bit set, fold */
-			sum = (sum & 0xFFFF) + (sum >> 16);
+	for (sum = 0; len > 1; len -= 2)
+		sum += *sdata++;
 
-		ip_header_len -= 2;
-	}
+	if (len)
+		sum += (unsigned short)(*(unsigned char *)sdata);
 
-	if (ip_header_len)       /* take care of left over byte */
-		sum += (uint16_t) *((unsigned char *)ip_header_buff);
+	return sum;
+}
 
-	while (sum >> 16)
-		sum = (sum & 0xFFFF) + (sum >> 16);
+uint16_t chksum_l3(uint16_t l3_buff[], uint16_t l3_buff_len)
+{
+	uint32_t sum, tmp_sum;
 
-	return ~sum;
+	tmp_sum = chksum(l3_buff, l3_buff_len);
 
+	sum = (tmp_sum & 0xffff) + (tmp_sum >> 16);
+	sum += (sum >> 16);
+
+	return ~(sum & 0xffff);
+}
+
+uint16_t chksum_l4(uint16_t l4_buff[], uint16_t l4_buff_len, uint32_t src, uint32_t dest, uint8_t proto)
+{
+	uint32_t sum, tmp_sum;
+
+	tmp_sum = chksum(l4_buff, l4_buff_len);
+
+	sum = (tmp_sum & 0xffff) + (tmp_sum >> 16);
+	sum += (sum >> 16);
+
+	if (l4_buff_len % 2 != 0)
+		tmp_sum = (sum & 0xff << 8) | (sum & 0xff00 >> 8);
+	else
+		tmp_sum = sum;
+
+	tmp_sum += (src & 0xffff);
+	tmp_sum += ((src >> 16) & 0xffff);
+	tmp_sum += (dest & 0xffff);
+	tmp_sum += ((dest >> 16) & 0xffff);
+	tmp_sum += (uint32_t)htons((uint16_t)proto);
+	tmp_sum += (uint32_t)htons(l4_buff_len);
+
+	sum = (tmp_sum & 0xffff) + (tmp_sum >> 16);
+	sum += (sum >> 16);
+
+	return ~(sum & 0xffff);
 }
 
 
@@ -165,6 +197,9 @@ void *client_to_gw_tun( void *arg ) {
 
 	struct curr_gw_data *curr_gw_data = (struct curr_gw_data *)arg;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
+	struct iphdr *iphdr;
+	struct udphdr *udphdr;
+	struct tcphdr *tcphdr;
 	struct timeval tv;
 	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts;
 	uint32_t addr_len, current_time, ip_lease_time = 0, gw_state_time = 0, got_new_ip = 0, my_tun_addr = 0;
@@ -345,9 +380,24 @@ void *client_to_gw_tun( void *arg ) {
 					/* fill in new ip - the packets in the buffer don't know it yet */
 					if ( got_new_ip + 1000 > ip_lease_time ) {
 
-						((struct iphdr *)(buff + 1))->saddr = my_tun_addr;
-						((struct iphdr *)(buff + 1))->check = 0;
-						((struct iphdr *)(buff + 1))->check = ip_sum_calc(((struct iphdr *)(buff + 1))->ihl*4, (uint16_t *)(buff + 1));
+						iphdr = (struct iphdr *)(buff + 1);
+						iphdr->saddr = my_tun_addr;
+						iphdr->check = 0;
+						iphdr->check = chksum_l3((uint16_t *)(buff + 1), iphdr->ihl*4);
+
+						if (iphdr->protocol == IPPROTO_UDP) {
+
+							udphdr = (struct udphdr *)(buff + 1 + iphdr->ihl*4);
+							udphdr->check = 0;
+							udphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), ntohs(udphdr->len), iphdr->saddr, iphdr->daddr, IPPROTO_UDP);
+
+						} else if (iphdr->protocol == IPPROTO_TCP) {
+
+							tcphdr = (struct tcphdr *)(buff + 1 + iphdr->ihl*4);
+							tcphdr->check = 0;
+							tcphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), buff_len - iphdr->ihl*4, iphdr->saddr, iphdr->daddr, IPPROTO_TCP);
+
+						}
 
 					}
 
