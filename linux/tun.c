@@ -27,6 +27,7 @@
 #include <linux/if_tun.h> /* TUNSETPERSIST, ... */
 #include <linux/if.h>     /* ifr_if, ifr_tun */
 #include <sys/socket.h>
+#include <stdio.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -40,7 +41,7 @@ int8_t probe_tun() {
 
 	if ( ( fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
-		debug_output( 0, "Error - could not open '/dev/net/tun' ! Is the tun kernel module loaded ?\n" );
+		fprintf( stderr, "Error - could not open '/dev/net/tun' ! Is the tun kernel module loaded ?\n" );
 		return 0;
 
 	}
