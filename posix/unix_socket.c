@@ -304,27 +304,31 @@ void *unix_listen( void *arg ) {
 
 								if ( status > 2 ) {
 
-									was_gateway = ( gateway_class > 0 ? 1 : 0 );
+									if ((buff[2] == 0) || (probe_tun(0))) {
 
-									gateway_class = buff[2];
+										was_gateway = ( gateway_class > 0 ? 1 : 0 );
 
-									list_for_each( list_pos, &if_list ) {
+										gateway_class = buff[2];
 
-										batman_if = list_entry( list_pos, struct batman_if, list );
+										list_for_each( list_pos, &if_list ) {
 
-										batman_if->out.gwflags = gateway_class;
+											batman_if = list_entry( list_pos, struct batman_if, list );
 
-										if ( ( ! was_gateway ) && ( gateway_class > 0 ) )
-											init_interface_gw( batman_if );
+											batman_if->out.gwflags = gateway_class;
 
-									}
+											if ( ( !was_gateway ) && ( gateway_class > 0 ) )
+												init_interface_gw( batman_if );
 
-									if ( ( gateway_class > 0 ) && ( routing_class > 0 ) ) {
+										}
 
-										routing_class = 0;
+										if ( ( gateway_class > 0 ) && ( routing_class > 0 ) ) {
 
-										if ( curr_gateway != NULL )
-											curr_gateway = NULL;
+											routing_class = 0;
+
+											if ( curr_gateway != NULL )
+												curr_gateway = NULL;
+
+										}
 
 									}
 
@@ -336,24 +340,28 @@ void *unix_listen( void *arg ) {
 
 								if ( status > 2 ) {
 
-									tmp_unix_value = buff[2];
+									if ((buff[2] == 0) || (probe_tun(0))) {
 
-									if ( ( tmp_unix_value >= 0 ) && ( tmp_unix_value <= 3 ) ) {
+										tmp_unix_value = buff[2];
 
-										routing_class = tmp_unix_value;
+										if ( ( tmp_unix_value >= 0 ) && ( tmp_unix_value <= 3 ) ) {
 
-										if ( curr_gateway != NULL )
-											curr_gateway = NULL;
+											routing_class = tmp_unix_value;
 
-										if ( ( routing_class > 0 ) && ( gateway_class > 0 ) ) {
+											if ( curr_gateway != NULL )
+												curr_gateway = NULL;
 
-											gateway_class = 0;
+											if ( ( routing_class > 0 ) && ( gateway_class > 0 ) ) {
 
-											list_for_each( list_pos, &if_list ) {
+												gateway_class = 0;
 
-												batman_if = list_entry( list_pos, struct batman_if, list );
+												list_for_each( list_pos, &if_list ) {
 
-												batman_if->out.gwflags = gateway_class;
+													batman_if = list_entry( list_pos, struct batman_if, list );
+
+													batman_if->out.gwflags = gateway_class;
+
+												}
 
 											}
 

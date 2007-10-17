@@ -374,10 +374,10 @@ void apply_init_args( int argc, char *argv[] ) {
 	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) )
 		routing_class = 1;
 
-	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun() ) )
+	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun(1) ) )
 		exit(EXIT_FAILURE);
 
-	if ( ! unix_client ) {
+	if ( !unix_client ) {
 
 		if ( argc <= found_args ) {
 
