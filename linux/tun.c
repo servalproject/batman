@@ -39,7 +39,7 @@ int8_t probe_tun(uint8_t print_to_stdout) {
 
 	int32_t fd;
 
-	if ( ( fd = open( "/dev/net/tuns", O_RDWR ) ) < 0 ) {
+	if ( ( fd = open( "/dev/net/tun", O_RDWR ) ) < 0 ) {
 
 		if (print_to_stdout)
 			fprintf( stdout, "Error - could not open '/dev/net/tun' ! Is the tun kernel module loaded ?\n" );
