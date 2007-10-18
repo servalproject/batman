@@ -54,6 +54,16 @@
 #define IP_LEASE_TIMEOUT 4 * GW_STATE_VERIFIED_TIMEOUT
 
 
+unsigned short bh_udp_ports[] = BH_UDP_PORTS;
+
+void init_bh_ports()
+{
+	int i;
+
+	for (i = 0; i < sizeof(bh_udp_ports)/sizeof(short); i++)
+		bh_udp_ports[i] = htons(bh_udp_ports[i]);
+}
+
 
 
 int chksum(void *data, int len)
@@ -198,7 +208,7 @@ void *client_to_gw_tun( void *arg ) {
 	struct udphdr *udphdr;
 	struct tcphdr *tcphdr;
 	struct timeval tv;
-	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts;
+	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts, i;
 	uint32_t addr_len, current_time, ip_lease_time = 0, gw_state_time = 0, got_new_ip = 0, my_tun_addr = 0;
 	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN], gw_state = GW_STATE_UNKNOWN;
 	unsigned char buff[1501];
@@ -410,8 +420,22 @@ void *client_to_gw_tun( void *arg ) {
 
 				}
 
-				if ( ( gw_state == GW_STATE_UNKNOWN ) && ( gw_state_time == 0 ) )
+				if ( ( gw_state == GW_STATE_UNKNOWN ) && ( gw_state_time == 0 ) ) {
+
+					if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_UDP) {
+
+						for (i = 0; i < sizeof(bh_udp_ports)/sizeof(short); i++) {
+
+							if (((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest == bh_udp_ports[i])
+								continue;
+
+						}
+
+					}
+
 					gw_state_time = current_time;
+
+				}
 
 			}
 

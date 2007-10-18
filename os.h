@@ -74,6 +74,7 @@ void restore_defaults();
 void cleanup();
 
 /* tunnel.c */
+void init_bh_ports();
 void *gw_listen( void *arg );
 void *client_to_gw_tun( void *arg );
 

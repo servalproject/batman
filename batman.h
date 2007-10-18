@@ -118,7 +118,13 @@
 
 
 
+/***
+ *
+ * ports which are to ignored by the blackhole check
+ *
+ ***/
 
+#define BH_UDP_PORTS {162, 4307} /* SNMP-TRAP, vis */
 
 
 
