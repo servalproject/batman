@@ -383,7 +383,6 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			fprintf( stderr, "Error - no interface specified\n" );
 			usage();
-			restore_defaults();
 			exit(EXIT_FAILURE);
 
 		}
@@ -410,19 +409,11 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		if ( flush_routes_rules(0) < 0 ) {
-
-			restore_defaults();
+		if ( flush_routes_rules(0) < 0 )
 			exit(EXIT_FAILURE);
 
-		}
-
-		if ( flush_routes_rules(1) < 0 ) {
-
-			restore_defaults();
+		if ( flush_routes_rules(1) < 0 )
 			exit(EXIT_FAILURE);
-
-		}
 
 
 		FD_ZERO( &receive_wait_set );
@@ -513,7 +504,7 @@ void apply_init_args( int argc, char *argv[] ) {
 			debug_clients.clients_num[ debug_level - 1 ]++;
 			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 205 );
 			INIT_LIST_HEAD( &debug_level_info->list );
-			debug_level_info->fd = 1;
+			debug_level_info->fd = 2;
 			list_add( &debug_level_info->list, (struct list_head_first *)debug_clients.fd_list[debug_level - 1] );
 
 		}

@@ -1107,13 +1107,13 @@ int8_t batman() {
 					if ( ( is_bidirectional ) && ( ( !is_duplicate ) || ( ( orig_node->last_real_seqno == ((struct bat_packet *)&in)->seqno ) && ( orig_node->last_ttl - 1 <= ((struct bat_packet *)&in)->ttl ) ) ) )
 						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time );
 
-					is_bntog = isBntog( neigh, orig_node );
+					/*is_bntog = isBntog( neigh, orig_node );*/
 
 					/* is single hop (direct) neighbour */
 					if ( ((struct bat_packet *)&in)->orig == neigh ) {
 
 						/* it is our best route towards him */
-						if ( is_bidirectional && is_bntog ) {
+						/*if ( is_bidirectional && is_bntog ) {*/
 
 							/* mark direct link on incoming interface */
 							schedule_forward_packet( orig_node, (struct bat_packet *)in, 0, 1, hna_recv_buff, hna_buff_len, if_incoming );
@@ -1122,13 +1122,13 @@ int8_t batman() {
 
 						/* if an unidirectional neighbour sends us a packet - retransmit it with unidirectional flag to tell him that we get its packets */
 						/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag if it is not our best link to it in order to prevent routing problems */
-						} else if ( ( is_bidirectional && !is_bntog ) || ( !is_bidirectional ) ) {
+							/*} else if ( ( is_bidirectional && !is_bntog ) || ( !is_bidirectional ) ) {
 
 							schedule_forward_packet( orig_node, (struct bat_packet *)in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 							debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
 
-						}
+							}*/
 
 					/* multihop originator */
 					} else {
