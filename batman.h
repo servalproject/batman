@@ -167,6 +167,7 @@ extern struct debug_clients debug_clients;
 struct bat_packet
 {
 	uint32_t orig;
+	uint32_t old_orig;
 	uint8_t  flags;    /* 0x80: UNIDIRECTIONAL link, 0x40: DIRECTLINK flag, ... */
 	uint8_t  ttl;
 	uint16_t seqno;

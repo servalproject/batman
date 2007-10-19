@@ -872,10 +872,10 @@ int8_t batman() {
 	struct forw_node *forw_node;
 	uint32_t neigh, hna, netmask, debug_timeout, vis_timeout, select_timeout, curr_time;
 	unsigned char in[2001], *hna_recv_buff;
-	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN];
+	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN], oldorig_str[ADDR_STR_LEN];
 	int16_t hna_buff_count, hna_buff_len;
 	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old, if_send_redirects_all_old, if_send_redirects_default_old;
-	uint8_t is_my_addr, is_my_orig, is_broadcast, is_duplicate, is_bidirectional, is_bntog, has_unidirectional_flag, has_directlink_flag, has_version;
+	uint8_t is_my_addr, is_my_orig, is_my_oldorig, is_broadcast, is_duplicate, is_bidirectional, is_bntog, has_unidirectional_flag, has_directlink_flag, has_version;
 	int8_t res;
 
 
@@ -923,6 +923,7 @@ int8_t batman() {
 		batman_if = list_entry( list_pos, struct batman_if, list );
 
 		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
+		batman_if->out.old_orig = batman_if->addr.sin_addr.s_addr;
 		batman_if->out.flags = 0x00;
 		batman_if->out.ttl = ( batman_if->if_num > 0 ? 2 : TTL );
 		batman_if->out.seqno = 1;
@@ -975,14 +976,15 @@ int8_t batman() {
 			addr_to_string( ((struct bat_packet *)&in)->orig, orig_str, sizeof(orig_str) );
 			addr_to_string( neigh, neigh_str, sizeof(neigh_str) );
 			addr_to_string( if_incoming->addr.sin_addr.s_addr, ifaddr_str, sizeof(ifaddr_str) );
+			addr_to_string( ((struct bat_packet *)&in)->old_orig, oldorig_str, sizeof(oldorig_str) );
 
-			is_my_addr = is_my_orig = is_broadcast = is_duplicate = is_bidirectional = is_bntog = 0;
+			is_my_addr = is_my_orig = is_my_oldorig = is_broadcast = is_duplicate = is_bidirectional = is_bntog = 0;
 
 			has_unidirectional_flag = ((struct bat_packet *)&in)->flags & UNIDIRECTIONAL ? 1 : 0;
 			has_directlink_flag = ((struct bat_packet *)&in)->flags & DIRECTLINK ? 1 : 0;
 			has_version = ((struct bat_packet *)&in)->version;
 
-			debug_output( 4, "Received BATMAN packet via NB: %s , IF: %s %s (from OG: %s, seqno %d, tq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, ((struct bat_packet *)&in)->seqno, ((struct bat_packet *)&in)->tq, ((struct bat_packet *)&in)->ttl, has_version, has_unidirectional_flag, has_directlink_flag );
+			debug_output( 4, "Received BATMAN packet via NB: %s , IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, ((struct bat_packet *)&in)->seqno, ((struct bat_packet *)&in)->tq, ((struct bat_packet *)&in)->ttl, has_version, has_unidirectional_flag, has_directlink_flag );
 
 			hna_buff_len -= sizeof(struct bat_packet);
 			hna_recv_buff = ( hna_buff_len > 4 ? in + sizeof(struct bat_packet) : NULL );
@@ -999,6 +1001,9 @@ int8_t batman() {
 
 				if ( neigh == batman_if->broad.sin_addr.s_addr )
 					is_broadcast = 1;
+
+				if (((struct bat_packet *)&in)->old_orig == batman_if->addr.sin_addr.s_addr)
+					is_my_oldorig = 1;
 
 			}
 
@@ -1030,19 +1035,19 @@ int8_t batman() {
 			}
 
 
-			if ( ((struct bat_packet *)&in)->version != COMPAT_VERSION ) {
+			if (((struct bat_packet *)&in)->version != COMPAT_VERSION) {
 
 				debug_output( 4, "Drop packet: incompatible batman version (%i) \n", ((struct bat_packet *)&in)->version );
 
-			} else if ( is_my_addr ) {
+			} else if (is_my_addr) {
 
 				debug_output( 4, "Drop packet: received my own broadcast (sender: %s) \n", neigh_str );
 
-			} else if ( is_broadcast ) {
+			} else if (is_broadcast) {
 
 				debug_output( 4, "Drop packet: ignoring all packets with broadcast source IP (sender: %s) \n", neigh_str );
 
-			} else if ( is_my_orig ) {
+			} else if (is_my_orig) {
 
 				orig_neigh_node = get_orig_node( neigh );
 
@@ -1073,17 +1078,21 @@ int8_t batman() {
 
 				debug_output( 4, "Drop packet: originator packet from myself (via neighbour) \n" );
 
-			} else if ( ((struct bat_packet *)&in)->flags & UNIDIRECTIONAL ) {
+			} else if (((struct bat_packet *)&in)->flags & UNIDIRECTIONAL) {
 
 				count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
 
 				debug_output( 4, "Drop packet: originator packet with unidirectional flag \n" );
 
-			} else if ( ((struct bat_packet *)&in)->tq == 0 ) {
+			} else if (((struct bat_packet *)&in)->tq == 0) {
 
 				count_real_packets( (struct bat_packet *)in, neigh, if_incoming );
 
 				debug_output( 4, "Drop packet: originator packet with tq is 0 \n" );
+
+			} else if (is_my_oldorig) {
+
+				debug_output( 4, "Drop packet: ignoring all rebroadcast echos (sender: %s) \n", neigh_str );
 
 			} else {
 
@@ -1116,7 +1125,7 @@ int8_t batman() {
 						/*if ( is_bidirectional && is_bntog ) {*/
 
 							/* mark direct link on incoming interface */
-							schedule_forward_packet( orig_node, (struct bat_packet *)in, 0, 1, hna_recv_buff, hna_buff_len, if_incoming );
+							schedule_forward_packet( orig_node, (struct bat_packet *)in, neigh, 0, 1, hna_recv_buff, hna_buff_len, if_incoming );
 
 							debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link flag \n" );
 
@@ -1137,7 +1146,7 @@ int8_t batman() {
 
 							if ( !is_duplicate ) {
 
-								schedule_forward_packet( orig_node, (struct bat_packet *)in, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
+								schedule_forward_packet( orig_node, (struct bat_packet *)in, neigh, 0, 0, hna_recv_buff, hna_buff_len, if_incoming );
 
 								debug_output( 4, "Forward packet: rebroadcast originator packet \n" );
 
