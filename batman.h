@@ -301,6 +301,11 @@ struct batgat_ioc_args {
 	uint32_t ifindex;
 };
 
+struct data_packet {
+	struct list_head list;
+	uint8_t header_buff[80];	/* IP header max (60) + TCP (20) / UDP (8) */
+};
+
 
 int8_t batman( void );
 void usage( void );

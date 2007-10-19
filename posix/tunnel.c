@@ -118,6 +118,32 @@ uint16_t chksum_l4(uint16_t l4_buff[], uint16_t l4_buff_len, uint32_t src, uint3
 	return ~(sum & 0xffff);
 }
 
+void calculate_chcksum(unsigned char *buff, int32_t buff_len)
+{
+	struct udphdr *udphdr;
+	struct tcphdr *tcphdr;
+	struct iphdr *iphdr;
+
+	iphdr = (struct iphdr *)(buff + 1);
+
+	iphdr->check = 0;
+	iphdr->check = chksum_l3((uint16_t *)(buff + 1), iphdr->ihl*4);
+
+	if (iphdr->protocol == IPPROTO_UDP) {
+
+		udphdr = (struct udphdr *)(buff + 1 + iphdr->ihl*4);
+		udphdr->check = 0;
+		udphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), ntohs(udphdr->len), iphdr->saddr, iphdr->daddr, IPPROTO_UDP);
+
+	} else if (iphdr->protocol == IPPROTO_TCP) {
+
+		tcphdr = (struct tcphdr *)(buff + 1 + iphdr->ihl*4);
+		tcphdr->check = 0;
+		tcphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), buff_len - iphdr->ihl*4, iphdr->saddr, iphdr->daddr, IPPROTO_TCP);
+
+	}
+}
+
 
 
 int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr ) {
@@ -205,10 +231,11 @@ void *client_to_gw_tun( void *arg ) {
 
 	struct curr_gw_data *curr_gw_data = (struct curr_gw_data *)arg;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
-	struct iphdr *iphdr;
-	struct udphdr *udphdr;
-	struct tcphdr *tcphdr;
+	struct iphdr *iphdr, *iphdr_packet;
 	struct timeval tv;
+	struct list_head_first packet_list;
+	struct data_packet *data_packet;
+	struct list_head *list_pos, *list_pos_tmp, *prev_list_head;
 	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts, i;
 	uint32_t addr_len, current_time, ip_lease_time = 0, gw_state_time = 0, got_new_ip = 0, my_tun_addr = 0, ignore_packet;
 	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN], gw_state = GW_STATE_UNKNOWN;
@@ -217,6 +244,8 @@ void *client_to_gw_tun( void *arg ) {
 
 
 	addr_len = sizeof (struct sockaddr_in);
+
+	INIT_LIST_HEAD_FIRST(packet_list);
 
 	memset( &gw_addr, 0, sizeof(struct sockaddr_in) );
 	memset( &my_addr, 0, sizeof(struct sockaddr_in) );
@@ -302,6 +331,39 @@ void *client_to_gw_tun( void *arg ) {
 						/* got data from gateway */
 						if ( buff[0] == TUNNEL_DATA ) {
 
+							/* if the source address of the original packet was wrong set it back know */
+							if (!list_empty(&packet_list)) {
+
+								iphdr = (struct iphdr *)(buff + 1);
+								prev_list_head = (struct list_head *)&packet_list;
+
+								list_for_each_safe(list_pos, list_pos_tmp, &packet_list) {
+
+									data_packet = list_entry(list_pos, struct data_packet, list);
+
+									iphdr_packet = (struct iphdr *)data_packet->header_buff;
+
+									if (iphdr->saddr != iphdr_packet->daddr) {
+										prev_list_head = &data_packet->list;
+										continue;
+									}
+
+									if (iphdr->protocol != iphdr_packet->protocol) {
+										prev_list_head = &data_packet->list;
+										continue;
+									}
+
+									/* probably our packet */
+									iphdr->daddr = iphdr_packet->saddr;
+									calculate_chcksum(buff, buff_len);
+
+									list_del(prev_list_head, list_pos, &packet_list);
+									debugFree(data_packet, 1218);
+
+								}
+
+							}
+
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
@@ -386,24 +448,23 @@ void *client_to_gw_tun( void *arg ) {
 					buff[0] = TUNNEL_DATA;
 
 					/* fill in new ip - the packets in the buffer don't know it yet */
-					if ( got_new_ip + 1000 > ip_lease_time ) {
+					if ( got_new_ip + 10000 > current_time ) {
 
 						iphdr = (struct iphdr *)(buff + 1);
-						iphdr->saddr = my_tun_addr;
-						iphdr->check = 0;
-						iphdr->check = chksum_l3((uint16_t *)(buff + 1), iphdr->ihl*4);
 
-						if (iphdr->protocol == IPPROTO_UDP) {
+						if (iphdr->saddr != my_tun_addr) {
 
-							udphdr = (struct udphdr *)(buff + 1 + iphdr->ihl*4);
-							udphdr->check = 0;
-							udphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), ntohs(udphdr->len), iphdr->saddr, iphdr->daddr, IPPROTO_UDP);
+							/* save packet headers for later */
+							data_packet = debugMalloc( sizeof(struct data_packet), 210 );
 
-						} else if (iphdr->protocol == IPPROTO_TCP) {
+							memcpy(data_packet->header_buff, buff + 1, (buff_len - 1 > sizeof(data_packet->header_buff) ? sizeof(data_packet->header_buff) : buff_len - 1));
 
-							tcphdr = (struct tcphdr *)(buff + 1 + iphdr->ihl*4);
-							tcphdr->check = 0;
-							tcphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), buff_len - iphdr->ihl*4, iphdr->saddr, iphdr->daddr, IPPROTO_TCP);
+							INIT_LIST_HEAD(&data_packet->list);
+							list_add_tail(&data_packet->list, &packet_list);
+
+							iphdr->saddr = my_tun_addr;
+							calculate_chcksum(buff, buff_len);
+
 
 						}
 
@@ -488,6 +549,20 @@ void *client_to_gw_tun( void *arg ) {
 
 			gw_state = GW_STATE_UNKNOWN;
 			gw_state_time = 0;
+
+		}
+
+		if ((!list_empty(&packet_list)) && (got_new_ip + GW_STATE_UNKNOWN_TIMEOUT / 2 < current_time)) {
+
+			list_for_each_safe(list_pos, list_pos_tmp, &packet_list) {
+
+				data_packet = list_entry(list_pos, struct data_packet, list);
+
+				list_del((struct list_head *)&packet_list, list_pos, &packet_list);
+
+				debugFree(data_packet, 1219);
+
+			}
 
 		}
 
