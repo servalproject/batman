@@ -124,7 +124,7 @@
  *
  ***/
 
-#define BH_UDP_PORTS {162, 4307} /* SNMP-TRAP, vis */
+#define BH_UDP_PORTS {4307, 162} /* vis, SNMP-TRAP */
 
 
 

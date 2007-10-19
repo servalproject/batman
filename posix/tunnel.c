@@ -386,7 +386,7 @@ void *client_to_gw_tun( void *arg ) {
 					buff[0] = TUNNEL_DATA;
 
 					/* fill in new ip - the packets in the buffer don't know it yet */
-					if ( got_new_ip + 10000 > ip_lease_time ) {
+					if ( got_new_ip + 1000 > ip_lease_time ) {
 
 						iphdr = (struct iphdr *)(buff + 1);
 						iphdr->saddr = my_tun_addr;
@@ -394,7 +394,7 @@ void *client_to_gw_tun( void *arg ) {
 						iphdr->check = chksum_l3((uint16_t *)(buff + 1), iphdr->ihl*4);
 
 						if (iphdr->protocol == IPPROTO_UDP) {
-							debug_output( 0, "udp rewritten\n" );
+
 							udphdr = (struct udphdr *)(buff + 1 + iphdr->ihl*4);
 							udphdr->check = 0;
 							udphdr->check = chksum_l4((uint16_t *)(buff + 1 + iphdr->ihl*4), ntohs(udphdr->len), iphdr->saddr, iphdr->daddr, IPPROTO_UDP);

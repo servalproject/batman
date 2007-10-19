@@ -409,15 +409,17 @@ void debug_orig() {
 
 	if ( debug_clients.clients_num[1] > 0 ) {
 
+		addr_to_string( ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr, orig_str, sizeof(orig_str) );
+		uptime_sec = (uint32_t)( get_time() / 1000 );
+
 		debug_output( 2, "BOD\n" );
+		debug_output( 2, "%''12s     %''15s (%s/%i) [%10s], gw_class ... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Gateway", "Router", "#", TQ_MAX_VALUE, "outgoingIF", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
 
 		if ( list_empty( &gw_list ) ) {
 
 			debug_output( 2, "No gateways in range ... \n" );
 
 		} else {
-
-			debug_output( 2, "%''12s     %''15s (%s/%i) \n", "Gateway", "Router", "#", TQ_MAX_VALUE );
 
 			list_for_each( orig_pos, &gw_list ) {
 
@@ -431,7 +433,7 @@ void debug_orig() {
 
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				debug_output( 2, "%s %-15s %''15s (%3i %2i), gw_class %2i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->router->orig_node->bcast_own_sum[gw_node->orig_node->router->if_incoming->if_num], gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
+				debug_output( 2, "%s %-15s %''15s (%3i) [%10s], gw_class %3i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, str2, gw_node->orig_node->router->tq_avg, gw_node->orig_node->router->if_incoming->dev, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
@@ -452,7 +454,7 @@ void debug_orig() {
 		uptime_sec = (uint32_t)( get_time() / 1000 );
 
 		debug_output( 1, "BOD \n" );
-		debug_output( 1, "  %-12s %''14s (%s/%i %s/%i): %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "Router", "#", TQ_MAX_VALUE, "#", TQ_LOCAL_WINDOW_SIZE, "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
+		debug_output( 1, "  %-12s %''14s (%s/%i) [%10s]: %''20s... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "Router", "#", TQ_MAX_VALUE, "outgoingIF", "Potential routers", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60 );
 
 		if ( debug_clients.clients_num[3] > 0 ) {
 
@@ -466,7 +468,7 @@ void debug_orig() {
 			}
 
 			debug_output( 4, "Originator list \n" );
-			debug_output( 4, "  %-12s %''14s (%s/%i %s/%i): %''20s\n", "Originator", "Router", "#", TQ_MAX_VALUE, "#", TQ_LOCAL_WINDOW_SIZE, "Potential routers" );
+			debug_output( 4, "  %-12s %''14s (%s/%i) [%10s]: %''20s\n", "Originator", "Router", "#", TQ_MAX_VALUE, "outgoingIF", "Potential routers" );
 
 		}
 
@@ -482,8 +484,8 @@ void debug_orig() {
 			addr_to_string( orig_node->orig, str, sizeof (str) );
 			addr_to_string( orig_node->router->addr, str2, sizeof (str2) );
 
-			debug_output( 1, "%-15s %''15s (%3i %2i):", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum[orig_node->router->if_incoming->if_num] );
-			debug_output( 4, "%''15s %''15s (%3i %2i), last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->router->orig_node->bcast_own_sum[orig_node->router->if_incoming->if_num], orig_node->last_valid );
+			debug_output( 1, "%-15s %''15s (%3i) [%10s]:", str, str2, orig_node->router->tq_avg, orig_node->router->if_incoming->dev );
+			debug_output( 4, "%''15s %''15s (%3i) [%10s], last_valid: %u: \n", str, str2, orig_node->router->tq_avg, orig_node->router->if_incoming->dev, orig_node->last_valid );
 
 			debug_out_size = 0;
 
