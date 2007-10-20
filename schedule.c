@@ -137,8 +137,13 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		/* rebroadcast tq of our best ranking neighbor to ensure the rebroadcast of our best tq value */
 		if ((orig_node->router != NULL) && (orig_node->router->tq_avg != 0)) {
 
-			((struct bat_packet *)forw_node_new->pack_buff)->tq = orig_node->router->tq_avg;
-			((struct bat_packet *)forw_node_new->pack_buff)->ttl = orig_node->router->last_ttl - 1;
+			/* rebroadcast ogm of best ranking neighbor as is */
+			if (orig_node->router->addr != neigh) {
+
+				((struct bat_packet *)forw_node_new->pack_buff)->tq = orig_node->router->tq_avg;
+				((struct bat_packet *)forw_node_new->pack_buff)->ttl = orig_node->router->last_ttl - 1;
+
+			}
 
 			tq_avg = orig_node->router->tq_avg;
 

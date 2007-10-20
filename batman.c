@@ -984,7 +984,7 @@ int8_t batman() {
 			has_directlink_flag = ((struct bat_packet *)&in)->flags & DIRECTLINK ? 1 : 0;
 			has_version = ((struct bat_packet *)&in)->version;
 
-			debug_output( 4, "Received BATMAN packet via NB: %s , IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, ((struct bat_packet *)&in)->seqno, ((struct bat_packet *)&in)->tq, ((struct bat_packet *)&in)->ttl, has_version, has_unidirectional_flag, has_directlink_flag );
+			debug_output( 4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, ((struct bat_packet *)&in)->seqno, ((struct bat_packet *)&in)->tq, ((struct bat_packet *)&in)->ttl, has_version, has_unidirectional_flag, has_directlink_flag );
 
 			hna_buff_len -= sizeof(struct bat_packet);
 			hna_recv_buff = ( hna_buff_len > 4 ? in + sizeof(struct bat_packet) : NULL );
