@@ -603,7 +603,10 @@ int flush_routes_rules( int8_t is_rule ) {
 					rule_type = 2;
 					break;
 
-				case 15:  /* FIXME: RTA_TABLE is not always available */
+				case 15:  /* FIXME: RTA_TABLE is not always available - not needed but avoid warning */
+					break;
+
+				case RTA_PREFSRC:  /* rta_type 7 - not needed but avoid warning */
 					break;
 
 				default:

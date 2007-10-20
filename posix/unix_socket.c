@@ -470,14 +470,14 @@ void *unix_listen( void *arg ) {
 
 		if ( unix_client->debug_level != 0 ) {
 
-			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'] ) {
+			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[unix_client->debug_level - 1] ) {
 
 				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 				if ( debug_level_info->fd == unix_client->sock ) {
 
-					list_del( (struct list_head *)debug_clients.fd_list[(int)unix_client->debug_level - '1'], debug_pos, debug_clients.fd_list[(int)unix_client->debug_level - '1'] );
-					debug_clients.clients_num[(int)unix_client->debug_level - '1']--;
+					list_del( (struct list_head *)debug_clients.fd_list[unix_client->debug_level - 1], debug_pos, debug_clients.fd_list[unix_client->debug_level - 1] );
+					debug_clients.clients_num[unix_client->debug_level - 1]--;
 
 					debugFree( debug_pos, 1204 );
 
