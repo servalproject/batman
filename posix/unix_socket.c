@@ -280,9 +280,9 @@ void *unix_listen( void *arg ) {
 
 								}
 
-								list_for_each( list_pos, &hna_list ) {
+								list_for_each( debug_pos, &hna_list ) {
 
-									hna_node = list_entry( list_pos, struct hna_node, list );
+									hna_node = list_entry( debug_pos, struct hna_node, list );
 
 									addr_to_string( hna_node->addr, str, sizeof (str) );
 
@@ -290,9 +290,9 @@ void *unix_listen( void *arg ) {
 
 								}
 
-								list_for_each( list_pos, &if_list ) {
+								list_for_each( debug_pos, &if_list ) {
 
-									batman_if = list_entry( list_pos, struct batman_if, list );
+									batman_if = list_entry( debug_pos, struct batman_if, list );
 
 									dprintf( unix_client->sock, " %s", batman_if->dev );
 
@@ -310,9 +310,9 @@ void *unix_listen( void *arg ) {
 
 										gateway_class = buff[2];
 
-										list_for_each( list_pos, &if_list ) {
+										list_for_each( debug_pos, &if_list ) {
 
-											batman_if = list_entry( list_pos, struct batman_if, list );
+											batman_if = list_entry( debug_pos, struct batman_if, list );
 
 											batman_if->out.gwflags = gateway_class;
 
@@ -355,9 +355,9 @@ void *unix_listen( void *arg ) {
 
 												gateway_class = 0;
 
-												list_for_each( list_pos, &if_list ) {
+												list_for_each( debug_pos, &if_list ) {
 
-													batman_if = list_entry( list_pos, struct batman_if, list );
+													batman_if = list_entry( debug_pos, struct batman_if, list );
 
 													batman_if->out.gwflags = gateway_class;
 
