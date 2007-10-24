@@ -155,7 +155,7 @@ int8_t refresh_ip_lease(struct sockaddr_in *gw_addr, int32_t udp_sock)
 	unsigned char buff[100];
 	int32_t res, buff_len;
 	uint32_t addr_len;
-	int8_t i = 1;
+	int8_t i = 5;
 	fd_set wait_sockets;
 
 
@@ -163,7 +163,7 @@ int8_t refresh_ip_lease(struct sockaddr_in *gw_addr, int32_t udp_sock)
 	memset( &buff, 0, sizeof(buff) );
 
 
-	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( i < 4 ) ) {
+	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( i > 0 ) ) {
 
 		buff[0] = TUNNEL_KEEPALIVE_REQUEST;
 
@@ -627,9 +627,9 @@ void *gw_listen(void *arg) {
 							addr_to_string( addr.sin_addr.s_addr, str, sizeof (str) );
 
 							if (sendto(batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
-								debug_output( 0, "Error - can't send %s to client (%s): %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str, strerror(errno) );
+								debug_output(0, "Error - can't send %s to client (%s): %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str, strerror(errno) );
 							else
-								debug_output( 3, "Gateway - send %s to client: %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str);
+								debug_output(3, "Gateway - send %s to client: %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str);
 
 						} else if (buff[0] == TUNNEL_IP_REQUEST) {
 
