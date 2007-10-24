@@ -117,6 +117,35 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 
 
 
+void internal_output(uint32_t sock)
+{
+	dprintf(sock, "source_version=%s\n", SOURCE_VERSION);
+	dprintf(sock, "compat_version=%i\n", COMPAT_VERSION);
+	dprintf(sock, "vis_compat_version=%i\n", VIS_COMPAT_VERSION);
+	dprintf(sock, "ogm_port=%i\n", PORT);
+	dprintf(sock, "gw_port=%i\n", PORT + 1);
+	dprintf(sock, "vis_port=%i\n", PORT + 2);
+	dprintf(sock, "unix_socket_path=%s\n", UNIX_PATH);
+	dprintf(sock, "own_ogm_jitter=%i\n", JITTER);
+	dprintf(sock, "default_ttl=%i\n", TTL);
+	dprintf(sock, "originator_timeout=%i\n", PURGE_TIMEOUT);
+	dprintf(sock, "tq_local_window_size=%i\n", TQ_LOCAL_WINDOW_SIZE);
+	dprintf(sock, "tq_total_window_size=%i\n", TQ_TOTAL_WINDOW_SIZE);
+	dprintf(sock, "tq_local_bidirect_send_minimum=%i\n", TQ_LOCAL_BIDRECT_SEND_MINIMUM);
+	dprintf(sock, "tq_local_bidirect_recv_minimum=%i\n", TQ_LOCAL_BIDRECT_RECV_MINIMUM);
+	dprintf(sock, "tq_total_limit=%i\n", TQ_TOTAL_BIDRECT_LIMIT);
+	dprintf(sock, "ethernet_tq_penalty=%i\n", PERFECT_TQ_PENALTY);
+	dprintf(sock, "rt_table_networks=%i\n", BATMAN_RT_TABLE_NETWORKS);
+	dprintf(sock, "rt_table_hosts=%i\n", BATMAN_RT_TABLE_HOSTS);
+	dprintf(sock, "rt_table_unreach=%i\n", BATMAN_RT_TABLE_UNREACH);
+	dprintf(sock, "rt_table_tunnel=%i\n", BATMAN_RT_TABLE_TUNNEL);
+	dprintf(sock, "rt_prio_default=%i\n", BATMAN_RT_PRIO_DEFAULT);
+	dprintf(sock, "rt_prio_unreach=%i\n", BATMAN_RT_PRIO_UNREACH);
+	dprintf(sock, "rt_prio_tunnel=%i\n", BATMAN_RT_PRIO_TUNNEL);
+}
+
+
+
 void *unix_listen( void *arg ) {
 
 	struct unix_client *unix_client;
@@ -259,46 +288,8 @@ void *unix_listen( void *arg ) {
 
 							} else if ( buff[0] == 'i' ) {
 
-								dprintf( unix_client->sock, "%s", prog_name );
-
-								if ( routing_class > 0 )
-									dprintf( unix_client->sock, " -r %i", routing_class );
-
-								if ( pref_gateway > 0 ) {
-
-									addr_to_string( pref_gateway, str, sizeof (str) );
-
-									dprintf( unix_client->sock, " -p %s", str );
-
-								}
-
-								if ( gateway_class > 0 ) {
-
-									get_gw_speeds( gateway_class, &download_speed, &upload_speed );
-
-									dprintf( unix_client->sock, " -g %i%s/%i%s", ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ) );
-
-								}
-
-								list_for_each( debug_pos, &hna_list ) {
-
-									hna_node = list_entry( debug_pos, struct hna_node, list );
-
-									addr_to_string( hna_node->addr, str, sizeof (str) );
-
-									dprintf( unix_client->sock, " -a %s/%i", str, hna_node->netmask );
-
-								}
-
-								list_for_each( debug_pos, &if_list ) {
-
-									batman_if = list_entry( debug_pos, struct batman_if, list );
-
-									dprintf( unix_client->sock, " %s", batman_if->dev );
-
-								}
-
-								dprintf( unix_client->sock, "\nEOD\n" );
+								internal_output(unix_client->sock);
+								dprintf( unix_client->sock, "EOD\n" );
 
 							} else if ( buff[0] == 'g' ) {
 
@@ -393,6 +384,49 @@ void *unix_listen( void *arg ) {
 								}
 
 								dprintf( unix_client->sock, "EOD\n" );
+
+							} else if ( buff[0] == 'y' ) {
+
+								dprintf( unix_client->sock, "%s", prog_name );
+
+								if ( routing_class > 0 )
+									dprintf( unix_client->sock, " -r %i", routing_class );
+
+								if ( pref_gateway > 0 ) {
+
+									addr_to_string( pref_gateway, str, sizeof (str) );
+
+									dprintf( unix_client->sock, " -p %s", str );
+
+								}
+
+								if ( gateway_class > 0 ) {
+
+									get_gw_speeds( gateway_class, &download_speed, &upload_speed );
+
+									dprintf( unix_client->sock, " -g %i%s/%i%s", ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ) );
+
+								}
+
+								list_for_each( debug_pos, &hna_list ) {
+
+									hna_node = list_entry( debug_pos, struct hna_node, list );
+
+									addr_to_string( hna_node->addr, str, sizeof (str) );
+
+									dprintf( unix_client->sock, " -a %s/%i", str, hna_node->netmask );
+
+								}
+
+								list_for_each( debug_pos, &if_list ) {
+
+									batman_if = list_entry( debug_pos, struct batman_if, list );
+
+									dprintf( unix_client->sock, " %s", batman_if->dev );
+
+								}
+
+								dprintf( unix_client->sock, "\nEOD\n" );
 
 							}
 

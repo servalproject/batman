@@ -116,6 +116,7 @@ void usage( void ) {
 	fprintf( stderr, "       -g gateway class\n" );
 	fprintf( stderr, "       -h this help\n" );
 	fprintf( stderr, "       -H verbose help\n" );
+	fprintf( stderr, "       -i internal options output\n" );
 	fprintf( stderr, "       -o originator interval in ms\n" );
 	fprintf( stderr, "       -p preferred gateway\n" );
 	fprintf( stderr, "       -r routing class\n" );
@@ -156,6 +157,7 @@ void verbose_usage( void ) {
 	fprintf( stderr, "                                5mbit/1mbit\n" );
 	fprintf( stderr, "       -h shorter help\n" );
 	fprintf( stderr, "       -H this help\n" );
+	fprintf( stderr, "       -i gives information about all internal options\n" );
 	fprintf( stderr, "       -o originator interval in ms\n" );
 	fprintf( stderr, "          default: 1000, allowed values: >0\n\n" );
 	fprintf( stderr, "       -p preferred gateway\n" );

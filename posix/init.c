@@ -94,7 +94,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
 	struct list_head *list_pos;
-	uint8_t found_args = 1, batch_mode = 0;
+	uint8_t found_args = 1, batch_mode = 0, info_output = 0;
 	uint16_t netmask;
 	int8_t res;
 
@@ -115,7 +115,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
 
-	while ( ( optchar = getopt_long( argc, argv, "a:bcd:hHo:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
+	while ( ( optchar = getopt_long( argc, argv, "a:bcd:hHio:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
 
 		switch ( optchar ) {
 
@@ -251,6 +251,10 @@ void apply_init_args( int argc, char *argv[] ) {
 				verbose_usage();
 				exit(EXIT_SUCCESS);
 
+			case 'i':
+				info_output++;
+				break;
+
 			case 'n':
 				no_policy_routing = 1;
 				found_args++;
@@ -344,6 +348,13 @@ void apply_init_args( int argc, char *argv[] ) {
 				exit(EXIT_SUCCESS);
 
 		}
+
+	}
+
+	if (!unix_client && info_output) {
+
+		internal_output(1);
+		exit(EXIT_SUCCESS);
 
 	}
 
@@ -623,10 +634,15 @@ void apply_init_args( int argc, char *argv[] ) {
 			batch_mode = 1;
 			snprintf( unix_buff, 10, "g:%c", gateway_class );
 
-		} else {
+		} else if ( info_output ) {
 
 			batch_mode = 1;
 			snprintf( unix_buff, 10, "i" );
+
+		} else {
+
+			batch_mode = 1;
+			snprintf( unix_buff, 10, "y" );
 
 		}
 
