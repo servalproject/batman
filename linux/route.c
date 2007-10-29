@@ -402,7 +402,7 @@ int add_del_interface_rules( int8_t del ) {
 
 		} else {
 
-			if ( ifc.ifc_len <= len )
+			if ( ifc.ifc_len < len )
 				break;
 
 		}

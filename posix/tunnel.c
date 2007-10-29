@@ -753,6 +753,7 @@ void *gw_listen(void *arg) {
 	}
 
 	close( batman_if->udp_tunnel_sock );
+	batman_if->udp_tunnel_sock = 0;
 
 	return NULL;
 
