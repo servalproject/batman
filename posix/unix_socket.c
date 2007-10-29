@@ -430,6 +430,8 @@ void *unix_listen( void *arg ) {
 
 							}
 
+							prev_list_head_unix = &unix_client->list;
+
 						} else {
 
 							if ( status < 0 )
@@ -483,8 +485,6 @@ void *unix_listen( void *arg ) {
 
 					}
 
-					prev_list_head_unix = &unix_client->list;
-
 				}
 
 			}
@@ -519,11 +519,9 @@ void *unix_listen( void *arg ) {
 
 					break;
 
-				} else {
-
-					prev_list_head = &debug_level_info->list;
-
 				}
+
+				prev_list_head = &debug_level_info->list;
 
 			}
 
