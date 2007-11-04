@@ -436,6 +436,9 @@ void *client_to_gw_tun( void *arg ) {
 			if (refresh_ip_lease(&gw_addr, udp_sock) < 0) {
 
 				debug_output(3, "Gateway client - disconnecting from unresponsive gateway (%s): could not refresh IP lease \n", gw_str);
+
+				curr_gw_data->gw_node->last_failure = current_time;
+				curr_gw_data->gw_node->unavail_factor++;
 				break;
 
 			} else {

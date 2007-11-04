@@ -234,7 +234,10 @@ void choose_gw() {
 	static char orig_str[ADDR_STR_LEN];
 
 
-	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
+// 	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
+
+		current_time = get_time();
+		if ( routing_class == 0 ) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -464,8 +467,11 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 			if ( new_gwflags == 0 ) {
 
 				gw_node->deleted = get_time();
-
+				gw_node->orig_node->gwflags = new_gwflags;
 				debug_output( 3, "Gateway %s removed from gateway list\n", orig_str );
+
+				if (gw_node == curr_gateway)
+					choose_gw();
 
 			} else {
 
@@ -475,7 +481,6 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 			}
 
 			prof_stop( PROF_update_gw_list );
-			choose_gw();
 			return;
 
 		}
@@ -498,8 +503,6 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 	list_add_tail( &gw_node->list, &gw_list );
 
 	prof_stop( PROF_update_gw_list );
-
-	choose_gw();
 
 }
 

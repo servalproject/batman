@@ -506,6 +506,9 @@ void *unix_listen( void *arg ) {
 
 			prev_list_head = (struct list_head *)debug_clients.fd_list[unix_client->debug_level - 1];
 
+			if ( pthread_mutex_lock( (pthread_mutex_t *)debug_clients.mutex[unix_client->debug_level - 1] ) != 0 )
+				debug_output( 0, "Error - could not lock mutex (unix_listen => 4): %s \n", strerror( errno ) );
+
 			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[unix_client->debug_level - 1] ) {
 
 				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
@@ -524,6 +527,9 @@ void *unix_listen( void *arg ) {
 				prev_list_head = &debug_level_info->list;
 
 			}
+
+			if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[unix_client->debug_level - 1] ) != 0 )
+				debug_output( 0, "Error - could not unlock mutex (unix_listen => 4): %s \n", strerror( errno ) );
 
 		}
 

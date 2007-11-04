@@ -157,6 +157,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
+				tmp_ip_holder.s_addr = (tmp_ip_holder.s_addr & htonl(0xFFFFFFFF << (32 - netmask)));
+
 				hna_node = debugMalloc( sizeof(struct hna_node), 203 );
 				memset( hna_node, 0, sizeof(struct hna_node) );
 				INIT_LIST_HEAD( &hna_node->list );

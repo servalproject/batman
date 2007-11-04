@@ -364,9 +364,9 @@ void restore_defaults() {
 
 		if (batman_if->udp_tunnel_sock > 0) {
 
-			if ( batman_if->listen_thread_id != 0 )
+			if ( batman_if->listen_thread_id != 0 ) {
 				pthread_join( batman_if->listen_thread_id, NULL );
-			else {
+			} else {
 				if(batman_if->dev != NULL ) {
 
 					strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
@@ -378,6 +378,8 @@ void restore_defaults() {
 				}
 
 			}
+
+			batman_if->listen_thread_id = 0;
 
 		}
 
@@ -411,8 +413,10 @@ void restore_defaults() {
 	if ( unix_if.unix_sock )
 		close( unix_if.unix_sock );
 
-	if ( unix_if.listen_thread_id != 0 )
+	if ( unix_if.listen_thread_id != 0 ) {
 		pthread_join( unix_if.listen_thread_id, NULL );
+		unix_if.listen_thread_id = 0;
+	}
 
 	if ( debug_level == 0 )
 		closelog();
@@ -440,9 +444,9 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 			batman_if = list_entry( if_pos, struct batman_if, list );
 			/* TODO: unregister from kernel module per ioctl */
 			if (batman_if->udp_tunnel_sock > 0) {
-				if(batman_if->listen_thread_id != 0)
+				if(batman_if->listen_thread_id != 0) {
 					pthread_join( batman_if->listen_thread_id, NULL );
-				else {
+				} else {
 
 					if(batman_if->dev != NULL ) {
 
@@ -455,6 +459,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 					}
 
 				}
+
 				batman_if->listen_thread_id = 0;
 
 			}
