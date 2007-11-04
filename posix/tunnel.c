@@ -300,7 +300,7 @@ void *client_to_gw_tun( void *arg ) {
 
 	if ( add_dev_tun( curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0 ) {
 
-		add_del_route( 0, 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
+		add_del_route( 0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
 
 	} else {
 
@@ -473,7 +473,7 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-	add_del_route( 0, 0, 0, 0, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
+	add_del_route( 0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
 
 	close( udp_sock );
 
