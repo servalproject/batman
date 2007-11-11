@@ -234,10 +234,7 @@ void choose_gw() {
 	static char orig_str[ADDR_STR_LEN];
 
 
-// 	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
-
-		current_time = get_time();
-		if ( routing_class == 0 ) {
+	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -932,7 +929,7 @@ int8_t batman() {
 		batman_if->out.flags = 0x00;
 		batman_if->out.ttl = ( batman_if->if_num > 0 ? 2 : TTL );
 		batman_if->out.seqno = 1;
-		batman_if->out.gwflags = gateway_class;
+		batman_if->out.gwflags = ( batman_if->if_num > 0 ? 0 : gateway_class );
 		batman_if->out.version = COMPAT_VERSION;
 		batman_if->out.tq = TQ_MAX_VALUE;
 
