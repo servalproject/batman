@@ -147,82 +147,6 @@ int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_
 
 }
 
-int8_t refresh_ip_lease(struct sockaddr_in *gw_addr, int32_t udp_sock)
-{
-
-	struct sockaddr_in sender_addr;
-	struct timeval tv;
-	unsigned char buff[100];
-	int32_t res, buff_len;
-	uint32_t addr_len;
-	int8_t i = 5;
-	fd_set wait_sockets;
-
-
-	addr_len = sizeof(struct sockaddr_in);
-	memset( &buff, 0, sizeof(buff) );
-
-
-	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( i > 0 ) ) {
-
-		buff[0] = TUNNEL_KEEPALIVE_REQUEST;
-
-		if ( sendto( udp_sock, buff, sizeof(buff), 0, (struct sockaddr *)gw_addr, sizeof(struct sockaddr_in) ) < 0 ) {
-
-			debug_output( 0, "Error - can't send keep alive request to gateway: %s \n", strerror(errno) );
-
-		} else {
-
-			tv.tv_sec = 0;
-			tv.tv_usec = 1000000;
-
-			FD_ZERO(&wait_sockets);
-			FD_SET(udp_sock, &wait_sockets);
-
-			res = select( udp_sock + 1, &wait_sockets, NULL, NULL, &tv );
-
-			if ( res > 0 ) {
-
-				/* gateway message */
-				if ( FD_ISSET( udp_sock, &wait_sockets ) ) {
-
-					if ( ( buff_len = recvfrom( udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len ) ) < 0 ) {
-
-						debug_output( 0, "Error - can't receive keep alive reply: %s \n", strerror(errno) );
-
-					} else {
-
-						if ((sender_addr.sin_addr.s_addr == gw_addr->sin_addr.s_addr) && (buff_len > 0) && (buff[0] == TUNNEL_KEEPALIVE_REPLY)) {
-
-							return 1;
-
-						} else {
-
-							debug_output( 0, "Error - can't receive keep alive reply: sender IP or packet size (%i) do not match \n", buff_len );
-
-						}
-
-					}
-
-				}
-
-			} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
-
-				debug_output( 0, "Error - can't select: %s \n", strerror(errno) );
-				break;
-
-			}
-
-		}
-
-		i--;
-
-	}
-
-	return -1;
-}
-
-
 
 void *client_to_gw_tun( void *arg ) {
 
@@ -230,7 +154,7 @@ void *client_to_gw_tun( void *arg ) {
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
 	struct list_head_first packet_list;
-	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts, i;
+	int32_t res, max_sock, buff_len, udp_sock, tun_fd, tun_ifi, sock_opts, i, num_refresh_lease = 0, last_refresh_attempt = 0;
 	uint32_t addr_len, current_time, ip_lease_time = 0, gw_state_time = 0, my_tun_addr = 0, ignore_packet;
 	char tun_if[IFNAMSIZ], my_str[ADDR_STR_LEN], gw_str[ADDR_STR_LEN], gw_state = GW_STATE_UNKNOWN;
 	unsigned char buff[1501];
@@ -339,7 +263,7 @@ void *client_to_gw_tun( void *arg ) {
 					if ( ( buff_len > 1 ) && ( sender_addr.sin_addr.s_addr == gw_addr.sin_addr.s_addr ) ) {
 
 						/* got data from gateway */
-						if ( buff[0] == TUNNEL_DATA ) {
+						if (buff[0] == TUNNEL_DATA ) {
 
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
@@ -348,7 +272,7 @@ void *client_to_gw_tun( void *arg ) {
 							gw_state_time = current_time;
 
 						/* gateway told us that we have no valid ip */
-						} else if ( buff[0] == TUNNEL_IP_INVALID ) {
+						} else if (buff[0] == TUNNEL_IP_INVALID) {
 
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
 							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is expired \n", gw_str, my_str );
@@ -357,6 +281,12 @@ void *client_to_gw_tun( void *arg ) {
 							errno = EWOULDBLOCK;
 
 							break;
+
+						} else if (buff[0] == TUNNEL_KEEPALIVE_REPLY) {
+
+							debug_output(3, "Gateway client - successfully refreshed IP lease: %s \n", gw_str);
+							ip_lease_time = current_time;
+							num_refresh_lease = 0;
 
 						}
 
@@ -428,23 +358,27 @@ void *client_to_gw_tun( void *arg ) {
 		}
 
 
-		/* refresh lease IP */
-		if ((ip_lease_time + IP_LEASE_TIMEOUT) < current_time) {
+		/* refresh leased IP */
+		if (((ip_lease_time + IP_LEASE_TIMEOUT) < current_time) && ((last_refresh_attempt + 1000) < current_time)) {
 
-			addr_to_string(my_tun_addr, my_str, sizeof(my_str));
+			if (num_refresh_lease < 12) {
 
-			if (refresh_ip_lease(&gw_addr, udp_sock) < 0) {
+				buff[0] = TUNNEL_KEEPALIVE_REQUEST;
 
+				if ( sendto( udp_sock, buff, 100, 0, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr_in) ) < 0 )
+					debug_output( 0, "Error - can't send keep alive request to gateway: %s \n", strerror(errno) );
+
+				num_refresh_lease++;
+				last_refresh_attempt = current_time;
+
+			} else {
+
+				addr_to_string(my_tun_addr, my_str, sizeof(my_str));
 				debug_output(3, "Gateway client - disconnecting from unresponsive gateway (%s): could not refresh IP lease \n", gw_str);
 
 				curr_gw_data->gw_node->last_failure = current_time;
 				curr_gw_data->gw_node->unavail_factor++;
 				break;
-
-			} else {
-
-				debug_output(3, "Gateway client - successfully refreshed IP lease: %s \n", gw_str);
-				ip_lease_time = current_time;
 
 			}
 
