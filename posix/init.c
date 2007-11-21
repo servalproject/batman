@@ -93,7 +93,6 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
-	struct list_head *list_pos;
 	uint8_t found_args = 1, batch_mode = 0, info_output = 0;
 	uint16_t netmask;
 	int8_t res;
@@ -552,17 +551,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		if ( gateway_class != 0 ) {
-
-			list_for_each( list_pos, &if_list ) {
-
-				batman_if = list_entry( list_pos, struct batman_if, list );
-
-				init_interface_gw( batman_if );
-
-			}
-
-		}
+		if ( gateway_class != 0 )
+			init_interface_gw();
 
 
 		if ( debug_level > 0 ) {
@@ -866,12 +856,14 @@ void init_interface ( struct batman_if *batman_if ) {
 
 
 
-void init_interface_gw ( struct batman_if *batman_if ) {
+void init_interface_gw () {
 
 	int32_t sock_opts, err, skfd;
 	struct ifreq ifr;
 	struct sockaddr_in sin;
 	struct batgat_ioc_args ioc;
+	struct batman_if *batman_if = (struct batman_if *)if_list.next;
+
 
 	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
 

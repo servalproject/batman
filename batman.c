@@ -146,7 +146,7 @@ void verbose_usage( void ) {
 
 	fprintf( stderr, "       -g gateway class\n" );
 	fprintf( stderr, "          default:         0 -> gateway disabled\n" );
-	fprintf( stderr, "          allowed values:  download speed/upload in kbit (default) or mbit\n" );
+	fprintf( stderr, "          allowed values:  download/upload in kbit/s (default) or mbit/s\n" );
 	fprintf( stderr, "          note:            batmand will choose the nearest gateway class representing your speeds\n" );
 	fprintf( stderr, "                           and therefore accepts all given values\n" );
 	fprintf( stderr, "                           e.g. 5000\n" );
@@ -164,9 +164,9 @@ void verbose_usage( void ) {
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -r routing class (only needed if gateway class = 0)\n" );
 	fprintf( stderr, "          default:         0 -> set no default route\n" );
-	fprintf( stderr, "          allowed values:  1 -> use fast internet connection (gw_flags * packet count)\n" );
-	fprintf( stderr, "                           2 -> use stable internet connection (packet count)\n" );
-	fprintf( stderr, "                           3 -> use fast-switch internet connection (packet count but change as soon as a better gateway appears)\n\n" );
+	fprintf( stderr, "          allowed values:  1 -> use fast internet connection (gw_flags * TQ)\n" );
+	fprintf( stderr, "                           2 -> use stable internet connection (TQ)\n" );
+	fprintf( stderr, "                           3 -> use fast-switch internet connection (TQ but switch as soon as a better gateway appears)\n\n" );
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );

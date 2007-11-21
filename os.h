@@ -50,8 +50,8 @@ int8_t set_tun_addr( int32_t fd, uint32_t tun_addr, char *tun_dev );
 
 /* init.c */
 void apply_init_args( int argc, char *argv[] );
-void init_interface ( struct batman_if *batman_if );
-void init_interface_gw ( struct batman_if *batman_if );
+void init_interface( struct batman_if *batman_if );
+void init_interface_gw();
 
 /* kernel.c */
 void set_rp_filter( int32_t state, char* dev );
@@ -75,7 +75,7 @@ void cleanup();
 
 /* tunnel.c */
 void init_bh_ports();
-void *gw_listen( void *arg );
+void *gw_listen();
 void *client_to_gw_tun( void *arg );
 
 /* unix_sokcet.c */

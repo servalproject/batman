@@ -134,7 +134,7 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "tq_local_bidirect_send_minimum=%i\n", TQ_LOCAL_BIDRECT_SEND_MINIMUM);
 	dprintf(sock, "tq_local_bidirect_recv_minimum=%i\n", TQ_LOCAL_BIDRECT_RECV_MINIMUM);
 	dprintf(sock, "tq_total_limit=%i\n", TQ_TOTAL_BIDRECT_LIMIT);
-	dprintf(sock, "ethernet_tq_penalty=%i\n", PERFECT_TQ_PENALTY);
+	dprintf(sock, "perfect_tq_penalty=%i\n", PERFECT_TQ_PENALTY);
 	dprintf(sock, "rt_table_networks=%i\n", BATMAN_RT_TABLE_NETWORKS);
 	dprintf(sock, "rt_table_hosts=%i\n", BATMAN_RT_TABLE_HOSTS);
 	dprintf(sock, "rt_table_unreach=%i\n", BATMAN_RT_TABLE_UNREACH);
@@ -300,17 +300,10 @@ void *unix_listen( void *arg ) {
 										was_gateway = ( gateway_class > 0 ? 1 : 0 );
 
 										gateway_class = buff[2];
+										((struct batman_if *)if_list.next)->out.gwflags = gateway_class;
 
-										list_for_each( debug_pos, &if_list ) {
-
-											batman_if = list_entry( debug_pos, struct batman_if, list );
-
-											batman_if->out.gwflags = gateway_class;
-
-											if ( ( !was_gateway ) && ( gateway_class > 0 ) )
-												init_interface_gw( batman_if );
-
-										}
+										if ( ( !was_gateway ) && ( gateway_class > 0 ) )
+											init_interface_gw();
 
 										if ( ( gateway_class > 0 ) && ( routing_class > 0 ) ) {
 
@@ -345,14 +338,7 @@ void *unix_listen( void *arg ) {
 											if ( ( routing_class > 0 ) && ( gateway_class > 0 ) ) {
 
 												gateway_class = 0;
-
-												list_for_each( debug_pos, &if_list ) {
-
-													batman_if = list_entry( debug_pos, struct batman_if, list );
-
-													batman_if->out.gwflags = gateway_class;
-
-												}
+												((struct batman_if *)if_list.next)->out.gwflags = gateway_class;
 
 											}
 

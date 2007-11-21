@@ -271,7 +271,7 @@ void *client_to_gw_tun( void *arg ) {
 							gw_state = GW_STATE_VERIFIED;
 							gw_state_time = current_time;
 
-						/* gateway told us that we have no valid ip */
+							/* gateway told us that we have no valid ip */
 						} else if (buff[0] == TUNNEL_IP_INVALID) {
 
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
@@ -420,95 +420,181 @@ void *client_to_gw_tun( void *arg ) {
 
 }
 
-int8_t get_ip_addr(uint32_t client_addr, uint8_t *ip_byte_4, struct gw_client *gw_client[], int8_t is_keep_alive) {
+struct gw_client *get_ip_addr(uint32_t client_addr, struct hashtable_t *wip_hash, struct hashtable_t *vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
 
-	uint8_t i, first_free = 0;
+	struct gw_client *gw_client;
+	struct free_ip *free_ip;
+	struct list_head *list_pos, *list_pos_tmp;
+	struct hashtable_t *swaphash;
 
-	for ( i = 1; i < 255; i++ ) {
 
-		if ( gw_client[i] != NULL ) {
+	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr));
 
-			if (gw_client[i]->addr == client_addr) {
+	if (gw_client != NULL)
+		return gw_client;
 
-				if (is_keep_alive)
-					gw_client[i]->last_keep_alive = get_time();
-				else
-					*ip_byte_4 = i;
+	gw_client = debugMalloc( sizeof(struct gw_client), 208 );
 
-				return 1;
+	gw_client->wip_addr = client_addr;
+	gw_client->last_keep_alive = get_time();
+	gw_client->vip_addr = 0;
 
-			}
+	list_for_each_safe(list_pos, list_pos_tmp, free_ip_list) {
 
-		} else {
+		free_ip = list_entry(list_pos, struct free_ip, list);
 
-			if ((first_free == 0) && (!is_keep_alive)) {
+		gw_client->vip_addr = free_ip->addr;
 
-				first_free = i;
-				break;
+		list_del((struct list_head *)free_ip_list, list_pos, free_ip_list);
+		debugFree(free_ip, 1216);
 
-			}
+		break;
+
+	}
+
+	if (gw_client->vip_addr == 0) {
+
+		gw_client->vip_addr = *(uint32_t *)next_free_ip;
+
+		next_free_ip[3]++;
+
+		if (next_free_ip[3] == 0)
+			next_free_ip[2]++;
+
+	}
+
+	hash_add(wip_hash, gw_client);
+	hash_add(vip_hash, gw_client);
+
+	if (wip_hash->elements * 4 > wip_hash->size) {
+
+		swaphash = hash_resize(wip_hash, wip_hash->size * 2);
+
+		if (swaphash == NULL) {
+
+			debug_output( 0, "Couldn't resize hash table \n" );
+			restore_and_exit(0);
 
 		}
 
+		wip_hash = swaphash;
+
+		swaphash = hash_resize(vip_hash, vip_hash->size * 2);
+
+		if (swaphash == NULL) {
+
+			debug_output( 0, "Couldn't resize hash table \n" );
+			restore_and_exit(0);
+
+		}
+
+		vip_hash = swaphash;
+
 	}
 
-	/* keep alive not found */
-	if (is_keep_alive)
-		return -1;
-
-	if ( first_free == 0 ) {
-
-		debug_output( 0, "Error - can't get IP for client: maximum number of clients reached\n" );
-		return -1;
-
-	}
-
-	gw_client[first_free] = debugMalloc( sizeof(struct gw_client), 208 );
-
-	gw_client[first_free]->addr = client_addr;
-	gw_client[first_free]->last_keep_alive = get_time();
-
-	*ip_byte_4 = first_free;
-
-	return 1;
+	return gw_client;
 
 }
 
+/* needed for hash, compares 2 struct gw_client, but only their ip-addresses. assumes that
+ * the ip address is the first/second field in the struct */
+int compare_wip(void *data1, void *data2)
+{
+	return ( memcmp( data1, data2, 4 ) );
+}
 
+int compare_vip(void *data1, void *data2)
+{
+	return ( memcmp( data1 + 4, data2 + 4, 4 ) );
+}
 
-void *gw_listen(void *arg) {
+/* hashfunction to choose an entry in a hash table of given size */
+/* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
+int choose_wip(void *data, int32_t size)
+{
+	unsigned char *key= data;
+	uint32_t hash = 0;
+	size_t i;
 
-	struct batman_if *batman_if = (struct batman_if *)arg;
+	for (i = 0; i < 4; i++) {
+		hash += key[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+
+	return (hash%size);
+
+}
+
+int choose_vip(void *data, int32_t size)
+{
+	unsigned char *key= data;
+	uint32_t hash = 0;
+	size_t i;
+
+	for (i = 4; i < 8; i++) {
+		hash += key[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+
+	return (hash%size);
+
+}
+
+void *gw_listen() {
+
+	struct batman_if *batman_if = (struct batman_if *)if_list.next;
 	struct timeval tv;
 	struct sockaddr_in addr, client_addr;
-	struct gw_client *gw_client[256];
+	struct gw_client *gw_client;
 	char gw_addr[16], str[16], tun_dev[IFNAMSIZ];
 	unsigned char buff[1501];
 	int32_t res, max_sock, buff_len, tun_fd, tun_ifi;
 	uint32_t addr_len, client_timeout, current_time;
-	uint8_t i, my_tun_ip[4];
+	uint8_t my_tun_ip[4], next_free_ip[4];
+	struct hashtable_t *wip_hash, *vip_hash;
+	struct list_head_first free_ip_list;
 	fd_set wait_sockets, tmp_wait_sockets;
+	struct hash_it_t *hashit;
+	struct free_ip *free_ip;
+	struct list_head *list_pos, *list_pos_tmp;
 
 
-	my_tun_ip[0] = 169;
-	my_tun_ip[1] = 254;
-	my_tun_ip[2] = batman_if->if_num;
+	my_tun_ip[0] = next_free_ip[0] = 169;
+	my_tun_ip[1] = next_free_ip[1] = 254;
+	my_tun_ip[2] = next_free_ip[2] = 0;
 	my_tun_ip[3] = 0;
+	next_free_ip[3] = 1;
 
 	addr_len = sizeof (struct sockaddr_in);
 	client_timeout = get_time();
 
-	for ( i = 0; i < 255; i++ ) {
-		gw_client[i] = NULL;
-	}
-
 	client_addr.sin_family = AF_INET;
 	client_addr.sin_port = htons(PORT + 1);
 
-	if ( add_dev_tun( batman_if, *(uint32_t *)my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi ) < 0 )
+	INIT_LIST_HEAD_FIRST(free_ip_list);
+
+	if (add_dev_tun(batman_if, *(uint32_t *)my_tun_ip, tun_dev, sizeof(tun_dev), &tun_fd, &tun_ifi) < 0)
 		return NULL;
 
-	add_del_route( *(uint32_t *)my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 0 );
+	if (NULL == ( wip_hash = hash_new(128, compare_wip, choose_wip)))
+		return NULL;
+
+	if (NULL == (vip_hash = hash_new(128, compare_vip, choose_vip))) {
+		hash_destroy(wip_hash);
+		return NULL;
+	}
+
+	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, 0, 0 );
 
 
 	FD_ZERO(&wait_sockets);
@@ -525,6 +611,8 @@ void *gw_listen(void *arg) {
 
 		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
 
+		current_time = get_time();
+
 		if ( res > 0 ) {
 
 			/* is udp packet */
@@ -536,8 +624,10 @@ void *gw_listen(void *arg) {
 
 						if (buff[0] == TUNNEL_DATA) {
 
+							gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9 ));
+
 							/* check whether client IP is known */
-							if ( ( buff[13] != 169 ) || ( buff[14] != 254 ) || ( buff[15] != batman_if->if_num ) || ( gw_client[(uint8_t)buff[16]] == NULL ) || ( gw_client[(uint8_t)buff[16]]->addr != addr.sin_addr.s_addr ) ) {
+							if ((gw_client == NULL) || (gw_client->wip_addr != addr.sin_addr.s_addr)) {
 
 								buff[0] = TUNNEL_IP_INVALID;
 								addr_to_string( addr.sin_addr.s_addr, str, sizeof(str) );
@@ -556,10 +646,14 @@ void *gw_listen(void *arg) {
 
 						} else if (buff[0] == TUNNEL_KEEPALIVE_REQUEST) {
 
-							if (get_ip_addr(addr.sin_addr.s_addr, &my_tun_ip[3], gw_client,1) > 0)
+							gw_client = ((struct gw_client *)hash_find(wip_hash, &addr.sin_addr.s_addr ));
+
+							if (gw_client != NULL) {
+								gw_client->last_keep_alive = current_time;
 								buff[0] = TUNNEL_KEEPALIVE_REPLY;
-							else
+							} else {
 								buff[0] = TUNNEL_IP_INVALID;
+							}
 
 							addr_to_string( addr.sin_addr.s_addr, str, sizeof (str) );
 
@@ -570,22 +664,20 @@ void *gw_listen(void *arg) {
 
 						} else if (buff[0] == TUNNEL_IP_REQUEST) {
 
-							if (get_ip_addr(addr.sin_addr.s_addr, &my_tun_ip[3], gw_client,0) > 0) {
+							gw_client = get_ip_addr(addr.sin_addr.s_addr, wip_hash, vip_hash, &free_ip_list, next_free_ip);
 
-								memcpy( buff + 1, (char *)my_tun_ip, 4 );
+							memcpy( buff + 1, (char *)&gw_client->vip_addr, 4 );
 
-								if ( sendto( batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in) ) < 0 ) {
+							if (sendto(batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0) {
 
-									addr_to_string( addr.sin_addr.s_addr, str, sizeof (str) );
-									debug_output( 0, "Error - can't send requested ip to client (%s): %s \n", str, strerror(errno) );
+								addr_to_string( addr.sin_addr.s_addr, str, sizeof (str) );
+								debug_output( 0, "Error - can't send requested ip to client (%s): %s \n", str, strerror(errno) );
 
-								} else {
+							} else {
 
-									addr_to_string( *(uint32_t *)my_tun_ip, str, sizeof(str) );
-									addr_to_string( addr.sin_addr.s_addr, gw_addr, sizeof(gw_addr) );
-									debug_output( 3, "Gateway - assigned %s to client: %s \n", str, gw_addr );
-
-								}
+								addr_to_string( gw_client->vip_addr, str, sizeof(str) );
+								addr_to_string( addr.sin_addr.s_addr, gw_addr, sizeof(gw_addr) );
+								debug_output( 3, "Gateway - assigned %s to client: %s \n", str, gw_addr );
 
 							}
 
@@ -595,28 +687,23 @@ void *gw_listen(void *arg) {
 
 				}
 
-				if ( errno != EWOULDBLOCK ) {
+				if (errno != EWOULDBLOCK) {
 
 					debug_output( 0, "Error - gateway can't receive packet: %s\n", strerror(errno) );
 					break;
 
 				}
 
-			/* /dev/tunX activity */
+			/* gateX activity */
 			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
 
 				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
 
-					my_tun_ip[3] = buff[20];
+					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 13 ));
 
-					if ( gw_client[(uint8_t)my_tun_ip[3]] != NULL ) {
+					if (gw_client != NULL) {
 
-						client_addr.sin_addr.s_addr = gw_client[(uint8_t)my_tun_ip[3]]->addr;
-
-						/* addr_to_string( client_addr.sin_addr.s_addr, str, sizeof(str) );
-						tmp_client_ip = buff[17] + ( buff[18]<<8 ) + ( buff[19]<<16 ) + ( buff[20]<<24 );
-						addr_to_string( tmp_client_ip, gw_addr, sizeof(gw_addr) );
-						debug_output( 3, "Gateway - packet resolved: %s for client %s \n", str, gw_addr ); */
+						client_addr.sin_addr.s_addr = gw_client->wip_addr;
 
 						buff[0] = TUNNEL_DATA;
 
@@ -625,7 +712,7 @@ void *gw_listen(void *arg) {
 
 					} else {
 
-						addr_to_string( *(uint32_t *)my_tun_ip, gw_addr, sizeof(gw_addr) );
+						addr_to_string( *(uint32_t *)(buff + 17), gw_addr, sizeof(gw_addr) );
 						debug_output( 3, "Gateway - could not resolve packet: %s \n", gw_addr );
 
 					}
@@ -650,22 +737,29 @@ void *gw_listen(void *arg) {
 
 
 		/* close unresponsive client connections (free unused IPs) */
-		current_time = get_time();
-
 		if ( ( client_timeout + 60000 ) < current_time ) {
 
 			client_timeout = current_time;
 
-			for ( i = 1; i < 255; i++ ) {
+			hashit = NULL;
 
-				if ( gw_client[i] != NULL ) {
+			while (NULL != (hashit = hash_iterate(wip_hash, hashit))) {
 
-					if ( ( gw_client[i]->last_keep_alive + IP_LEASE_TIMEOUT + GW_STATE_UNKNOWN_TIMEOUT ) < current_time ) {
+				gw_client = hashit->bucket->data;
 
-						debugFree( gw_client[i], 1216 );
-						gw_client[i] = NULL;
+				if ((gw_client->last_keep_alive + IP_LEASE_TIMEOUT + GW_STATE_UNKNOWN_TIMEOUT) < current_time) {
 
-					}
+					hash_remove_bucket(wip_hash, hashit);
+					hash_remove(vip_hash, gw_client);
+
+					free_ip = debugMalloc(sizeof(struct neigh_node), 210);
+
+					INIT_LIST_HEAD(&free_ip->list);
+					free_ip->addr = gw_client->vip_addr;
+
+					list_add_tail( &free_ip->list, &free_ip_list );
+
+					debugFree(gw_client, 1216);
 
 				}
 
@@ -677,15 +771,33 @@ void *gw_listen(void *arg) {
 
 	/* delete tun device and routes on exit */
 	my_tun_ip[3] = 0;
-	add_del_route( *(uint32_t *)my_tun_ip, 24, 0, 0, tun_ifi, tun_dev, 254, 0, 1 );
+	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, 0, 1 );
 
 	del_dev_tun( tun_fd );
 
+	hashit = NULL;
 
-	for ( i = 1; i < 255; i++ ) {
+	while (NULL != (hashit = hash_iterate(wip_hash, hashit))) {
 
-		if ( gw_client[i] != NULL )
-			debugFree( gw_client[i], 1217 );
+		gw_client = hashit->bucket->data;
+
+		hash_remove_bucket(wip_hash, hashit);
+		hash_remove(vip_hash, gw_client);
+
+		debugFree(gw_client, 1217);
+
+	}
+
+	hash_destroy(wip_hash);
+	hash_destroy(vip_hash);
+
+	list_for_each_safe(list_pos, list_pos_tmp, &free_ip_list) {
+
+		free_ip = list_entry(list_pos, struct free_ip, list);
+
+		list_del((struct list_head *)&free_ip_list, list_pos, &free_ip_list);
+
+		debugFree(free_ip, 1218);
 
 	}
 

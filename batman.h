@@ -257,8 +257,15 @@ struct batman_if
 
 struct gw_client
 {
-	uint32_t addr;
+	uint32_t wip_addr;
+	uint32_t vip_addr;
 	uint32_t last_keep_alive;
+};
+
+struct free_ip
+{
+	struct list_head list;
+	uint32_t addr;
 };
 
 struct vis_if {
