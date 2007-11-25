@@ -41,6 +41,7 @@
 #define SOURCE_VERSION "0.3-beta" //put exactly one distinct word inside the string like "0.3-pre-alpha" or "0.3-rc1" or "0.3"
 #define COMPAT_VERSION 4
 #define PORT 4305
+#define GW_PORT 4306
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
@@ -166,13 +167,14 @@ extern struct debug_clients debug_clients;
 
 struct bat_packet
 {
-	uint32_t orig;
-	uint32_t old_orig;
+	uint8_t  version;  /* batman version field */
 	uint8_t  flags;    /* 0x80: UNIDIRECTIONAL link, 0x40: DIRECTLINK flag, ... */
 	uint8_t  ttl;
-	uint16_t seqno;
 	uint8_t  gwflags;  /* flags related to gateway functions: gateway class */
-	uint8_t  version;  /* batman version field */
+	uint16_t seqno;
+	uint16_t gwport;
+	uint32_t orig;
+	uint32_t old_orig;
 	uint8_t  tq;
 } __attribute__((packed));
 
@@ -230,6 +232,7 @@ struct gw_node
 {
 	struct list_head list;
 	struct orig_node *orig_node;
+	uint16_t gw_port;
 	uint16_t unavail_factor;
 	uint32_t last_failure;
 	uint32_t deleted;
@@ -259,6 +262,7 @@ struct gw_client
 {
 	uint32_t wip_addr;
 	uint32_t vip_addr;
+	uint16_t client_port;
 	uint32_t last_keep_alive;
 };
 
@@ -314,7 +318,7 @@ void usage( void );
 void verbose_usage( void );
 int is_batman_if( char *dev, struct batman_if **batman_if );
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
-void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags );
+void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t gw_port );
 void get_gw_speeds( unsigned char class, int *down, int *up );
 unsigned char get_gw_class( int down, int up );
 void choose_gw();

@@ -438,7 +438,6 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			batman_if->dev = argv[found_args];
 			batman_if->if_num = found_ifs;
-			batman_if->udp_tunnel_sock = 0;
 
 			list_add_tail( &batman_if->list, &if_list );
 
@@ -867,7 +866,7 @@ void init_interface_gw () {
 
 	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
 
-		batman_if->addr.sin_port = htons(PORT + 1);
+		batman_if->addr.sin_port = htons(GW_PORT);
 
 		batman_if->udp_tunnel_sock = socket( PF_INET, SOCK_DGRAM, 0 );
 

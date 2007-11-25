@@ -169,11 +169,11 @@ void *client_to_gw_tun( void *arg ) {
 	memset( &my_addr, 0, sizeof(struct sockaddr_in) );
 
 	gw_addr.sin_family = AF_INET;
-	gw_addr.sin_port = htons(PORT + 1);
+	gw_addr.sin_port = curr_gw_data->gw_node->gw_port;
 	gw_addr.sin_addr.s_addr = curr_gw_data->orig;
 
 	my_addr.sin_family = AF_INET;
-	my_addr.sin_port = htons(PORT + 1);
+	my_addr.sin_port = curr_gw_data->gw_node->gw_port;
 	my_addr.sin_addr.s_addr = curr_gw_data->batman_if->addr.sin_addr.s_addr;
 
 
@@ -268,10 +268,14 @@ void *client_to_gw_tun( void *arg ) {
 							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
 								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
 
-							gw_state = GW_STATE_VERIFIED;
-							gw_state_time = current_time;
+							if (((struct iphdr *)(buff + 1))->protocol != IPPROTO_ICMP) {
 
-							/* gateway told us that we have no valid ip */
+								gw_state = GW_STATE_VERIFIED;
+								gw_state_time = current_time;
+
+							}
+
+						/* gateway told us that we have no valid ip */
 						} else if (buff[0] == TUNNEL_IP_INVALID) {
 
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
@@ -340,6 +344,10 @@ void *client_to_gw_tun( void *arg ) {
 							}
 
 						}
+
+					} else if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_ICMP) {
+
+						ignore_packet = 1;
 
 					}
 
@@ -420,7 +428,7 @@ void *client_to_gw_tun( void *arg ) {
 
 }
 
-struct gw_client *get_ip_addr(uint32_t client_addr, struct hashtable_t *wip_hash, struct hashtable_t *vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
+struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_t *wip_hash, struct hashtable_t *vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
 
 	struct gw_client *gw_client;
 	struct free_ip *free_ip;
@@ -428,14 +436,15 @@ struct gw_client *get_ip_addr(uint32_t client_addr, struct hashtable_t *wip_hash
 	struct hashtable_t *swaphash;
 
 
-	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr));
+	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr->sin_addr.s_addr));
 
 	if (gw_client != NULL)
 		return gw_client;
 
 	gw_client = debugMalloc( sizeof(struct gw_client), 208 );
 
-	gw_client->wip_addr = client_addr;
+	gw_client->wip_addr = client_addr->sin_addr.s_addr;
+	gw_client->client_port = client_addr->sin_port;
 	gw_client->last_keep_alive = get_time();
 	gw_client->vip_addr = 0;
 
@@ -664,7 +673,7 @@ void *gw_listen() {
 
 						} else if (buff[0] == TUNNEL_IP_REQUEST) {
 
-							gw_client = get_ip_addr(addr.sin_addr.s_addr, wip_hash, vip_hash, &free_ip_list, next_free_ip);
+							gw_client = get_ip_addr(&addr, wip_hash, vip_hash, &free_ip_list, next_free_ip);
 
 							memcpy( buff + 1, (char *)&gw_client->vip_addr, 4 );
 
@@ -704,6 +713,7 @@ void *gw_listen() {
 					if (gw_client != NULL) {
 
 						client_addr.sin_addr.s_addr = gw_client->wip_addr;
+						client_addr.sin_port = gw_client->client_port;
 
 						buff[0] = TUNNEL_DATA;
 

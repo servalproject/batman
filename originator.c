@@ -223,7 +223,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	update_routes( orig_node, best_neigh_node, hna_recv_buff, hna_buff_len );
 
 	if ( orig_node->gwflags != in->gwflags )
-		update_gw_list( orig_node, in->gwflags );
+		update_gw_list( orig_node, in->gwflags, in->gwport );
 
 	orig_node->gwflags = in->gwflags;
 

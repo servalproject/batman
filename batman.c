@@ -444,7 +444,7 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 
 
 
-void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
+void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t gw_port ) {
 
 	prof_start( PROF_update_gw_list );
 	struct list_head *gw_pos, *gw_pos_tmp;
@@ -494,6 +494,7 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags ) {
 	INIT_LIST_HEAD( &gw_node->list );
 
 	gw_node->orig_node = orig_node;
+	gw_node->gw_port = gw_port;
 	gw_node->unavail_factor = 0;
 	gw_node->last_failure = get_time();
 
@@ -924,13 +925,14 @@ int8_t batman() {
 
 		batman_if = list_entry( list_pos, struct batman_if, list );
 
-		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
-		batman_if->out.old_orig = batman_if->addr.sin_addr.s_addr;
+		batman_if->out.version = COMPAT_VERSION;
 		batman_if->out.flags = 0x00;
 		batman_if->out.ttl = ( batman_if->if_num > 0 ? 2 : TTL );
-		batman_if->out.seqno = 1;
 		batman_if->out.gwflags = ( batman_if->if_num > 0 ? 0 : gateway_class );
-		batman_if->out.version = COMPAT_VERSION;
+		batman_if->out.seqno = 1;
+		batman_if->out.gwport = htons(GW_PORT);
+		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
+		batman_if->out.old_orig = batman_if->addr.sin_addr.s_addr;
 		batman_if->out.tq = TQ_MAX_VALUE;
 
 		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
@@ -1115,7 +1117,7 @@ int8_t batman() {
 					is_bidirectional = isBidirectionalNeigh( orig_node, orig_neigh_node, (struct bat_packet *)in, curr_time, if_incoming, is_duplicate );
 
 					/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
-					if ( ( is_bidirectional ) && ( ( !is_duplicate ) || ( ( orig_node->last_real_seqno == ((struct bat_packet *)&in)->seqno ) && ( orig_node->last_ttl - 1 <= ((struct bat_packet *)&in)->ttl ) ) ) )
+					if ( ( is_bidirectional ) && ( ( !is_duplicate ) || ( ( orig_node->last_real_seqno == ((struct bat_packet *)&in)->seqno ) && ( orig_node->last_ttl - 3 <= ((struct bat_packet *)&in)->ttl ) ) ) )
 						update_orig( orig_node, (struct bat_packet *)in, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time );
 
 					/*is_bntog = isBntog( neigh, orig_node );*/
