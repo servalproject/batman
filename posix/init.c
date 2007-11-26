@@ -974,6 +974,7 @@ void init_interface_gw () {
 	} else {
 
 		ioc.universal = strlen( batman_if->dev );
+		ioc.exists = 0;
 		strncpy( ioc.dev_name, batman_if->dev, IFNAMSIZ - 1 );
 
 		if( ioctl( batman_if->udp_tunnel_sock, IOCSETDEV, &ioc ) < 0 ) {
@@ -1030,7 +1031,8 @@ void init_interface_gw () {
 
 		close( skfd );
 
-		add_del_route( ioc.universal, 24, 0, 0, ioc.ifindex, ioc.dev_name, 254, 0, 0 );
+		if( ioc.exists )
+			add_del_route( ioc.universal, 16, 0, 0, ioc.ifindex, ioc.dev_name, 254, 0, 0 );
 
 
 	}

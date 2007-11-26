@@ -31,6 +31,8 @@
 #define TUNNEL_DATA 0x01
 #define TUNNEL_IP_REQUEST 0x02
 #define TUNNEL_IP_INVALID 0x03
+#define TUNNEL_KEEPALIVE_REQUEST 0x04
+#define TUNNEL_KEEPALIVE_REPLY 0x05
 
 #define LEASE_TIME 300
 
@@ -41,19 +43,9 @@ struct gw_client {
 	unsigned long last_keep_alive;
 };
 
-struct reg_device {
-	struct completion thread_complete;
-	struct socket *socket;
-	struct net_device *bat_netdev;
-	struct gw_client *client[254];
-	struct packet_type packet;
-	int thread_pid;
-	char name[IFNAMSIZ];
-	uint8_t index;
-};
-
 struct batgat_ioc_args {
 	char dev_name[IFNAMSIZ];
+	unsigned char exists;
 	uint32_t universal;
 	uint32_t ifindex;
 };

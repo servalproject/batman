@@ -314,6 +314,7 @@ struct curr_gw_data {
 
 struct batgat_ioc_args {
 	char dev_name[16];
+	unsigned char exists;
 	uint32_t universal;
 	uint32_t ifindex;
 };
