@@ -158,11 +158,15 @@ extern struct hashtable_t *orig_hash;
 
 extern struct list_head_first if_list;
 extern struct list_head_first hna_list;
+extern struct list_head_first hna_del_list;
+extern struct list_head_first hna_chg_list;
 extern struct list_head_first gw_list;
 extern struct list_head_first forw_list;
 extern struct vis_if vis_if;
 extern struct unix_if unix_if;
 extern struct debug_clients debug_clients;
+
+extern pthread_mutex_t hna_chg_list_mutex;
 
 
 struct bat_packet
@@ -216,6 +220,7 @@ struct hna_node
 	struct list_head list;
 	uint32_t addr;
 	uint8_t netmask;
+	uint8_t del;
 };
 
 struct forw_node                 /* structure for forw_list maintaining packets to be send/forwarded */
@@ -322,6 +327,8 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t 
 void get_gw_speeds( unsigned char class, int *down, int *up );
 unsigned char get_gw_class( int down, int up );
 void choose_gw();
+
+void add_hna_to_list(char *hna_string, int8_t del, uint8_t change);
 
 
 #endif

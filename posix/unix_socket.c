@@ -123,7 +123,7 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "compat_version=%i\n", COMPAT_VERSION);
 	dprintf(sock, "vis_compat_version=%i\n", VIS_COMPAT_VERSION);
 	dprintf(sock, "ogm_port=%i\n", PORT);
-	dprintf(sock, "gw_port=%i\n", PORT + 1);
+	dprintf(sock, "gw_port=%i\n", GW_PORT);
 	dprintf(sock, "vis_port=%i\n", PORT + 2);
 	dprintf(sock, "unix_socket_path=%s\n", UNIX_PATH);
 	dprintf(sock, "own_ogm_jitter=%i\n", JITTER);
@@ -227,7 +227,39 @@ void *unix_listen( void *arg ) {
 
 							/* debug_output( 3, "gateway: client sent data via unix socket: %s\n", buff ); */
 
-							if ( buff[0] == 'd' ) {
+							if ( buff[0] == 'a' ) {
+
+								if ( status > 2 ) {
+
+									if ( pthread_mutex_lock(&hna_chg_list_mutex) != 0 )
+										debug_output(0, "Error - could not lock mutex (hna_chg_list_mutex => 1): %s \n", strerror(errno));
+
+									add_hna_to_list(buff + 2, 0, 1);
+
+									if ( pthread_mutex_unlock(&hna_chg_list_mutex) != 0 )
+										debug_output( 0, "Error - could not unlock mutex (hna_chg_list_mutex => 1): %s \n", strerror(errno) );
+
+									dprintf( unix_client->sock, "EOD\n" );
+
+								}
+
+							} else if ( buff[0] == 'A' ) {
+
+								if ( status > 2 ) {
+
+									if ( pthread_mutex_lock(&hna_chg_list_mutex) != 0 )
+										debug_output(0, "Error - could not lock mutex (hna_chg_list_mutex => 2): %s \n", strerror(errno));
+
+									add_hna_to_list(buff + 2, 1, 1);
+
+									if ( pthread_mutex_unlock(&hna_chg_list_mutex) != 0 )
+										debug_output( 0, "Error - could not unlock mutex (hna_chg_list_mutex => 2): %s \n", strerror(errno) );
+
+									dprintf( unix_client->sock, "EOD\n" );
+
+								}
+
+							} else if ( buff[0] == 'd' ) {
 
 								if ( ( status > 2 ) && ( ( buff[2] > 0 ) && ( buff[2] <= debug_level_max ) ) ) {
 

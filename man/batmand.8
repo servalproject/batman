@@ -31,8 +31,11 @@ The following document will explain how to use the \fBbatman daemon\fP.
 The batmand binary can be run in 2 different ways. First you need to start the daemon with "batmand [options] interface" (daemon mode) and then you can connect to that daemon to issue further commands with "batmand -c [options]" (client mode). Some of the options below are always available, some are not. See the example section to get an idea.
 .SH OPTIONS
 .TP
-.B \-a announce network(s)
-The daemon announces the availability of a connection to another network. This option can be used multiple times and is only available in daemon mode. The parameter has to be in the form of ip-address/netmask.
+.B \-a add announced network(s)
+Add networks to the daemons list of available connections to another network(s). This option can be used multiple times and can be used to add networks dynamically while the daemon is running. The parameter has to be in the form of ip-address/netmask.
+.TP
+.B \-A delete announced network(s)
+Delete networks to the daemons list of available connections to another network(s). This option can be used multiple times and can only be used while the daemon is running. The parameter has to be in the form of ip-address/netmask.
 .TP
 .B \-b run debug connection in batch mode
 The debug information are updated after a period of time by default, so if you use "-b" it will execute once and then stop. This option is useful for script integration of the debug output and is only available in client mode together with "-d 1" or "-d 2".

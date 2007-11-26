@@ -560,11 +560,14 @@ int main( int argc, char *argv[] ) {
 	}
 
 
-	INIT_LIST_HEAD_FIRST( forw_list );
-	INIT_LIST_HEAD_FIRST( gw_list );
-	INIT_LIST_HEAD_FIRST( if_list );
-	INIT_LIST_HEAD_FIRST( hna_list );
+	INIT_LIST_HEAD_FIRST(forw_list);
+	INIT_LIST_HEAD_FIRST(gw_list);
+	INIT_LIST_HEAD_FIRST(if_list);
+	INIT_LIST_HEAD_FIRST(hna_list);
+	INIT_LIST_HEAD_FIRST(hna_del_list);
+	INIT_LIST_HEAD_FIRST(hna_chg_list);
 
+	pthread_mutex_init(&hna_chg_list_mutex, NULL);
 
 	start_time = times(&tp);
 	system_tick = (float)sysconf(_SC_CLK_TCK);

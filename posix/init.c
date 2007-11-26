@@ -87,14 +87,100 @@ int my_daemon() {
 
 
 
+void add_hna_to_list(char *hna_string, int8_t del, uint8_t change)
+{
+	struct hna_node *hna_node;
+	struct in_addr tmp_ip_holder;
+	uint16_t netmask;
+	char *slash_ptr;
+
+	if ( ( slash_ptr = strchr( hna_string, '/' ) ) == NULL ) {
+
+		if (change) {
+			debug_output(3, "Invalid announced network (netmask is missing): %s\n", hna_string );
+			return;
+		} else {
+			printf( "Invalid announced network (netmask is missing): %s\n", hna_string );
+			exit(EXIT_FAILURE);
+		}
+
+	}
+
+	*slash_ptr = '\0';
+
+	if ( inet_pton( AF_INET, hna_string, &tmp_ip_holder ) < 1 ) {
+
+		*slash_ptr = '/';
+
+		if (change) {
+			debug_output(3, "Invalid announced network (IP is invalid): %s\n", hna_string );
+			return;
+		} else {
+			printf( "Invalid announced network (IP is invalid): %s\n", hna_string );
+			exit(EXIT_FAILURE);
+		}
+
+	}
+
+	errno = 0;
+
+	netmask = strtol( slash_ptr + 1, NULL, 10 );
+
+	if ( ( errno == ERANGE ) || ( errno != 0 && netmask == 0 ) ) {
+
+		if (change) {
+			return;
+		} else {
+			perror("strtol");
+			exit(EXIT_FAILURE);
+		}
+
+	}
+
+	if ( netmask < 1 || netmask > 32 ) {
+
+		*slash_ptr = '/';
+
+		if (change) {
+			debug_output(3, "Invalid announced network (netmask is invalid): %s\n", hna_string );
+			return;
+		} else {
+			printf( "Invalid announced network (netmask is invalid): %s\n", hna_string );
+			exit(EXIT_FAILURE);
+		}
+
+	}
+
+	tmp_ip_holder.s_addr = (tmp_ip_holder.s_addr & htonl(0xFFFFFFFF << (32 - netmask)));
+
+	hna_node = debugMalloc( sizeof(struct hna_node), 203 );
+	memset( hna_node, 0, sizeof(struct hna_node) );
+	INIT_LIST_HEAD( &hna_node->list );
+
+	hna_node->addr = tmp_ip_holder.s_addr;
+	hna_node->netmask = netmask;
+
+	if (change) {
+		hna_node->del = del;
+		list_add_tail( &hna_node->list, &hna_chg_list );
+	} else {
+		if (del)
+			list_add_tail( &hna_node->list, &hna_del_list );
+		else
+			list_add_tail( &hna_node->list, &hna_list );
+	}
+
+	*slash_ptr = '/';
+}
+
 void apply_init_args( int argc, char *argv[] ) {
 
 	struct in_addr tmp_ip_holder;
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
-	uint8_t found_args = 1, batch_mode = 0, info_output = 0;
-	uint16_t netmask;
+	struct list_head *list_pos, *list_pos_tmp;
+	uint8_t found_args = 1, batch_mode = 0, info_output = 0, was_hna = 0;
 	int8_t res;
 
 	int32_t optchar, option_index, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
@@ -114,64 +200,23 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
 
-	while ( ( optchar = getopt_long( argc, argv, "a:bcd:hHio:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
+	while ( ( optchar = getopt_long( argc, argv, "a:A:bcd:hHio:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
 
 		switch ( optchar ) {
 
 			case 'a':
 
-				if ( ( slash_ptr = strchr( optarg, '/' ) ) == NULL ) {
-
-					printf( "Invalid announced network (netmask is missing): %s\n", optarg );
-					exit(EXIT_FAILURE);
-
-				}
-
-				*slash_ptr = '\0';
-
-				if ( inet_pton( AF_INET, optarg, &tmp_ip_holder ) < 1 ) {
-
-					*slash_ptr = '/';
-					printf( "Invalid announced network (IP is invalid): %s\n", optarg );
-					exit(EXIT_FAILURE);
-
-				}
-
-				errno = 0;
-
-				netmask = strtol( slash_ptr + 1, NULL, 10 );
-
-				if ( ( errno == ERANGE ) || ( errno != 0 && netmask == 0 ) ) {
-
-					perror("strtol");
-					exit(EXIT_FAILURE);
-
-				}
-
-				if ( netmask < 1 || netmask > 32 ) {
-
-					*slash_ptr = '/';
-					printf( "Invalid announced network (netmask is invalid): %s\n", optarg );
-					exit(EXIT_FAILURE);
-
-				}
-
-				tmp_ip_holder.s_addr = (tmp_ip_holder.s_addr & htonl(0xFFFFFFFF << (32 - netmask)));
-
-				hna_node = debugMalloc( sizeof(struct hna_node), 203 );
-				memset( hna_node, 0, sizeof(struct hna_node) );
-				INIT_LIST_HEAD( &hna_node->list );
-
-				hna_node->addr = tmp_ip_holder.s_addr;
-				hna_node->netmask = netmask;
-
-				list_add_tail( &hna_node->list, &hna_list );
-
-				*slash_ptr = '/';
-
+				add_hna_to_list(optarg, 0, 0);
 
 				/* increment found_args only by one if optarg and optchar are directly following each other
 				   increment found_args by two if there is some space between the arguments */
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				break;
+
+			case 'A':
+
+				add_hna_to_list(optarg, 1, 0);
+
 				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
@@ -399,6 +444,17 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
+		/* delete ignored "HNAs to be removed" */
+		list_for_each_safe( list_pos, list_pos_tmp, &hna_del_list ) {
+
+			hna_node = list_entry( list_pos, struct hna_node, list );
+
+			list_del( (struct list_head *)&hna_del_list, list_pos, &hna_del_list );
+
+			debugFree( hna_node, 1299 );
+
+		}
+
 		signal( SIGINT, handler );
 		signal( SIGTERM, handler );
 		signal( SIGPIPE, SIG_IGN );
@@ -582,6 +638,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	/* connect to running batmand via unix socket */
 	} else {
 
+more_hna:
 		unix_if.unix_sock = socket( AF_LOCAL, SOCK_STREAM, 0 );
 
 		memset( &unix_if.addr, 0, sizeof(struct sockaddr_un) );
@@ -630,6 +687,26 @@ void apply_init_args( int argc, char *argv[] ) {
 			batch_mode = 1;
 			snprintf( unix_buff, 10, "i" );
 
+		} else if (!list_empty(&hna_list)) {
+
+			batch_mode = was_hna = 1;
+			hna_node = (struct hna_node *)hna_list.next;
+			addr_to_string( hna_node->addr, str1, sizeof(str1) );
+			snprintf( unix_buff, 30, "a:%s/%i", str1, hna_node->netmask );
+
+			list_del((struct list_head *)&hna_list, &hna_node->list, &hna_list);
+			debugFree(hna_node, 1298);
+
+		} else if (!list_empty( &hna_del_list)) {
+
+			batch_mode = was_hna = 1;
+			hna_node = (struct hna_node *)hna_del_list.next;
+			addr_to_string( hna_node->addr, str1, sizeof(str1) );
+			snprintf( unix_buff, 30, "A:%s/%i", str1, hna_node->netmask );
+
+			list_del((struct list_head *)&hna_del_list, &hna_node->list, &hna_del_list);
+			debugFree(hna_node, 1299);
+
 		} else {
 
 			batch_mode = 1;
@@ -637,7 +714,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
-		if ( write( unix_if.unix_sock, unix_buff, 20 ) < 0 ) {
+		if ( write( unix_if.unix_sock, unix_buff, 30 ) < 0 ) {
 
 			printf( "Error - can't write to unix socket: %s\n", strerror(errno) );
 			close( unix_if.unix_sock );
@@ -659,13 +736,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				if ( strncmp( buff_ptr, "EOD", 3 ) == 0 ) {
 
-					if ( batch_mode ) {
-
-						close( unix_if.unix_sock );
-						debugFree( unix_buff, 5102 );
-						exit(EXIT_SUCCESS);
-
-					}
+					if (batch_mode)
+						goto close_con;
 
 				} else if ( strncmp( buff_ptr, "BOD", 3 ) == 0 ) {
 
@@ -688,8 +760,9 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		}
 
+close_con:
 		close( unix_if.unix_sock );
-		debugFree( unix_buff, 5103 );
+		debugFree( unix_buff, 5102 );
 
 		if ( recv_buff_len < 0 ) {
 
@@ -698,9 +771,13 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		} else {
 
-			printf( "Connection terminated by remote host\n" );
+			if (!batch_mode)
+				printf( "Connection terminated by remote host\n" );
 
 		}
+
+		if ((was_hna) && ((!list_empty(&hna_list)) || (!list_empty(&hna_del_list))))
+			goto more_hna;
 
 		exit(EXIT_SUCCESS);
 

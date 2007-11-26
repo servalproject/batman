@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 
 #include "os.h"
@@ -96,10 +97,14 @@ struct list_head_first forw_list;
 struct list_head_first gw_list;
 struct list_head_first if_list;
 struct list_head_first hna_list;
+struct list_head_first hna_del_list;
+struct list_head_first hna_chg_list;
 
 struct vis_if vis_if;
 struct unix_if unix_if;
 struct debug_clients debug_clients;
+
+pthread_mutex_t hna_chg_list_mutex;
 
 unsigned char *vis_packet = NULL;
 uint16_t vis_packet_size = 0;
@@ -109,7 +114,8 @@ uint16_t vis_packet_size = 0;
 void usage( void ) {
 
 	fprintf( stderr, "Usage: batman [options] interface [interface interface]\n" );
-	fprintf( stderr, "       -a announce network(s)\n" );
+	fprintf( stderr, "       -a add announced network(s)\n" );
+	fprintf( stderr, "       -A delete announced network(s)\n" );
 	fprintf( stderr, "       -b run connection in batch mode\n" );
 	fprintf( stderr, "       -c connect via unix socket\n" );
 	fprintf( stderr, "       -d debug level\n" );
@@ -130,7 +136,9 @@ void usage( void ) {
 void verbose_usage( void ) {
 
 	fprintf( stderr, "Usage: batman [options] interface [interface interface]\n\n" );
-	fprintf( stderr, "       -a announce network(s)\n" );
+	fprintf( stderr, "       -a add announced network(s)\n" );
+	fprintf( stderr, "          network/netmask is expected\n" );
+	fprintf( stderr, "       -A delete announced network(s)\n" );
 	fprintf( stderr, "          network/netmask is expected\n" );
 	fprintf( stderr, "       -b run connection in batch mode\n" );
 	fprintf( stderr, "       -c connect to running batmand via unix socket\n" );
@@ -868,10 +876,10 @@ uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_
 
 int8_t batman() {
 
-	struct list_head *list_pos, *hna_pos_tmp, *forw_pos_tmp;
+	struct list_head *list_pos, *list_pos_tmp, *hna_pos, *hna_pos_tmp, *forw_pos_tmp, *prev_list_head;
 	struct orig_node *orig_neigh_node, *orig_node;
 	struct batman_if *batman_if, *if_incoming;
-	struct hna_node *hna_node;
+	struct hna_node *hna_node, *hna_node_exist;
 	struct forw_node *forw_node;
 	uint32_t neigh, hna, netmask, debug_timeout, vis_timeout, select_timeout, curr_time;
 	unsigned char in[2001], *hna_recv_buff;
@@ -1200,6 +1208,109 @@ int8_t batman() {
 
 				vis_timeout = curr_time;
 				send_vis_packet();
+
+			}
+
+			if (pthread_mutex_trylock(&hna_chg_list_mutex) == 0) {
+
+				if (!(list_empty(&hna_chg_list))) {
+
+					list_for_each_safe(list_pos, list_pos_tmp, &hna_chg_list) {
+
+						hna_node = list_entry(list_pos, struct hna_node, list);
+						addr_to_string( hna_node->addr, oldorig_str, sizeof(oldorig_str) );
+
+						hna_node_exist = NULL;
+						prev_list_head = (struct list_head *)&hna_list;
+
+						list_for_each_safe(hna_pos, hna_pos_tmp, &hna_list) {
+
+							hna_node_exist = list_entry(hna_pos, struct hna_node, list);
+
+							if ((hna_node->addr == hna_node_exist->addr) && (hna_node->netmask == hna_node_exist->netmask)) {
+
+								if (hna_node->del) {
+									debug_output(3, "Deleting HNA from announce network list: %s/%i\n", oldorig_str, hna_node->netmask );
+
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 1 );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 1 );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 1 );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 1 );
+
+									list_del(prev_list_head, hna_pos, &hna_list);
+
+									debugFree(hna_node_exist, 1109);
+								} else {
+									debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", oldorig_str, hna_node->netmask );
+								}
+
+								break;
+
+							}
+
+							prev_list_head = &hna_node_exist->list;
+							hna_node_exist = NULL;
+
+						}
+
+						if (hna_node_exist == NULL) {
+
+							if (hna_node->del) {
+								debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", oldorig_str, hna_node->netmask );
+							} else {
+								debug_output(3, "Adding HNA to announce network list: %s/%i\n", oldorig_str, hna_node->netmask );
+
+								/* add throw routing entries for own hna */
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 0 );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 0 );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 0 );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 0 );
+
+								/* add node */
+								hna_node_exist = debugMalloc( sizeof(struct hna_node), 105 );
+								memset(hna_node_exist, 0, sizeof(struct hna_node));
+								INIT_LIST_HEAD(&hna_node_exist->list);
+
+								hna_node_exist->addr = hna_node->addr;
+								hna_node_exist->netmask = hna_node->netmask;
+
+								list_add_tail(&hna_node_exist->list, &hna_list);
+							}
+
+						}
+
+						list_del((struct list_head *)&hna_chg_list, list_pos, &hna_chg_list);
+						debugFree(hna_node, 1110);
+
+					}
+
+					if (hna_buff != NULL)
+						debugFree(hna_buff, 1111);
+
+					num_hna = 0;
+					hna_buff = NULL;
+
+					if (!(list_empty(&hna_list))) {
+
+						list_for_each(list_pos, &hna_list) {
+
+							hna_node = list_entry(list_pos, struct hna_node, list);
+
+							hna_buff = debugRealloc(hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 16);
+
+							memmove(&hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4);
+							hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char )hna_node->netmask;
+
+							num_hna++;
+
+						}
+
+					}
+
+				}
+
+				if (pthread_mutex_unlock(&hna_chg_list_mutex) != 0)
+					debug_output(0, "Error - could not unlock mutex (hna_chg_list_mutex => 3): %s \n", strerror(errno));
 
 			}
 
