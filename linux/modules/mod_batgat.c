@@ -20,7 +20,7 @@
 /* Kernel Programming */
 #define LINUX
 
-#define DRIVER_AUTHOR "Andreas Langer <a.langer@q-dsl.de>, Marek Lindner <lindner_marek@yahoo.de>"
+#define DRIVER_AUTHOR "Andreas Langer <an.langer@gmx.de>, Marek Lindner <lindner_marek@yahoo.de>"
 #define DRIVER_DESC   "batman gateway module"
 #define DRIVER_DEVICE "batgat"
 
@@ -36,6 +36,7 @@
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 
 #include "mod_batgat.h"
+#include "hash.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	#include <linux/devfs_fs_kernel.h>
@@ -48,6 +49,8 @@ static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 
 static int udp_server_thread(void *data);
+static int compare_orig( void *data1, void *data2 );
+static int choose_orig( void *data, int32_t size );
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev(void);
@@ -67,7 +70,7 @@ static struct net_device *Bat_device;
 static struct completion Thread_complete;
 static int Thread_pid;
 static struct socket *Bat_socket;
-
+static struct hashtable_t *hash;
 
 int init_module()
 {
@@ -95,6 +98,8 @@ int init_module()
 	DBG( "I was assigned major number %d. To talk to", Major );
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	DBG( "Remove the device file and module when done." );
+
+	hash = hash_new( 128, compare_orig, choose_orig );
 	
 	return(0);
 }
@@ -427,6 +432,41 @@ static int create_bat_netdev()
 	}
 
 	return( 0 );
+
+}
+
+
+/* needed for hash, compares 2 struct orig_node, but only their ip-addresses. assumes that
+ * the ip address is the first field in the struct */
+static int compare_orig( void *data1, void *data2 )
+{
+
+	return ( memcmp( data1, data2, 4 ) );
+
+}
+
+
+
+/* hashfunction to choose an entry in a hash table of given size */
+/* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
+static int choose_orig( void *data, int32_t size )
+{
+
+	unsigned char *key= data;
+	uint32_t hash = 0;
+	size_t i;
+
+	for (i = 0; i < 4; i++) {
+		hash += key[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+
+	return (hash%size);
 
 }
 
