@@ -35,7 +35,7 @@
 #include <net/sock.h>		/* sock */
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 
-#include "mod_batgat.h"
+#include "gateway.h"
 #include "hash.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
