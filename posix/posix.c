@@ -344,44 +344,53 @@ int8_t send_udp_packet( unsigned char *packet_buff, int32_t packet_buff_len, str
 }
 
 
+void del_gw_interface()
+{
+	struct batman_if *batman_if = (struct batman_if *)if_list.next;
+	struct batgat_ioc_args args;
+
+	/* TODO: unregister from kernel module per ioctl */
+	if (batman_if->udp_tunnel_sock > 0) {
+
+		if(batman_if->listen_thread_id != 0) {
+			pthread_join( batman_if->listen_thread_id, NULL );
+		} else {
+
+			if(batman_if->dev != NULL ) {
+
+				strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
+				args.universal = strlen( batman_if->dev );
+
+				if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0)
+					debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+
+			}
+
+		}
+
+		close(batman_if->udp_tunnel_sock);
+
+		batman_if->listen_thread_id = 0;
+		batman_if->udp_tunnel_sock = 0;
+
+	}
+}
 
 void restore_defaults() {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
-	struct batgat_ioc_args args;
 
 	stop = 1;
 
 	if ( routing_class > 0 )
-		add_del_interface_rules( 1 );
+		add_del_interface_rules(1);
+
+	del_gw_interface();
 
 	list_for_each_safe( if_pos, if_pos_tmp, &if_list ) {
 
 		batman_if = list_entry( if_pos, struct batman_if, list );
-
-		/* TODO: unregister from kernel module per ioctl */
-
-		if (batman_if->udp_tunnel_sock > 0) {
-
-			if ( batman_if->listen_thread_id != 0 ) {
-				pthread_join( batman_if->listen_thread_id, NULL );
-			} else {
-				if(batman_if->dev != NULL ) {
-
-					strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
-					args.universal = strlen( batman_if->dev );
-
-					if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0)
-						debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
-
-				}
-
-			}
-
-			batman_if->listen_thread_id = 0;
-
-		}
 
 		close( batman_if->udp_recv_sock );
 		close( batman_if->udp_send_sock );
@@ -427,44 +436,15 @@ void restore_defaults() {
 
 void restore_and_exit( uint8_t is_sigsegv ) {
 
-	struct list_head *if_pos;
-	struct batman_if *batman_if;
 	struct orig_node *orig_node;
 	struct hash_it_t *hashit = NULL;
-
-	struct batgat_ioc_args args;
 
 	if ( !unix_client ) {
 
 		/* remove tun interface first */
 		stop = 1;
 
-		list_for_each( if_pos, &if_list ) {
-
-			batman_if = list_entry( if_pos, struct batman_if, list );
-			/* TODO: unregister from kernel module per ioctl */
-			if (batman_if->udp_tunnel_sock > 0) {
-				if(batman_if->listen_thread_id != 0) {
-					pthread_join( batman_if->listen_thread_id, NULL );
-				} else {
-
-					if(batman_if->dev != NULL ) {
-
-						strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
-						args.universal = strlen( batman_if->dev );
-
-						if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0)
-							debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
-
-					}
-
-				}
-
-				batman_if->listen_thread_id = 0;
-
-			}
-
-		}
+		del_gw_interface();
 
 		if ( ( routing_class != 0 ) && ( curr_gateway != NULL ) )
 			del_default_route();

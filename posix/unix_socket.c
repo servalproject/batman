@@ -334,18 +334,20 @@ void *unix_listen( void *arg ) {
 										gateway_class = buff[2];
 										((struct batman_if *)if_list.next)->out.gwflags = gateway_class;
 
-										if ( ( !was_gateway ) && ( gateway_class > 0 ) )
-											init_interface_gw();
-
 										if ( ( gateway_class > 0 ) && ( routing_class > 0 ) ) {
 
-											routing_class = 0;
+											if ((routing_class != 0) && (curr_gateway != NULL))
+												del_default_route();
 
-											if ( curr_gateway != NULL )
-												curr_gateway = NULL;
+											add_del_interface_rules(1);
+											routing_class = 0;
 
 										}
 
+										if ( ( !was_gateway ) && ( gateway_class > 0 ) )
+											init_interface_gw();
+										else if ((was_gateway) && (gateway_class == 0))
+											del_gw_interface();
 									}
 
 								}
@@ -360,19 +362,25 @@ void *unix_listen( void *arg ) {
 
 										tmp_unix_value = buff[2];
 
-										if ( ( tmp_unix_value >= 0 ) && ( tmp_unix_value <= 3 ) ) {
+										if ( ( tmp_unix_value >= 0 ) && ( tmp_unix_value <= 3 ) && (tmp_unix_value != routing_class) ) {
 
-											routing_class = tmp_unix_value;
+											if ((routing_class != 0) && (curr_gateway != NULL))
+												del_default_route();
 
-											if ( curr_gateway != NULL )
-												curr_gateway = NULL;
-
-											if ( ( routing_class > 0 ) && ( gateway_class > 0 ) ) {
+											if ( ( tmp_unix_value > 0 ) && ( gateway_class > 0 ) ) {
 
 												gateway_class = 0;
 												((struct batman_if *)if_list.next)->out.gwflags = gateway_class;
+												del_gw_interface();
 
 											}
+
+											if ((tmp_unix_value > 0) && (routing_class == 0))
+												add_del_interface_rules(0);
+											else if ((tmp_unix_value == 0) && (routing_class > 0))
+												add_del_interface_rules(1);
+
+											routing_class = tmp_unix_value;
 
 										}
 
