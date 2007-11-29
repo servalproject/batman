@@ -264,14 +264,18 @@ void choose_gw() {
 
 	}
 
-
 	list_for_each( pos, &gw_list ) {
 
 		gw_node = list_entry( pos, struct gw_node, list );
 
 		/* ignore this gateway if recent connection attempts were unsuccessful */
-		if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > current_time )
-			continue;
+		/* if it is our only gateway retry immediately */
+		if ((gw_node != (struct gw_node *)gw_list.next) || (gw_node->list.next != (struct list_head *)&gw_list)) {
+
+			if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > current_time )
+				continue;
+
+		}
 
 		if ( gw_node->orig_node->router == NULL )
 			continue;
