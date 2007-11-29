@@ -17,8 +17,7 @@
  *
  */
 
-// #include <linux/net.h>		/* socket */
-// #include <linux/completion.h>	/* completion */
+#include <linux/list.h>
 
 /* io controls */
 #define IOCSETDEV 1
@@ -39,8 +38,10 @@
 #define DBG(msg,args...) do { printk(KERN_DEBUG "batgat: [%s:%u] " msg "\n", __func__ ,__LINE__, ##args); } while(0)
 
 struct gw_client {
-	uint32_t address;
-	unsigned long last_keep_alive;
+	uint32_t wip_addr;
+	uint32_t vip_addr;
+	uint16_t client_port;
+	uint32_t last_keep_alive;
 };
 
 struct batgat_ioc_args {
@@ -52,4 +53,9 @@ struct batgat_ioc_args {
 
 struct gate_priv {
 	struct socket *tun_socket;
+};
+
+struct free_client_data {
+	struct list_head list;
+	struct gw_client *gw_client;
 };

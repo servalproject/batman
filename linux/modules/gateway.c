@@ -34,6 +34,7 @@
 #include <linux/if_arp.h>	/* ARPHRD_NONE */
 #include <net/sock.h>		/* sock */
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
+#include <linux/list.h>		/* list handling */
 
 #include "gateway.h"
 #include "hash.h"
@@ -49,8 +50,10 @@ static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 
 static int udp_server_thread(void *data);
-static int compare_orig( void *data1, void *data2 );
-static int choose_orig( void *data, int32_t size );
+static int compare_wip( void *data1, void *data2 );
+static int choose_wip( void *data, int32_t size );
+static int compare_vip( void *data1, void *data2 );
+static int choose_vip( void *data, int32_t size );
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev(void);
@@ -64,13 +67,18 @@ static struct file_operations fops = {
 	.ioctl = batgat_ioctl,
 };
 
+
 static int Major;					/* Major number assigned to our device driver */
 
 static struct net_device *Bat_device;
 static struct completion Thread_complete;
 static int Thread_pid;
 static struct socket *Bat_socket;
-static struct hashtable_t *hash;
+
+static struct hashtable_t *Wip_hash;
+static struct hashtable_t *Vip_hash;
+
+static struct list_head free_client_list;
 
 int init_module()
 {
@@ -99,8 +107,10 @@ int init_module()
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	DBG( "Remove the device file and module when done." );
 
-	hash = hash_new( 128, compare_orig, choose_orig );
-	
+	Vip_hash = hash_new( 128, compare_vip, choose_vip );
+	Wip_hash = hash_new( 128, compare_wip, choose_wip );
+
+	INIT_LIST_HEAD(&free_client_list);
 	return(0);
 }
 
@@ -435,28 +445,122 @@ static int create_bat_netdev()
 
 }
 
+/* ip handling */
 
-/* needed for hash, compares 2 struct orig_node, but only their ip-addresses. assumes that
- * the ip address is the first field in the struct */
-static int compare_orig( void *data1, void *data2 )
+static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 {
+	static uint8_t next_free_ip[4] = {169,254,0,1};
+	struct free_client_data *entry, *next;
+	struct gw_client *gw_client = NULL;
+	struct hashtable_t *swaphash;
 
-	return ( memcmp( data1, data2, 4 ) );
+
+
+	gw_client = ((struct gw_client *)hash_find(Wip_hash, &client_addr->sin_addr.s_addr));
+
+	if (gw_client != NULL)
+		return gw_client;
+
+	list_for_each_entry_safe(entry, next, &free_client_list, list) {
+		gw_client = entry->gw_client;
+		list_del(&entry->list);
+		break;
+	}
+
+	if(gw_client == NULL) {
+		gw_client = kmalloc( sizeof(struct gw_client), GFP_KERNEL );
+		gw_client->vip_addr = 0;
+	}
+
+	gw_client->wip_addr = client_addr->sin_addr.s_addr;
+	gw_client->client_port = client_addr->sin_port;
+	gw_client->last_keep_alive = jiffies;
+
+	/* TODO: check if enough space available */
+	if (gw_client->vip_addr == 0) {
+
+		gw_client->vip_addr = *(uint32_t *)next_free_ip;
+
+		next_free_ip[3]++;
+
+		if (next_free_ip[3] == 0)
+			next_free_ip[2]++;
+
+	}
+
+	hash_add(Wip_hash, gw_client);
+	hash_add(Vip_hash, gw_client);
+
+	if (Wip_hash->elements * 4 > Wip_hash->size) {
+
+		swaphash = hash_resize(Wip_hash, Wip_hash->size * 2);
+
+		if (swaphash == NULL) {
+
+			DBG( "Couldn't resize hash table" );
+
+		}
+
+		Wip_hash = swaphash;
+
+		swaphash = hash_resize(Vip_hash, Vip_hash->size * 2);
+
+		if (swaphash == NULL) {
+
+			DBG( "Couldn't resize hash table" );
+
+		}
+
+		Vip_hash = swaphash;
+
+	}
+
+	return gw_client;
 
 }
 
 
+/* needed for hash, compares 2 struct gw_client, but only their ip-addresses. assumes that
+ * the ip address is the first/second field in the struct */
+int compare_wip(void *data1, void *data2)
+{
+	return ( memcmp( data1, data2, 4 ) );
+}
+
+int compare_vip(void *data1, void *data2)
+{
+	return ( memcmp( data1 + 4, data2 + 4, 4 ) );
+}
 
 /* hashfunction to choose an entry in a hash table of given size */
 /* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
-static int choose_orig( void *data, int32_t size )
+int choose_wip(void *data, int32_t size)
 {
-
 	unsigned char *key= data;
 	uint32_t hash = 0;
 	size_t i;
 
 	for (i = 0; i < 4; i++) {
+		hash += key[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+
+	return (hash%size);
+
+}
+
+int choose_vip(void *data, int32_t size)
+{
+	unsigned char *key= data;
+	uint32_t hash = 0;
+	size_t i;
+
+	for (i = 4; i < 8; i++) {
 		hash += key[i];
 		hash += (hash << 10);
 		hash ^= (hash >> 6);

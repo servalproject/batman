@@ -84,7 +84,7 @@ struct hash_it_t *hash_iterate(struct hashtable_t *hash, struct hash_it_t *iter_
 	struct hash_it_t *iter;
 
 	if (iter_in == NULL) {
-		iter= kmalloc(sizeof(struct hash_it_t), GFP_USER);
+		iter= kmalloc(sizeof(struct hash_it_t), GFP_KERNEL);
 		iter->index =  -1;
 		iter->bucket = NULL;
 		iter->prev_bucket = NULL;
@@ -153,12 +153,12 @@ struct hash_it_t *hash_iterate(struct hashtable_t *hash, struct hash_it_t *iter_
 struct hashtable_t *hash_new(int size, hashdata_compare_cb compare, hashdata_choose_cb choose) {
 	struct hashtable_t *hash;
 
-	hash= kmalloc( sizeof(struct hashtable_t) , GFP_USER);
+	hash= kmalloc( sizeof(struct hashtable_t) , GFP_KERNEL);
 	if ( hash == NULL ) 			/* could not allocate the hash control structure */
 		return (NULL);
 
 	hash->size= size;
-	hash->table= kmalloc( sizeof(struct element_t *) * size, GFP_USER);
+	hash->table= kmalloc( sizeof(struct element_t *) * size, GFP_KERNEL);
 	if ( hash->table == NULL ) {	/* could not allocate the table */
 		kfree(hash);
 		return(NULL);
@@ -187,7 +187,7 @@ int hash_add(struct hashtable_t *hash, void *data) {
 	}
 
 	/* found the tail of the list, add new element */
-	if (NULL == (bucket= kmalloc(sizeof(struct element_t),GFP_USER)))
+	if (NULL == (bucket= kmalloc(sizeof(struct element_t),GFP_KERNEL)))
 		return(-1); /* debugMalloc failed */
 
 	bucket->data= data;				/* init the new bucket */
