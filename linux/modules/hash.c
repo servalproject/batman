@@ -17,15 +17,7 @@
  *
  */
 
-// #include <linux/inetdevice.h>	/* __in_dev_get_rtnl */
-// #include <linux/in.h>		/* sockaddr_in */
-// #include <linux/net.h>		/* socket */
 #include <linux/string.h>	/* strlen, strstr, strncmp ... */
-// #include <linux/ip.h>		/* iphdr */
-// #include <linux/if_arp.h>	/* ARPHRD_NONE */
-// #include <net/sock.h>		/* sock */
-// #include <net/pkt_sched.h>
-
 #include <linux/slab.h>
 #include "hash.h"
 

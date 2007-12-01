@@ -17,7 +17,26 @@
  *
  */
 
-#include <linux/list.h>
+
+#define LINUX
+
+#define DRIVER_AUTHOR "Andreas Langer <an.langer@gmx.de>, Marek Lindner <lindner_marek@yahoo.de>"
+#define DRIVER_DESC   "batman gateway module"
+#define DRIVER_DEVICE "batgat"
+
+#include <linux/version.h>	/* KERNEL_VERSION ... */
+#include <linux/fs.h>		/* fops ...*/
+#include <linux/inetdevice.h>	/* __in_dev_get_rtnl */
+#include <linux/in.h>		/* sockaddr_in */
+#include <linux/net.h>		/* socket */
+#include <linux/string.h>	/* strlen, strstr, strncmp ... */
+#include <linux/ip.h>		/* iphdr */
+#include <linux/if_arp.h>	/* ARPHRD_NONE */
+#include <net/sock.h>		/* sock */
+#include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
+#include <linux/list.h>		/* list handling */
+#include <linux/kthread.h>
+
 
 /* io controls */
 #define IOCSETDEV 1

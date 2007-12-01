@@ -17,25 +17,6 @@
  *
  */
 
-/* Kernel Programming */
-#define LINUX
-
-#define DRIVER_AUTHOR "Andreas Langer <an.langer@gmx.de>, Marek Lindner <lindner_marek@yahoo.de>"
-#define DRIVER_DESC   "batman gateway module"
-#define DRIVER_DEVICE "batgat"
-
-#include <linux/version.h>	/* KERNEL_VERSION ... */
-#include <linux/fs.h>		/* fops ...*/
-#include <linux/inetdevice.h>	/* __in_dev_get_rtnl */
-#include <linux/in.h>		/* sockaddr_in */
-#include <linux/net.h>		/* socket */
-#include <linux/string.h>	/* strlen, strstr, strncmp ... */
-#include <linux/ip.h>		/* iphdr */
-#include <linux/if_arp.h>	/* ARPHRD_NONE */
-#include <net/sock.h>		/* sock */
-#include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
-#include <linux/list.h>		/* list handling */
-
 #include "gateway.h"
 #include "hash.h"
 
@@ -49,11 +30,15 @@ static int batgat_open(struct inode *inode, struct file *filp);
 static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
 
-static int udp_server_thread(void *data);
+static void udp_data_ready(struct sock *sk, int len);
+static int packet_recv_thread(void *data);
+
 static int compare_wip( void *data1, void *data2 );
 static int choose_wip( void *data, int32_t size );
 static int compare_vip( void *data1, void *data2 );
 static int choose_vip( void *data, int32_t size );
+static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr);
+
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev(void);
@@ -70,15 +55,20 @@ static struct file_operations fops = {
 
 static int Major;					/* Major number assigned to our device driver */
 
-static struct net_device *Bat_device;
-static struct completion Thread_complete;
-static int Thread_pid;
-static struct socket *Bat_socket;
+static struct net_device *gate_device = NULL;
+static struct socket *gate_socket = NULL;
 
-static struct hashtable_t *Wip_hash;
-static struct hashtable_t *Vip_hash;
+static struct socket *server_sock = NULL;
+
+static struct hashtable_t *wip_hash;
+static struct hashtable_t *vip_hash;
 
 static struct list_head free_client_list;
+
+atomic_t data_ready_cond;
+DECLARE_WAIT_QUEUE_HEAD(thread_wait);
+static struct task_struct *kthread_task = NULL;
+
 
 int init_module()
 {
@@ -107,8 +97,8 @@ int init_module()
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	DBG( "Remove the device file and module when done." );
 
-	Vip_hash = hash_new( 128, compare_vip, choose_vip );
-	Wip_hash = hash_new( 128, compare_wip, choose_wip );
+	vip_hash = hash_new( 128, compare_vip, choose_vip );
+	wip_hash = hash_new( 128, compare_wip, choose_wip );
 
 	INIT_LIST_HEAD(&free_client_list);
 	return(0);
@@ -126,16 +116,26 @@ void cleanup_module()
 	/* Unregister the device */
 	unregister_chrdev( Major, DRIVER_DEVICE );
 
-	/* TODO: cleanup gate device and thread */
-	if( Thread_pid ) {
 
-		kill_proc( Thread_pid, SIGTERM, 0 );
-		wait_for_completion( &Thread_complete );
+	if(kthread_task) {
+
+		atomic_set(&data_ready_cond, 2);
+		wake_up_interruptible(&thread_wait);
+		kthread_stop(kthread_task);
 
 	}
 
-	if( Bat_device )
-		unregister_netdev( Bat_device );
+	if(server_sock) {
+
+		server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
+
+		sock_release(server_sock);
+		server_sock = NULL;
+
+	}
+
+	if( gate_device )
+		unregister_netdev( gate_device );
 
 	DBG( "unload module complete" );
 	return;
@@ -168,6 +168,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	
 	uint8_t tmp_ip[4];
 	struct batgat_ioc_args ioc;
+	struct sockaddr_in server_addr;
 	
 	int ret_value = 0;
 
@@ -191,17 +192,41 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 		case IOCSETDEV:
 
 
-			if( ( ret_value = create_bat_netdev() ) == 0 ) {
+			if( ( ret_value = create_bat_netdev() ) == 0 && !server_sock) {
 
-				init_completion( &Thread_complete );
-				Thread_pid = kernel_thread( udp_server_thread, NULL, CLONE_KERNEL );
 
-				if( Thread_pid < 0 ) {
+				server_addr.sin_family = AF_INET;
+				server_addr.sin_addr.s_addr = INADDR_ANY;
+				server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
+				
+				if( sock_create_kern( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
 
-					DBG( "can't create thread" );
+					DBG( "can't create udp socket");
 					ret_value = -EFAULT;
-					break;
+					goto end;
 
+				}
+
+				if( kernel_bind( server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) ) {
+
+					DBG( "can't bind udp server socket");
+					ret_value = -EFAULT;
+					sock_release(server_sock);
+					server_sock = NULL;
+					goto end;
+
+				}
+
+				server_sock->sk->sk_user_data = server_sock->sk->sk_data_ready;
+				server_sock->sk->sk_data_ready = udp_data_ready;
+
+				kthread_task = kthread_run(packet_recv_thread, NULL, "mod_batgat");
+
+				if (IS_ERR(kthread_task)) {
+					DBG( "unable to start packet receive thread");
+					kthread_task = NULL;
+					ret_value = -EFAULT;
+					goto end;
 				}
 
 			}
@@ -210,9 +235,9 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 				tmp_ip[0] = 169; tmp_ip[1] = 254; tmp_ip[2] = 0; tmp_ip[3] = 0;
 				ioc.universal = *(uint32_t*)tmp_ip;
-				ioc.ifindex = Bat_device->ifindex;
+				ioc.ifindex = gate_device->ifindex;
 
-				strlcpy( ioc.dev_name, Bat_device->name, IFNAMSIZ - 1 );
+				strlcpy( ioc.dev_name, gate_device->name, IFNAMSIZ - 1 );
 				
 				if( ret_value == -1 ) {
 
@@ -231,16 +256,32 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 		case IOCREMDEV:
 
-			if( Thread_pid ) {
+			DBG("disconnect daemon");
+			if (kthread_task) {
 
-				kill_proc( Thread_pid, SIGTERM, 0 );
-				wait_for_completion( &Thread_complete );
+				atomic_set(&data_ready_cond, 2);
+				wake_up_interruptible(&thread_wait);
+				kthread_stop(kthread_task);
 
 			}
-			Thread_pid = 0;
 
-			unregister_netdev( Bat_device );
-			Bat_device = NULL;
+			kthread_task = NULL;
+
+			DBG("thread shutdown");
+
+			unregister_netdev( gate_device );
+			gate_device = NULL;
+
+			DBG("gate shutdown");
+
+			if(server_sock) {
+
+				server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
+
+				sock_release(server_sock);
+				server_sock = NULL;
+
+			}
 
 			DBG( "device unregistered successfully" );
 			break;
@@ -256,115 +297,175 @@ end:
 
 }
 
-static int udp_server_thread(void *data)
+static void udp_data_ready(struct sock *sk, int len)
 {
-
-	struct sockaddr_in inet_addr, server_addr, client;
-	struct msghdr msg, inet_msg;
-	struct iovec iov, inet_iov;
-	struct iphdr *iph;
-	struct socket *inet_sock = NULL, *server_sock = NULL;
+// 	struct msghdr msg;
+// 	struct kvec iov;
+// 	int length;
+// 	unsigned char buffer[1500];
 	
-	unsigned char buffer[1500];
-	int len;
-	
-	mm_segment_t oldfs;
-	unsigned long time = jiffies;
+	void (*data_ready)(struct sock *, int) = sk->sk_user_data;
+	data_ready(sk,len);
 
 
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = INADDR_ANY;
-	server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
-	
-
-	/* init inet socket to forward packets */
-	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
-
-		DBG( "can't create raw socket");
-		goto complete;
-
-	}
-
-	/* init upd socket for batman packets */
-	if( sock_create( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
-
-		DBG( "can't create udp socket");
-		goto error_inet;
-
-	}
-
-	if( server_sock->ops->bind( server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) ) {
-
-		DBG( "can't bind udp server socket");
-		goto error;
-
-	}
-	
-	/* forward msg */
-	inet_addr.sin_family = AF_INET;
-	inet_msg.msg_iov = &inet_iov;
-	inet_msg.msg_iovlen = 1;
-	inet_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-	inet_msg.msg_name = &inet_addr;
-	inet_msg.msg_namelen = sizeof( inet_addr );
-	inet_msg.msg_control = NULL;
-	inet_msg.msg_controllen = 0;
-
-	/* batman communication */
-	msg.msg_name = &client;
-	msg.msg_namelen = sizeof( struct sockaddr_in );
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_iov    = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-	iov.iov_base = buffer;
-	iov.iov_len  = sizeof( buffer );
-
-	daemonize( "udpserver" );
-	allow_signal( SIGTERM );
-
-	while( !signal_pending( current ) ) {
-
-		oldfs = get_fs();
-		set_fs( KERNEL_DS );
-		len = sock_recvmsg( server_sock, &msg, sizeof(buffer), 0 );
-		set_fs( oldfs );
-		
-		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
-
-			DBG( "ip request" );
-
-		} else if( len > 0 && buffer[0] == TUNNEL_DATA ) {
-
-			DBG( "tunnel data" );
-
-		} else if( len > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
-
-			DBG( "keepalive request" );
-
-		}
-
-		if( time / HZ < LEASE_TIME )
-			continue;
-
-		/* TODO : jiffies */
-
-		time = jiffies;
-
-	}
-
-error:
-	sock_release( server_sock );
-
-error_inet:	
-	sock_release( inet_sock );
-
-complete:
-	complete( &Thread_complete );
-
-	return( 0 );
+	atomic_set(&data_ready_cond, 1);
+	wake_up_interruptible(&thread_wait);
+// 	iov.iov_base = buffer;
+// 	iov.iov_len = sizeof(buffer);
+// 
+// 	length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), 0 );
+// 	if(len < 0)
+// 		DBG("recv error");
+// 	else
+// 		DBG("%d size", length);
 }
+
+static int packet_recv_thread(void *data)
+{
+	atomic_set(&data_ready_cond, 0);
+	while (!kthread_should_stop()) {
+
+		DBG( "wait event" );
+		wait_event_interruptible(thread_wait, atomic_read(&data_ready_cond));
+
+		DBG( "receive event" );
+		if (kthread_should_stop() || atomic_read(&data_ready_cond) == 2)
+			break;
+
+		atomic_set(&data_ready_cond, 0);
+	}
+
+	for(;;) {
+
+		if(kthread_should_stop)
+			break;
+
+		schedule();
+	}
+	DBG( "thread stop" );
+	return 0;
+}
+
+// static int udp_server_thread(void *data)
+// {
+// 
+// 	struct sockaddr_in inet_addr, server_addr, client;
+// 	struct msghdr msg, inet_msg;
+// 	struct iovec iov, inet_iov;
+// 	struct iphdr *iph;
+// 	struct socket *inet_sock = NULL, *server_sock = NULL;
+// 	struct gw_client *client_data;
+// 
+// 	unsigned char buffer[1500];
+// 	int len;
+// 
+// 	mm_segment_t oldfs;
+// 	unsigned long time = jiffies;
+// 
+// 
+// 	server_addr.sin_family = AF_INET;
+// 	server_addr.sin_addr.s_addr = INADDR_ANY;
+// 	server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
+// 
+// 
+// 	/* init inet socket to forward packets */
+// 	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
+// 
+// 		DBG( "can't create raw socket");
+// 		return(0);
+// 
+// 	}
+// 
+// 	/* init upd socket for batman packets */
+// 	if( sock_create( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
+// 
+// 		DBG( "can't create udp socket");
+// 		goto error_inet;
+// 
+// 	}
+// 
+// 	if( server_sock->ops->bind( server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) ) {
+// 
+// 		DBG( "can't bind udp server socket");
+// 		goto error;
+// 
+// 	}
+// 
+// 	/* forward msg */
+// 	inet_addr.sin_family = AF_INET;
+// 	inet_msg.msg_iov = &inet_iov;
+// 	inet_msg.msg_iovlen = 1;
+// 	inet_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+// 	inet_msg.msg_name = &inet_addr;
+// 	inet_msg.msg_namelen = sizeof( inet_addr );
+// 	inet_msg.msg_control = NULL;
+// 	inet_msg.msg_controllen = 0;
+// 
+// 	/* batman communication */
+// 	msg.msg_name = &client;
+// 	msg.msg_namelen = sizeof( struct sockaddr_in );
+// 	msg.msg_control = NULL;
+// 	msg.msg_controllen = 0;
+// 	msg.msg_iov    = &iov;
+// 	msg.msg_iovlen = 1;
+// 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+// 	iov.iov_base = buffer;
+// 	iov.iov_len  = sizeof( buffer );
+// 
+// 	DBG( "start thread" );
+// 
+// 	for( ; ; ) {
+// 
+// 		set_current_state(TASK_INTERRUPTIBLE);
+// 		if( kthread_should_stop() )
+// 			break;
+// 
+// 		oldfs = get_fs();
+// 		set_fs( KERNEL_DS );
+// 		len = sock_recvmsg( server_sock, &msg, sizeof(buffer), 0 );
+// 		set_fs( oldfs );
+// 
+// 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
+// 
+// 			DBG( "ip request" );
+// // 			client_data = get_ip_addr(&client);
+// // 			if(client_data != NULL) {
+// // 				buffer[0] = TUNNEL_DATA;
+// // 				memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
+// // 				send_data( Bat_socket, &client, buffer, len );
+// // 			} else
+// // 				DBG("can't get an ip address");
+// 
+// 		} else if( len > 0 && buffer[0] == TUNNEL_DATA ) {
+// 
+// 			DBG( "tunnel data" );
+// 
+// 		} else if( len > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
+// 
+// 			DBG( "keepalive request" );
+// 
+// 		} else
+// 			DBG( "recive unknown message" );
+// 
+// 			if( time / HZ < LEASE_TIME )
+// 				continue;
+// 
+// 			/* TODO : jiffies */
+// 
+// 			time = jiffies;
+// 
+// 	}
+// 
+// 	__set_current_state(TASK_RUNNING);
+// 
+// error:
+// 	sock_release( server_sock );
+// 
+// error_inet:
+// 	sock_release( inet_sock );
+// 
+// 	return( 0 );
+// }
 
 /* bat_netdev part */
 
@@ -423,16 +524,16 @@ static int create_bat_netdev()
 {
 	struct gate_priv *priv;
 
-	if( Bat_device == NULL ) {
+	if( gate_device == NULL ) {
 
-		if( ( Bat_device = alloc_netdev( sizeof( struct gate_priv ) , "gate%d", bat_netdev_setup ) ) == NULL )
+		if( ( gate_device = alloc_netdev( sizeof( struct gate_priv ) , "gate%d", bat_netdev_setup ) ) == NULL )
 			return -ENOMEM;
 
-		if( ( register_netdev( Bat_device ) ) < 0 )
+		if( ( register_netdev( gate_device ) ) < 0 )
 			return -ENODEV;
 
-		priv = netdev_priv( Bat_device );
-		priv->tun_socket = Bat_socket;
+		priv = netdev_priv( gate_device );
+		priv->tun_socket = gate_socket;
 
 	} else {
 
@@ -456,7 +557,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 
 
-	gw_client = ((struct gw_client *)hash_find(Wip_hash, &client_addr->sin_addr.s_addr));
+	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr->sin_addr.s_addr));
 
 	if (gw_client != NULL)
 		return gw_client;
@@ -488,22 +589,12 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 	}
 
-	hash_add(Wip_hash, gw_client);
-	hash_add(Vip_hash, gw_client);
+	hash_add(wip_hash, gw_client);
+	hash_add(vip_hash, gw_client);
 
-	if (Wip_hash->elements * 4 > Wip_hash->size) {
+	if (wip_hash->elements * 4 > wip_hash->size) {
 
-		swaphash = hash_resize(Wip_hash, Wip_hash->size * 2);
-
-		if (swaphash == NULL) {
-
-			DBG( "Couldn't resize hash table" );
-
-		}
-
-		Wip_hash = swaphash;
-
-		swaphash = hash_resize(Vip_hash, Vip_hash->size * 2);
+		swaphash = hash_resize(wip_hash, wip_hash->size * 2);
 
 		if (swaphash == NULL) {
 
@@ -511,7 +602,17 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 		}
 
-		Vip_hash = swaphash;
+		wip_hash = swaphash;
+
+		swaphash = hash_resize(vip_hash, vip_hash->size * 2);
+
+		if (swaphash == NULL) {
+
+			DBG( "Couldn't resize hash table" );
+
+		}
+
+		vip_hash = swaphash;
 
 	}
 
