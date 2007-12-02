@@ -57,7 +57,6 @@ static struct file_operations fops = {
 static int Major;					/* Major number assigned to our device driver */
 
 static struct net_device *gate_device = NULL;
-static struct socket *gate_socket = NULL;
 
 static struct socket *server_sock = NULL;
 static struct socket *inet_sock = NULL;
@@ -174,7 +173,6 @@ static int batgat_release(struct inode *inode, struct file *file)
 
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
 {
-	
 	uint8_t tmp_ip[4];
 	struct batgat_ioc_args ioc;
 	struct sockaddr_in server_addr;
@@ -507,15 +505,28 @@ static void bat_netdev_setup( struct net_device *dev )
 
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 {
-// 	struct sockaddr_in sa;
+	struct sockaddr_in sa;
 // 	struct gate_priv *priv = netdev_priv( dev );
-// 	struct iphdr *iph = ip_hdr( skb );
-// 	unsigned char buffer[1500];
-// 	uint8_t dest[4];
-// 	uint32_t real_dest;
-// 
-// 	memcpy( dest, &iph->daddr, sizeof(int) );
-	DBG("xmit");
+	struct iphdr *iph = ip_hdr( skb );
+	struct gw_client *client_data;
+	unsigned char buffer[1500];
+
+	/* we use saddr , because hash choose and compare begin at + 4 bytes */
+	client_data = ((struct gw_client *)hash_find(vip_hash, & iph->saddr )); /* daddr */
+
+	if( client_data != NULL ) {
+
+		sa.sin_family = AF_INET;
+		sa.sin_addr.s_addr = client_data->wip_addr;
+		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
+		
+		buffer[ 0 ] = TUNNEL_DATA;
+		memcpy( &buffer[1], skb->data + sizeof( struct ethhdr ), skb->len - sizeof( struct ethhdr ) );
+
+		send_data( server_sock, &sa, buffer, skb->len - sizeof( struct ethhdr )  + 1 );
+
+	} else
+		DBG("client not found");
 
 	kfree_skb( skb );
 	return( 0 );
@@ -537,18 +548,15 @@ static int bat_netdev_close( struct net_device *dev )
 
 static int create_bat_netdev()
 {
-	struct gate_priv *priv;
 
 	if( gate_device == NULL ) {
 
+		/* TODO: remove gate_priv */
 		if( ( gate_device = alloc_netdev( sizeof( struct gate_priv ) , "gate%d", bat_netdev_setup ) ) == NULL )
 			return -ENOMEM;
 
 		if( ( register_netdev( gate_device ) ) < 0 )
 			return -ENODEV;
-
-		priv = netdev_priv( gate_device );
-		priv->tun_socket = gate_socket;
 
 	} else {
 
@@ -679,7 +687,6 @@ int choose_vip(void *data, int32_t size)
 	unsigned char *key= data;
 	uint32_t hash = 0;
 	size_t i;
-
 	for (i = 4; i < 8; i++) {
 		hash += key[i];
 		hash += (hash << 10);
