@@ -1031,7 +1031,7 @@ void init_interface_gw () {
 
 		close( skfd );
 
-		if( ioc.exists )
+		if( !ioc.exists )
 			add_del_route( ioc.universal, 16, 0, 0, ioc.ifindex, ioc.dev_name, 254, 0, 0 );
 
 

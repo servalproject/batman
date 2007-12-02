@@ -38,6 +38,7 @@ static int choose_wip( void *data, int32_t size );
 static int compare_vip( void *data1, void *data2 );
 static int choose_vip( void *data, int32_t size );
 static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr);
+static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
 
 
 static void bat_netdev_setup( struct net_device *dev);
@@ -59,6 +60,7 @@ static struct net_device *gate_device = NULL;
 static struct socket *gate_socket = NULL;
 
 static struct socket *server_sock = NULL;
+static struct socket *inet_sock = NULL;
 
 static struct hashtable_t *wip_hash;
 static struct hashtable_t *vip_hash;
@@ -66,6 +68,8 @@ static struct hashtable_t *vip_hash;
 static struct list_head free_client_list;
 
 atomic_t data_ready_cond;
+atomic_t exit_cond;
+
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
 
@@ -119,7 +123,7 @@ void cleanup_module()
 
 	if(kthread_task) {
 
-		atomic_set(&data_ready_cond, 2);
+		atomic_set(&exit_cond, 1);
 		wake_up_interruptible(&thread_wait);
 		kthread_stop(kthread_task);
 
@@ -132,6 +136,11 @@ void cleanup_module()
 		sock_release(server_sock);
 		server_sock = NULL;
 
+	}
+
+	if(inet_sock) {
+		sock_release(inet_sock);
+		inet_sock = NULL;
 	}
 
 	if( gate_device )
@@ -198,6 +207,14 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				server_addr.sin_family = AF_INET;
 				server_addr.sin_addr.s_addr = INADDR_ANY;
 				server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
+
+				if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
+
+					DBG( "can't create raw socket");
+					ret_value = -EFAULT;
+					goto end;
+
+				}
 				
 				if( sock_create_kern( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
 
@@ -238,9 +255,12 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				ioc.ifindex = gate_device->ifindex;
 
 				strlcpy( ioc.dev_name, gate_device->name, IFNAMSIZ - 1 );
+
+				DBG("name %s index %d", ioc.dev_name, ioc.ifindex);
 				
 				if( ret_value == -1 ) {
 
+					DBG("device already exists");
 					ioc.exists = 1;
 					ret_value = 0;
 					
@@ -259,7 +279,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			DBG("disconnect daemon");
 			if (kthread_task) {
 
-				atomic_set(&data_ready_cond, 2);
+				atomic_set(&exit_cond, 1);
 				wake_up_interruptible(&thread_wait);
 				kthread_stop(kthread_task);
 
@@ -283,6 +303,11 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 			}
 
+			if(inet_sock) {
+				sock_release(inet_sock);
+				inet_sock = NULL;
+			}
+
 			DBG( "device unregistered successfully" );
 			break;
 		default:
@@ -299,45 +324,119 @@ end:
 
 static void udp_data_ready(struct sock *sk, int len)
 {
-// 	struct msghdr msg;
-// 	struct kvec iov;
-// 	int length;
-// 	unsigned char buffer[1500];
-	
+
 	void (*data_ready)(struct sock *, int) = sk->sk_user_data;
 	data_ready(sk,len);
 
 
 	atomic_set(&data_ready_cond, 1);
 	wake_up_interruptible(&thread_wait);
-// 	iov.iov_base = buffer;
-// 	iov.iov_len = sizeof(buffer);
-// 
-// 	length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), 0 );
-// 	if(len < 0)
-// 		DBG("recv error");
-// 	else
-// 		DBG("%d size", length);
+
 }
 
 static int packet_recv_thread(void *data)
 {
+
+	struct msghdr msg, inet_msg;
+	struct kvec iov, inet_iov;
+	struct iphdr *iph;
+	
+	int length;
+	unsigned char buffer[1500];
+	unsigned long time = jiffies;
+	struct gw_client *client_data;
+
+	struct sockaddr_in client, inet_addr;
+
+	msg.msg_name = &client;
+	msg.msg_namelen = sizeof( struct sockaddr_in );
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+
+	inet_addr.sin_family = AF_INET;
+	inet_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+	inet_msg.msg_name = &inet_addr;
+	inet_msg.msg_namelen = sizeof( inet_addr );
+	inet_msg.msg_control = NULL;
+	inet_msg.msg_controllen = 0;
+	
 	atomic_set(&data_ready_cond, 0);
-	while (!kthread_should_stop()) {
+	atomic_set(&exit_cond, 0);
+
+	while (!kthread_should_stop() && !atomic_read(&exit_cond)) {
 
 		DBG( "wait event" );
-		wait_event_interruptible(thread_wait, atomic_read(&data_ready_cond));
+		wait_event_interruptible(thread_wait, atomic_read(&data_ready_cond) || atomic_read(&exit_cond));
 
 		DBG( "receive event" );
-		if (kthread_should_stop() || atomic_read(&data_ready_cond) == 2)
+		if (kthread_should_stop() || atomic_read(&exit_cond))
 			break;
+
+
+		iov.iov_base = buffer;
+		iov.iov_len = sizeof(buffer);
+
+		client_data = NULL;
+
+		length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), 0 );
+
+
+		if( length > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
+
+			client_data = get_ip_addr(&client);
+
+			if(client_data != NULL) {
+				
+				buffer[0] = TUNNEL_DATA;
+				memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
+				send_data( server_sock, &client, buffer, length );
+
+			} else
+				DBG("can't get an ip address");
+
+		} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
+
+			DBG( "tunnel data" );
+
+			iph = ( struct iphdr*)(buffer + 1 );
+
+			client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+
+			if(client_data == NULL) {
+
+				DBG( "virtual ip invalid");
+				buffer[0] = TUNNEL_IP_INVALID;
+				send_data( server_sock, &client, buffer, length );
+				continue;
+
+			}
+
+			DBG("ready to send");
+
+			client_data->last_keep_alive = jiffies;
+
+			inet_iov.iov_base = &buffer[1];
+			inet_iov.iov_len = length - 1;
+
+			inet_addr.sin_port = 0;
+			inet_addr.sin_addr.s_addr = iph->daddr;
+
+			kernel_sendmsg(inet_sock, &inet_msg, &inet_iov, 1, length - 1);
+
+		} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
+
+			DBG( "keepalive request" );
+
+		} else
+			DBG( "recive unknown message" );
 
 		atomic_set(&data_ready_cond, 0);
 	}
 
 	for(;;) {
 
-		if(kthread_should_stop)
+		if(kthread_should_stop())
 			break;
 
 		schedule();
@@ -346,126 +445,41 @@ static int packet_recv_thread(void *data)
 	return 0;
 }
 
-// static int udp_server_thread(void *data)
-// {
-// 
-// 	struct sockaddr_in inet_addr, server_addr, client;
-// 	struct msghdr msg, inet_msg;
-// 	struct iovec iov, inet_iov;
-// 	struct iphdr *iph;
-// 	struct socket *inet_sock = NULL, *server_sock = NULL;
-// 	struct gw_client *client_data;
-// 
-// 	unsigned char buffer[1500];
-// 	int len;
-// 
-// 	mm_segment_t oldfs;
-// 	unsigned long time = jiffies;
-// 
-// 
-// 	server_addr.sin_family = AF_INET;
-// 	server_addr.sin_addr.s_addr = INADDR_ANY;
-// 	server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
-// 
-// 
-// 	/* init inet socket to forward packets */
-// 	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
-// 
-// 		DBG( "can't create raw socket");
-// 		return(0);
-// 
-// 	}
-// 
-// 	/* init upd socket for batman packets */
-// 	if( sock_create( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
-// 
-// 		DBG( "can't create udp socket");
-// 		goto error_inet;
-// 
-// 	}
-// 
-// 	if( server_sock->ops->bind( server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) ) {
-// 
-// 		DBG( "can't bind udp server socket");
-// 		goto error;
-// 
-// 	}
-// 
-// 	/* forward msg */
-// 	inet_addr.sin_family = AF_INET;
-// 	inet_msg.msg_iov = &inet_iov;
-// 	inet_msg.msg_iovlen = 1;
-// 	inet_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-// 	inet_msg.msg_name = &inet_addr;
-// 	inet_msg.msg_namelen = sizeof( inet_addr );
-// 	inet_msg.msg_control = NULL;
-// 	inet_msg.msg_controllen = 0;
-// 
-// 	/* batman communication */
-// 	msg.msg_name = &client;
-// 	msg.msg_namelen = sizeof( struct sockaddr_in );
-// 	msg.msg_control = NULL;
-// 	msg.msg_controllen = 0;
-// 	msg.msg_iov    = &iov;
-// 	msg.msg_iovlen = 1;
-// 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-// 	iov.iov_base = buffer;
-// 	iov.iov_len  = sizeof( buffer );
-// 
-// 	DBG( "start thread" );
-// 
-// 	for( ; ; ) {
-// 
-// 		set_current_state(TASK_INTERRUPTIBLE);
-// 		if( kthread_should_stop() )
-// 			break;
-// 
-// 		oldfs = get_fs();
-// 		set_fs( KERNEL_DS );
-// 		len = sock_recvmsg( server_sock, &msg, sizeof(buffer), 0 );
-// 		set_fs( oldfs );
-// 
-// 		if( len > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
-// 
-// 			DBG( "ip request" );
-// // 			client_data = get_ip_addr(&client);
-// // 			if(client_data != NULL) {
-// // 				buffer[0] = TUNNEL_DATA;
-// // 				memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
-// // 				send_data( Bat_socket, &client, buffer, len );
-// // 			} else
-// // 				DBG("can't get an ip address");
-// 
-// 		} else if( len > 0 && buffer[0] == TUNNEL_DATA ) {
-// 
-// 			DBG( "tunnel data" );
-// 
-// 		} else if( len > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
-// 
-// 			DBG( "keepalive request" );
-// 
-// 		} else
-// 			DBG( "recive unknown message" );
-// 
-// 			if( time / HZ < LEASE_TIME )
-// 				continue;
-// 
-// 			/* TODO : jiffies */
-// 
-// 			time = jiffies;
-// 
-// 	}
-// 
-// 	__set_current_state(TASK_RUNNING);
-// 
-// error:
-// 	sock_release( server_sock );
-// 
-// error_inet:
-// 	sock_release( inet_sock );
-// 
-// 	return( 0 );
-// }
+static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len )
+{
+	struct iovec iov;
+	struct msghdr msg;
+	mm_segment_t oldfs;
+
+	int error=0,len=0;
+
+	msg.msg_name = NULL;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	iov.iov_base = buffer;
+	iov.iov_len = buffer_len;
+	msg.msg_iovlen = 1;
+	msg.msg_iov = &iov;
+	msg.msg_flags = MSG_DONTWAIT;
+
+	error = socket->ops->connect( socket, (struct sockaddr *)client, sizeof(*client), 0 );
+
+	if( error != 0 ) {
+		DBG("can't connect to socket: %d",error);
+		return 0;
+	}
+	
+	oldfs = get_fs();
+	set_fs( KERNEL_DS );
+
+	len = sock_sendmsg( socket, &msg, buffer_len );
+
+	if( len < 0 )
+		DBG( "sock_sendmsg failed: %d",len);
+
+	set_fs( oldfs );
+	return( 0 );
+}
 
 /* bat_netdev part */
 
@@ -493,14 +507,15 @@ static void bat_netdev_setup( struct net_device *dev )
 
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 {
-	struct sockaddr_in sa;
-	struct gate_priv *priv = netdev_priv( dev );
-	struct iphdr *iph = ip_hdr( skb );
-	unsigned char buffer[1500];
-	uint8_t dest[4];
-	uint32_t real_dest;
-
-	memcpy( dest, &iph->daddr, sizeof(int) );
+// 	struct sockaddr_in sa;
+// 	struct gate_priv *priv = netdev_priv( dev );
+// 	struct iphdr *iph = ip_hdr( skb );
+// 	unsigned char buffer[1500];
+// 	uint8_t dest[4];
+// 	uint32_t real_dest;
+// 
+// 	memcpy( dest, &iph->daddr, sizeof(int) );
+	DBG("xmit");
 
 	kfree_skb( skb );
 	return( 0 );
@@ -559,16 +574,20 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr->sin_addr.s_addr));
 
-	if (gw_client != NULL)
+	if (gw_client != NULL) {
+		DBG("found client in hash");
 		return gw_client;
+	}
 
 	list_for_each_entry_safe(entry, next, &free_client_list, list) {
+		DBG("get free client");
 		gw_client = entry->gw_client;
 		list_del(&entry->list);
 		break;
 	}
 
 	if(gw_client == NULL) {
+		DBG("malloc client");
 		gw_client = kmalloc( sizeof(struct gw_client), GFP_KERNEL );
 		gw_client->vip_addr = 0;
 	}
