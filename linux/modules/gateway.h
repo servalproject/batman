@@ -52,7 +52,7 @@
 #define TUNNEL_KEEPALIVE_REQUEST 0x04
 #define TUNNEL_KEEPALIVE_REPLY 0x05
 
-#define LEASE_TIME 300
+#define LEASE_TIME 3
 
 #define DBG(msg,args...) do { printk(KERN_DEBUG "batgat: [%s:%u] " msg "\n", __func__ ,__LINE__, ##args); } while(0)
 

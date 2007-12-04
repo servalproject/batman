@@ -72,6 +72,8 @@ atomic_t exit_cond;
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
 
+DEFINE_SPINLOCK(data_lock);
+
 
 int init_module()
 {
@@ -109,6 +111,8 @@ int init_module()
 
 void cleanup_module()
 {
+	struct free_client_data *entry, *next;
+	struct gw_client *gw_client;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batgat", 0 );
 #else
@@ -144,6 +148,14 @@ void cleanup_module()
 
 	if( gate_device )
 		unregister_netdev( gate_device );
+	
+	list_for_each_entry_safe(entry, next, &free_client_list, list) {
+
+		gw_client = entry->gw_client;
+		list_del(&entry->list);
+		kfree(gw_client);
+
+	}
 
 	DBG( "unload module complete" );
 	return;
@@ -176,6 +188,8 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	uint8_t tmp_ip[4];
 	struct batgat_ioc_args ioc;
 	struct sockaddr_in server_addr;
+	struct free_client_data *entry, *next;
+	struct gw_client *gw_client;
 	
 	int ret_value = 0;
 
@@ -306,6 +320,14 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				inet_sock = NULL;
 			}
 
+			list_for_each_entry_safe(entry, next, &free_client_list, list) {
+				
+				gw_client = entry->gw_client;
+				list_del(&entry->list);
+				kfree(gw_client);
+
+			}
+
 			DBG( "device unregistered successfully" );
 			break;
 		default:
@@ -338,13 +360,15 @@ static int packet_recv_thread(void *data)
 	struct msghdr msg, inet_msg;
 	struct kvec iov, inet_iov;
 	struct iphdr *iph;
+	struct gw_client *client_data;
+	struct sockaddr_in client, inet_addr;
+	struct free_client_data *tmp_entry;
 	
 	int length;
 	unsigned char buffer[1500];
 	unsigned long time = jiffies;
-	struct gw_client *client_data;
-
-	struct sockaddr_in client, inet_addr;
+	
+	struct hash_it_t *hashit;
 
 	msg.msg_name = &client;
 	msg.msg_namelen = sizeof( struct sockaddr_in );
@@ -382,8 +406,35 @@ static int packet_recv_thread(void *data)
 
 		if( length > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
-			client_data = get_ip_addr(&client);
+			spin_lock(&data_lock);
+			if( time / HZ > LEASE_TIME ) {
+		
+				hashit = NULL;
+				DBG("timeout search");
+				while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
+					client_data = hashit->bucket->data;
+					if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
 
+						hash_remove_bucket(wip_hash, hashit);
+						hash_remove_bucket(vip_hash, hashit);
+
+						DBG("remove client from hash");
+
+						tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
+						if(tmp_entry != NULL)
+							list_add(&tmp_entry->list,&free_client_list);
+						else
+							DBG("can't add free gw_client to free list");
+
+					}
+				}
+
+
+				time = jiffies;
+			}
+
+			client_data = get_ip_addr(&client);
+			spin_unlock(&data_lock);
 			if(client_data != NULL) {
 				
 				buffer[0] = TUNNEL_DATA;
@@ -403,7 +454,6 @@ static int packet_recv_thread(void *data)
 
 			if(client_data == NULL) {
 
-				DBG( "virtual ip invalid");
 				buffer[0] = TUNNEL_IP_INVALID;
 				send_data( server_sock, &client, buffer, length );
 				continue;
@@ -428,7 +478,7 @@ static int packet_recv_thread(void *data)
 
 		} else
 			DBG( "recive unknown message" );
-
+		
 		atomic_set(&data_ready_cond, 0);
 	}
 
