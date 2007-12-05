@@ -72,8 +72,6 @@ atomic_t exit_cond;
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
 
-DEFINE_SPINLOCK(data_lock);
-
 
 int init_module()
 {
@@ -388,10 +386,8 @@ static int packet_recv_thread(void *data)
 
 	while (!kthread_should_stop() && !atomic_read(&exit_cond)) {
 
-		DBG( "wait event" );
 		wait_event_interruptible(thread_wait, atomic_read(&data_ready_cond) || atomic_read(&exit_cond));
 
-		DBG( "receive event" );
 		if (kthread_should_stop() || atomic_read(&exit_cond))
 			break;
 
@@ -403,40 +399,37 @@ static int packet_recv_thread(void *data)
 
 		length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), 0 );
 
+		if( ( jiffies - time ) / HZ > LEASE_TIME ) {
+		
+			hashit = NULL;
+
+			while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
+				client_data = hashit->bucket->data;
+				if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
+
+					hash_remove_bucket(wip_hash, hashit);
+					hash_remove_bucket(vip_hash, hashit);
+					
+					tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
+					if(tmp_entry != NULL) {
+						tmp_entry->gw_client = client_data;
+						list_add(&tmp_entry->list,&free_client_list);
+					} else
+						DBG("can't add free gw_client to free list");
+
+				}
+			}
+
+			time = jiffies;
+		}
+
 
 		if( length > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
-			spin_lock(&data_lock);
-			if( time / HZ > LEASE_TIME ) {
-		
-				hashit = NULL;
-				DBG("timeout search");
-				while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
-					client_data = hashit->bucket->data;
-					if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
-
-						hash_remove_bucket(wip_hash, hashit);
-						hash_remove_bucket(vip_hash, hashit);
-
-						DBG("remove client from hash");
-
-						tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
-						if(tmp_entry != NULL)
-							list_add(&tmp_entry->list,&free_client_list);
-						else
-							DBG("can't add free gw_client to free list");
-
-					}
-				}
-
-
-				time = jiffies;
-			}
-
 			client_data = get_ip_addr(&client);
-			spin_unlock(&data_lock);
+
 			if(client_data != NULL) {
-				
+
 				buffer[0] = TUNNEL_DATA;
 				memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
 				send_data( server_sock, &client, buffer, length );
@@ -445,8 +438,6 @@ static int packet_recv_thread(void *data)
 				DBG("can't get an ip address");
 
 		} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
-
-			DBG( "tunnel data" );
 
 			iph = ( struct iphdr*)(buffer + 1 );
 
@@ -460,8 +451,6 @@ static int packet_recv_thread(void *data)
 
 			}
 
-			DBG("ready to send");
-
 			client_data->last_keep_alive = jiffies;
 
 			inet_iov.iov_base = &buffer[1];
@@ -474,11 +463,17 @@ static int packet_recv_thread(void *data)
 
 		} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
 
-			DBG( "keepalive request" );
+			client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+			if(client_data != NULL) {
+				buffer[0] = TUNNEL_KEEPALIVE_REPLY;
+				client_data->last_keep_alive = jiffies;
+			} else
+				buffer[0] = TUNNEL_IP_INVALID;
 
+			send_data(server_sock, &client, buffer, length);
 		} else
 			DBG( "recive unknown message" );
-		
+
 		atomic_set(&data_ready_cond, 0);
 	}
 
@@ -638,7 +633,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 	}
 
 	list_for_each_entry_safe(entry, next, &free_client_list, list) {
-		DBG("get free client");
+		DBG("use free client from list");
 		gw_client = entry->gw_client;
 		list_del(&entry->list);
 		break;
