@@ -146,8 +146,10 @@ void cleanup_module()
 		inet_sock = NULL;
 	}
 
-	if( gate_device )
+	if( gate_device ) {
+// 		dev_put(gate_device);
 		unregister_netdev( gate_device );
+	}
 	
 	list_for_each_entry_safe(entry, next, &free_client_list, list) {
 
@@ -301,6 +303,8 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 			DBG("thread shutdown");
 
+// 			dev_put(gate_device);
+			DBG("refcnt %u",atomic_read(&gate_device->refcnt) );
 			unregister_netdev( gate_device );
 			gate_device = NULL;
 
@@ -401,81 +405,82 @@ static int packet_recv_thread(void *data)
 		iov.iov_base = buffer;
 		iov.iov_len = sizeof(buffer);
 
-		length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), MSG_NOSIGNAL | MSG_DONTWAIT );
+		while ( ( length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), MSG_NOSIGNAL | MSG_DONTWAIT ) ) > 0 ) {
 
-		if( ( jiffies - time ) / HZ > LEASE_TIME ) {
-		
-			hashit = NULL;
+			if( ( jiffies - time ) / HZ > LEASE_TIME ) {
 
-			while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
-				client_data = hashit->bucket->data;
-				if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
+				hashit = NULL;
 
-					hash_remove_bucket(wip_hash, hashit);
-					hash_remove_bucket(vip_hash, hashit);
-					
-					tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
-					if(tmp_entry != NULL) {
-						tmp_entry->gw_client = client_data;
-						list_add(&tmp_entry->list,&free_client_list);
-					} else
-						DBG("can't add free gw_client to free list");
+				while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
+					client_data = hashit->bucket->data;
+					if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
+
+						hash_remove_bucket(wip_hash, hashit);
+						hash_remove_bucket(vip_hash, hashit);
+
+						tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
+						if(tmp_entry != NULL) {
+							tmp_entry->gw_client = client_data;
+							list_add(&tmp_entry->list,&free_client_list);
+						} else
+							DBG("can't add free gw_client to free list");
+
+					}
+				}
+
+				time = jiffies;
+			}
+
+
+			if( length > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
+
+				client_data = get_ip_addr(&client);
+
+				if(client_data != NULL) {
+
+					buffer[0] = TUNNEL_DATA;
+					memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
+					send_data( server_sock, &client, buffer, length );
+
+				} else
+					DBG("can't get an ip address");
+
+			} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
+
+				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+
+				if(client_data == NULL) {
+
+					buffer[0] = TUNNEL_IP_INVALID;
+					send_data( server_sock, &client, buffer, length );
+					continue;
 
 				}
-			}
 
-			time = jiffies;
-		}
-
-
-		if( length > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
-
-			client_data = get_ip_addr(&client);
-
-			if(client_data != NULL) {
-
-				buffer[0] = TUNNEL_DATA;
-				memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
-				send_data( server_sock, &client, buffer, length );
-
-			} else
-				DBG("can't get an ip address");
-
-		} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
-
-			client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
-
-			if(client_data == NULL) {
-
-				buffer[0] = TUNNEL_IP_INVALID;
-				send_data( server_sock, &client, buffer, length );
-				continue;
-
-			}
-
-			client_data->last_keep_alive = jiffies;
-
-			inet_iov.iov_base = &buffer[1];
-			inet_iov.iov_len = length - 1;
-
-			inet_addr.sin_port = 0;
-			inet_addr.sin_addr.s_addr = iph->daddr;
-
-			kernel_sendmsg(inet_sock, &inet_msg, &inet_iov, 1, length - 1);
-
-		} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
-
-			client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
-			if(client_data != NULL) {
-				buffer[0] = TUNNEL_KEEPALIVE_REPLY;
 				client_data->last_keep_alive = jiffies;
+
+				inet_iov.iov_base = &buffer[1];
+				inet_iov.iov_len = length - 1;
+
+				inet_addr.sin_port = 0;
+				inet_addr.sin_addr.s_addr = iph->daddr;
+
+				kernel_sendmsg(inet_sock, &inet_msg, &inet_iov, 1, length - 1);
+
+			} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
+
+				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+				if(client_data != NULL) {
+					buffer[0] = TUNNEL_KEEPALIVE_REPLY;
+					client_data->last_keep_alive = jiffies;
+				} else
+					buffer[0] = TUNNEL_IP_INVALID;
+
+				send_data(server_sock, &client, buffer, length);
 			} else
-				buffer[0] = TUNNEL_IP_INVALID;
+				DBG( "recive unknown message" );
 
-			send_data(server_sock, &client, buffer, length);
-		} else
-			DBG( "recive unknown message" );
-
+		}
 		atomic_set(&data_ready_cond, 0);
 	}
 
@@ -631,6 +636,9 @@ static int create_bat_netdev()
 			return -EFAULT;
 
 		}
+
+// 		dev_hold(gate_device);
+
 
 	} else {
 
