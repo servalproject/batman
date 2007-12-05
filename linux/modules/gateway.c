@@ -72,6 +72,8 @@ atomic_t exit_cond;
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
 
+DEFINE_SPINLOCK(sock_lock);
+
 
 int init_module()
 {
@@ -363,7 +365,7 @@ static int packet_recv_thread(void *data)
 	struct free_client_data *tmp_entry;
 	
 	int length;
-	unsigned char buffer[1500];
+	unsigned char buffer[1600];
 	unsigned long time = jiffies;
 	
 	struct hash_it_t *hashit;
@@ -384,6 +386,8 @@ static int packet_recv_thread(void *data)
 	atomic_set(&data_ready_cond, 0);
 	atomic_set(&exit_cond, 0);
 
+	iph = ( struct iphdr*)(buffer + 1 );
+
 	while (!kthread_should_stop() && !atomic_read(&exit_cond)) {
 
 		wait_event_interruptible(thread_wait, atomic_read(&data_ready_cond) || atomic_read(&exit_cond));
@@ -391,13 +395,13 @@ static int packet_recv_thread(void *data)
 		if (kthread_should_stop() || atomic_read(&exit_cond))
 			break;
 
+		client_data = NULL;
+		memset(buffer,0, 1600);
 
 		iov.iov_base = buffer;
 		iov.iov_len = sizeof(buffer);
 
-		client_data = NULL;
-
-		length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), 0 );
+		length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), MSG_NOSIGNAL | MSG_DONTWAIT );
 
 		if( ( jiffies - time ) / HZ > LEASE_TIME ) {
 		
@@ -438,8 +442,6 @@ static int packet_recv_thread(void *data)
 				DBG("can't get an ip address");
 
 		} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
-
-			iph = ( struct iphdr*)(buffer + 1 );
 
 			client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
 
@@ -550,11 +552,16 @@ static void bat_netdev_setup( struct net_device *dev )
 
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 {
+	struct gate_priv *priv = netdev_priv( dev );
 	struct sockaddr_in sa;
-// 	struct gate_priv *priv = netdev_priv( dev );
 	struct iphdr *iph = ip_hdr( skb );
+	struct iovec iov[2];
+	struct msghdr msg;
+	
 	struct gw_client *client_data;
-	unsigned char buffer[1500];
+	unsigned char msg_number[1];
+
+	msg_number[0] = TUNNEL_DATA;
 
 	/* we use saddr , because hash choose and compare begin at + 4 bytes */
 	client_data = ((struct gw_client *)hash_find(vip_hash, & iph->saddr )); /* daddr */
@@ -564,11 +571,18 @@ static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 		sa.sin_family = AF_INET;
 		sa.sin_addr.s_addr = client_data->wip_addr;
 		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
-		
-		buffer[ 0 ] = TUNNEL_DATA;
-		memcpy( &buffer[1], skb->data + sizeof( struct ethhdr ), skb->len - sizeof( struct ethhdr ) );
 
-		send_data( server_sock, &sa, buffer, skb->len - sizeof( struct ethhdr )  + 1 );
+		msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+		msg.msg_name = &sa;
+		msg.msg_namelen = sizeof(sa);
+		msg.msg_control = NULL;
+		msg.msg_controllen = 0;
+
+		iov[0].iov_base = msg_number;
+		iov[0].iov_len = 1;
+		iov[1].iov_base = skb->data + sizeof( struct ethhdr );
+		iov[1].iov_len = skb->len - sizeof( struct ethhdr );
+		kernel_sendmsg(priv->tun_socket, &msg, (struct kvec *)&iov, 2, skb->len - sizeof( struct ethhdr ) + 1);
 
 	} else
 		DBG("client not found");
@@ -586,22 +600,37 @@ static int bat_netdev_open( struct net_device *dev )
 
 static int bat_netdev_close( struct net_device *dev )
 {
+	struct gate_priv *priv = netdev_priv(dev);
 	DBG( "receive close" );
+
+	if(priv->tun_socket)
+		sock_release(priv->tun_socket);
+	
 	netif_stop_queue( dev );
 	return( 0 );
 }
 
 static int create_bat_netdev()
 {
+	struct gate_priv *priv;
 
 	if( gate_device == NULL ) {
 
-		/* TODO: remove gate_priv */
 		if( ( gate_device = alloc_netdev( sizeof( struct gate_priv ) , "gate%d", bat_netdev_setup ) ) == NULL )
 			return -ENOMEM;
 
 		if( ( register_netdev( gate_device ) ) < 0 )
 			return -ENODEV;
+
+		priv = netdev_priv( gate_device );
+
+		if( sock_create_kern( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &priv->tun_socket ) < 0 ) {
+
+			DBG( "can't create gate socket");
+			netif_stop_queue(gate_device);
+			return -EFAULT;
+
+		}
 
 	} else {
 
