@@ -38,8 +38,6 @@ static int choose_wip( void *data, int32_t size );
 static int compare_vip( void *data1, void *data2 );
 static int choose_vip( void *data, int32_t size );
 static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr);
-static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len );
-
 
 static void bat_netdev_setup( struct net_device *dev);
 static int create_bat_netdev(void);
@@ -71,8 +69,6 @@ atomic_t exit_cond;
 
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
-
-DEFINE_SPINLOCK(sock_lock);
 
 
 int init_module()
@@ -351,8 +347,6 @@ static void udp_data_ready(struct sock *sk, int len)
 
 	void (*data_ready)(struct sock *, int) = sk->sk_user_data;
 	data_ready(sk,len);
-
-
 	atomic_set(&data_ready_cond, 1);
 	wake_up_interruptible(&thread_wait);
 
@@ -361,14 +355,14 @@ static void udp_data_ready(struct sock *sk, int len)
 static int packet_recv_thread(void *data)
 {
 
-	struct msghdr msg, inet_msg;
-	struct kvec iov, inet_iov;
+	struct msghdr msg, inet_msg, resp_msg;
+	struct kvec iov, inet_iov, resp_iov;
 	struct iphdr *iph;
 	struct gw_client *client_data;
 	struct sockaddr_in client, inet_addr;
 	struct free_client_data *tmp_entry;
 	
-	int length;
+	int length,ret_value;
 	unsigned char buffer[1600];
 	unsigned long time = jiffies;
 	
@@ -400,7 +394,6 @@ static int packet_recv_thread(void *data)
 			break;
 
 		client_data = NULL;
-		memset(buffer,0, 1600);
 
 		iov.iov_base = buffer;
 		iov.iov_len = sizeof(buffer);
@@ -440,7 +433,18 @@ static int packet_recv_thread(void *data)
 
 					buffer[0] = TUNNEL_DATA;
 					memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
-					send_data( server_sock, &client, buffer, length );
+
+					resp_msg.msg_name = &client;
+					resp_msg.msg_namelen = sizeof(client);
+					resp_msg.msg_control = NULL;
+					resp_msg.msg_controllen = 0;
+					
+					resp_iov.iov_base = buffer;
+					resp_iov.iov_len = length;
+					
+					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+					if( ( ret_value = kernel_sendmsg(server_sock, &resp_msg, &resp_iov, 1, length ) ) < 0 )
+						DBG("tunnel ip request socket return %d", ret_value);
 
 				} else
 					DBG("can't get an ip address");
@@ -452,7 +456,17 @@ static int packet_recv_thread(void *data)
 				if(client_data == NULL) {
 
 					buffer[0] = TUNNEL_IP_INVALID;
-					send_data( server_sock, &client, buffer, length );
+					resp_msg.msg_name = &client;
+					resp_msg.msg_namelen = sizeof( struct sockaddr_in );
+					resp_msg.msg_control = NULL;
+					resp_msg.msg_controllen = 0;
+					
+					resp_iov.iov_base = buffer;
+					resp_iov.iov_len = length;
+					
+					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+					if( ( ret_value = kernel_sendmsg(server_sock, &resp_msg, &resp_iov, 1, length ) ) < 0 )
+						DBG("tunnel ip invalid socket return %d", ret_value);
 					continue;
 
 				}
@@ -465,18 +479,32 @@ static int packet_recv_thread(void *data)
 				inet_addr.sin_port = 0;
 				inet_addr.sin_addr.s_addr = iph->daddr;
 
-				kernel_sendmsg(inet_sock, &inet_msg, &inet_iov, 1, length - 1);
+				if( (ret_value = kernel_sendmsg(inet_sock, &inet_msg, &inet_iov, 1, length - 1 ) ) < 0 )
+					DBG("tunnel data socket return %d", ret_value);
 
 			} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
 
+				DBG("keep alive");
 				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
 				if(client_data != NULL) {
+					DBG("refresh ip");
 					buffer[0] = TUNNEL_KEEPALIVE_REPLY;
 					client_data->last_keep_alive = jiffies;
 				} else
 					buffer[0] = TUNNEL_IP_INVALID;
 
-				send_data(server_sock, &client, buffer, length);
+				resp_msg.msg_name = &client;
+				resp_msg.msg_namelen = sizeof( struct sockaddr_in );
+				resp_msg.msg_control = NULL;
+				resp_msg.msg_controllen = 0;
+
+				resp_iov.iov_base = buffer;
+				resp_iov.iov_len = length;
+
+				resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+				if( ( ret_value = kernel_sendmsg(server_sock, &resp_msg, &resp_iov, 1, length ) ) < 0 )
+					DBG("tunnel keep alive socket return %d", ret_value);
+
 			} else
 				DBG( "recive unknown message" );
 
@@ -484,51 +512,16 @@ static int packet_recv_thread(void *data)
 		atomic_set(&data_ready_cond, 0);
 	}
 
-	for(;;) {
+	while(!kthread_should_stop()) {
 
 		if(kthread_should_stop())
 			break;
 
 		schedule();
 	}
+
 	DBG( "thread stop" );
 	return 0;
-}
-
-static int send_data( struct socket *socket, struct sockaddr_in *client, unsigned char *buffer, int buffer_len )
-{
-	struct iovec iov;
-	struct msghdr msg;
-	mm_segment_t oldfs;
-
-	int error=0,len=0;
-
-	msg.msg_name = NULL;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	iov.iov_base = buffer;
-	iov.iov_len = buffer_len;
-	msg.msg_iovlen = 1;
-	msg.msg_iov = &iov;
-	msg.msg_flags = MSG_DONTWAIT;
-
-	error = socket->ops->connect( socket, (struct sockaddr *)client, sizeof(*client), 0 );
-
-	if( error != 0 ) {
-		DBG("can't connect to socket: %d",error);
-		return 0;
-	}
-	
-	oldfs = get_fs();
-	set_fs( KERNEL_DS );
-
-	len = sock_sendmsg( socket, &msg, buffer_len );
-
-	if( len < 0 )
-		DBG( "sock_sendmsg failed: %d",len);
-
-	set_fs( oldfs );
-	return( 0 );
 }
 
 /* bat_netdev part */
