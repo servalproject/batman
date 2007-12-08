@@ -45,6 +45,10 @@ static int bat_netdev_open( struct net_device *dev );
 static int bat_netdev_close( struct net_device *dev );
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev );
 
+static void cleanup_procfs(void);
+static int setup_procfs(void);
+static int proc_clients_read(char *buf, char **start, off_t offset, int size, int *eof, void *data);
+
 static struct file_operations fops = {
 	.open = batgat_open,
 	.release = batgat_release,
@@ -70,6 +74,7 @@ atomic_t exit_cond;
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
 
+static struct proc_dir_entry *proc_dir, *clients_file;
 
 int init_module()
 {
@@ -98,10 +103,15 @@ int init_module()
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	DBG( "Remove the device file and module when done." );
 
+	setup_procfs();
+	
+	/* TODO: error handling */
 	vip_hash = hash_new( 128, compare_vip, choose_vip );
 	wip_hash = hash_new( 128, compare_wip, choose_wip );
 
 	INIT_LIST_HEAD(&free_client_list);
+
+	
 	return(0);
 }
 
@@ -130,8 +140,7 @@ void cleanup_module()
 
 	if(server_sock) {
 
-		server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
-
+// 		server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
 		sock_release(server_sock);
 		server_sock = NULL;
 
@@ -142,19 +151,22 @@ void cleanup_module()
 		inet_sock = NULL;
 	}
 
-	if( gate_device ) {
+	if(gate_device) {
 // 		dev_put(gate_device);
-		unregister_netdev( gate_device );
+		unregister_netdev(gate_device);
 	}
 	
 	list_for_each_entry_safe(entry, next, &free_client_list, list) {
 
-		gw_client = entry->gw_client;
-		list_del(&entry->list);
-		kfree(gw_client);
+		if(entry->gw_client != NULL) {
+			gw_client = entry->gw_client;
+			list_del(&entry->list);
+			kfree(gw_client);
+		}
 
 	}
 
+	cleanup_procfs();
 	DBG( "unload module complete" );
 	return;
 }
@@ -300,15 +312,16 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			DBG("thread shutdown");
 
 // 			dev_put(gate_device);
-			DBG("refcnt %u",atomic_read(&gate_device->refcnt) );
-			unregister_netdev( gate_device );
-			gate_device = NULL;
 
-			DBG("gate shutdown");
+			if(gate_device) {
+				unregister_netdev(gate_device);
+				gate_device = NULL;
+				DBG("gate shutdown");
+			}
 
 			if(server_sock) {
 
-				server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
+// 				server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
 
 				sock_release(server_sock);
 				server_sock = NULL;
@@ -321,10 +334,12 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			}
 
 			list_for_each_entry_safe(entry, next, &free_client_list, list) {
-				
-				gw_client = entry->gw_client;
-				list_del(&entry->list);
-				kfree(gw_client);
+
+				if(entry->gw_client) {
+					gw_client = entry->gw_client;
+					list_del(&entry->list);
+					kfree(gw_client);
+				}
 
 			}
 
@@ -434,16 +449,20 @@ static int packet_recv_thread(void *data)
 					buffer[0] = TUNNEL_DATA;
 					memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
 
-					resp_msg.msg_name = &client;
-					resp_msg.msg_namelen = sizeof(client);
-					resp_msg.msg_control = NULL;
-					resp_msg.msg_controllen = 0;
-					
-					resp_iov.iov_base = buffer;
-					resp_iov.iov_len = length;
-					
-					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-					if( ( ret_value = kernel_sendmsg(server_sock, &resp_msg, &resp_iov, 1, length ) ) < 0 )
+// 					resp_msg.msg_name = &client;
+// 					resp_msg.msg_namelen = sizeof(client);
+// 					resp_msg.msg_control = NULL;
+// 					resp_msg.msg_controllen = 0;
+// 					
+// 					resp_iov.iov_base = buffer;
+// 					resp_iov.iov_len = length;
+// 					
+// 					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+
+					iov.iov_base = buffer;
+					iov.iov_len = length;
+
+					if( ( ret_value = kernel_sendmsg(server_sock, &msg, &iov, 1, length ) ) < 0 )
 						DBG("tunnel ip request socket return %d", ret_value);
 
 				} else
@@ -456,16 +475,20 @@ static int packet_recv_thread(void *data)
 				if(client_data == NULL) {
 
 					buffer[0] = TUNNEL_IP_INVALID;
-					resp_msg.msg_name = &client;
-					resp_msg.msg_namelen = sizeof( struct sockaddr_in );
-					resp_msg.msg_control = NULL;
-					resp_msg.msg_controllen = 0;
-					
-					resp_iov.iov_base = buffer;
-					resp_iov.iov_len = length;
-					
-					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-					if( ( ret_value = kernel_sendmsg(server_sock, &resp_msg, &resp_iov, 1, length ) ) < 0 )
+// 					resp_msg.msg_name = &client;
+// 					resp_msg.msg_namelen = sizeof( struct sockaddr_in );
+// 					resp_msg.msg_control = NULL;
+// 					resp_msg.msg_controllen = 0;
+// 					
+// 					resp_iov.iov_base = buffer;
+// 					resp_iov.iov_len = length;
+// 					
+// 					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+
+					iov.iov_base = buffer;
+					iov.iov_len = length;
+
+					if( ( ret_value = kernel_sendmsg(server_sock, &msg, &iov, 1, length ) ) < 0 )
 						DBG("tunnel ip invalid socket return %d", ret_value);
 					continue;
 
@@ -493,16 +516,20 @@ static int packet_recv_thread(void *data)
 				} else
 					buffer[0] = TUNNEL_IP_INVALID;
 
-				resp_msg.msg_name = &client;
-				resp_msg.msg_namelen = sizeof( struct sockaddr_in );
-				resp_msg.msg_control = NULL;
-				resp_msg.msg_controllen = 0;
+// 				resp_msg.msg_name = &client;
+// 				resp_msg.msg_namelen = sizeof( struct sockaddr_in );
+// 				resp_msg.msg_control = NULL;
+// 				resp_msg.msg_controllen = 0;
+// 
+// 				resp_iov.iov_base = buffer;
+// 				resp_iov.iov_len = length;
+// 
+// 				resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
 
-				resp_iov.iov_base = buffer;
-				resp_iov.iov_len = length;
+				iov.iov_base = buffer;
+				iov.iov_len = length;
 
-				resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-				if( ( ret_value = kernel_sendmsg(server_sock, &resp_msg, &resp_iov, 1, length ) ) < 0 )
+				if( ( ret_value = kernel_sendmsg(server_sock, &msg, &iov, 1, length ) ) < 0 )
 					DBG("tunnel keep alive socket return %d", ret_value);
 
 			} else
@@ -774,6 +801,43 @@ int choose_vip(void *data, int32_t size)
 
 	return (hash%size);
 
+}
+
+static void cleanup_procfs(void)
+{
+	if(clients_file) remove_proc_entry("PROC_FILE_CLIENTS", proc_dir);
+	if(proc_dir) remove_proc_entry(PROC_ROOT_DIR, NULL);
+}
+
+static int setup_procfs(void)
+{
+	proc_dir = proc_mkdir(PROC_ROOT_DIR, proc_net);
+	clients_file = create_proc_read_entry(PROC_FILE_CLIENTS, S_IRUGO, proc_dir, proc_clients_read, NULL);
+	
+	return(0);
+}
+
+static int proc_clients_read(char *buf, char **start, off_t offset, int size, int *eof, void *data)
+{
+	struct gw_client *client_data;
+	unsigned char *wip, *vip;
+	int bytes_written = 0, total_bytes = 0;
+
+	struct hash_it_t *hashit = NULL;
+
+	while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
+
+		client_data = hashit->bucket->data;
+		wip = (unsigned char *)&client_data->wip_addr;
+		vip = (unsigned char *)&client_data->vip_addr;
+		bytes_written = snprintf(buf + total_bytes, (size - total_bytes), "%u.%u.%u.%u - %u.%u.%u.%u\n",
+					wip[0],wip[1],wip[2],wip[3],vip[0],vip[1],vip[2],vip[3]);
+		total_bytes += (bytes_written > (size - total_bytes) ? size - total_bytes : bytes_written);
+
+	}
+	
+	*eof = 1;
+	return total_bytes;
 }
 
 MODULE_LICENSE("GPL");

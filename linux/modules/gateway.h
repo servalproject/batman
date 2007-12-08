@@ -36,7 +36,7 @@
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 #include <linux/list.h>		/* list handling */
 #include <linux/kthread.h>
-
+#include <linux/proc_fs.h>
 
 /* io controls */
 #define IOCSETDEV 1
@@ -55,6 +55,9 @@
 #define LEASE_TIME 1500
 
 #define DBG(msg,args...) do { printk(KERN_DEBUG "batgat: [%s:%u] " msg "\n", __func__ ,__LINE__, ##args); } while(0)
+
+#define PROC_ROOT_DIR "batgat"
+#define PROC_FILE_CLIENTS "clients"
 
 struct gw_client {
 	uint32_t wip_addr;
