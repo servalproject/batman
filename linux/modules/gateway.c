@@ -60,9 +60,6 @@ static int Major;					/* Major number assigned to our device driver */
 
 static struct net_device *gate_device = NULL;
 
-static struct socket *server_sock = NULL;
-static struct socket *inet_sock = NULL;
-
 static struct hashtable_t *wip_hash;
 static struct hashtable_t *vip_hash;
 
@@ -138,19 +135,6 @@ void cleanup_module()
 
 	}
 
-	if(server_sock) {
-
-// 		server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
-		sock_release(server_sock);
-		server_sock = NULL;
-
-	}
-
-	if(inet_sock) {
-		sock_release(inet_sock);
-		inet_sock = NULL;
-	}
-
 	if(gate_device) {
 // 		dev_put(gate_device);
 		unregister_netdev(gate_device);
@@ -197,7 +181,6 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 {
 	uint8_t tmp_ip[4];
 	struct batgat_ioc_args ioc;
-	struct sockaddr_in server_addr;
 	struct free_client_data *entry, *next;
 	struct gw_client *gw_client;
 	
@@ -223,41 +206,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 		case IOCSETDEV:
 
 
-			if( ( ret_value = create_bat_netdev() ) == 0 && !server_sock) {
-
-
-				server_addr.sin_family = AF_INET;
-				server_addr.sin_addr.s_addr = INADDR_ANY;
-				server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
-
-				if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
-
-					DBG( "can't create raw socket");
-					ret_value = -EFAULT;
-					goto end;
-
-				}
-				
-				if( sock_create_kern( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
-
-					DBG( "can't create udp socket");
-					ret_value = -EFAULT;
-					goto end;
-
-				}
-
-				if( kernel_bind( server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) ) {
-
-					DBG( "can't bind udp server socket");
-					ret_value = -EFAULT;
-					sock_release(server_sock);
-					server_sock = NULL;
-					goto end;
-
-				}
-
-				server_sock->sk->sk_user_data = server_sock->sk->sk_data_ready;
-				server_sock->sk->sk_data_ready = udp_data_ready;
+			if( ( ret_value = create_bat_netdev() ) == 0 && !kthread_task) {
 
 				kthread_task = kthread_run(packet_recv_thread, NULL, "mod_batgat");
 
@@ -319,20 +268,6 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				DBG("gate shutdown");
 			}
 
-			if(server_sock) {
-
-// 				server_sock->sk->sk_data_ready = server_sock->sk->sk_user_data;
-
-				sock_release(server_sock);
-				server_sock = NULL;
-
-			}
-
-			if(inet_sock) {
-				sock_release(inet_sock);
-				inet_sock = NULL;
-			}
-
 			list_for_each_entry_safe(entry, next, &free_client_list, list) {
 
 				if(entry->gw_client) {
@@ -370,18 +305,53 @@ static void udp_data_ready(struct sock *sk, int len)
 static int packet_recv_thread(void *data)
 {
 
-	struct msghdr msg, inet_msg, resp_msg;
-	struct kvec iov, inet_iov, resp_iov;
+	struct msghdr msg, inet_msg;
+	struct kvec iov, inet_iov;
 	struct iphdr *iph;
 	struct gw_client *client_data;
-	struct sockaddr_in client, inet_addr;
+	struct sockaddr_in client, inet_addr, server_addr;
 	struct free_client_data *tmp_entry;
+
+	static struct socket *server_sock = NULL;
+	static struct socket *inet_sock = NULL;
 	
 	int length,ret_value;
 	unsigned char buffer[1600];
 	unsigned long time = jiffies;
 	
 	struct hash_it_t *hashit;
+
+
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = INADDR_ANY;
+	server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
+
+	if ( ( sock_create_kern( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
+
+		DBG( "can't create raw socket");
+		return -1;
+
+	}
+
+	if( sock_create_kern( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
+
+		DBG( "can't create udp socket");
+		sock_release(inet_sock);
+		return -1;
+
+	}
+
+	if( kernel_bind( server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) ) {
+
+		DBG( "can't bind udp server socket");
+		sock_release(server_sock);
+		sock_release(inet_sock);
+		return -1;
+
+	}
+
+	server_sock->sk->sk_user_data = server_sock->sk->sk_data_ready;
+	server_sock->sk->sk_data_ready = udp_data_ready;
 
 	msg.msg_name = &client;
 	msg.msg_namelen = sizeof( struct sockaddr_in );
@@ -449,16 +419,6 @@ static int packet_recv_thread(void *data)
 					buffer[0] = TUNNEL_DATA;
 					memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
 
-// 					resp_msg.msg_name = &client;
-// 					resp_msg.msg_namelen = sizeof(client);
-// 					resp_msg.msg_control = NULL;
-// 					resp_msg.msg_controllen = 0;
-// 					
-// 					resp_iov.iov_base = buffer;
-// 					resp_iov.iov_len = length;
-// 					
-// 					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-
 					iov.iov_base = buffer;
 					iov.iov_len = length;
 
@@ -475,16 +435,6 @@ static int packet_recv_thread(void *data)
 				if(client_data == NULL) {
 
 					buffer[0] = TUNNEL_IP_INVALID;
-// 					resp_msg.msg_name = &client;
-// 					resp_msg.msg_namelen = sizeof( struct sockaddr_in );
-// 					resp_msg.msg_control = NULL;
-// 					resp_msg.msg_controllen = 0;
-// 					
-// 					resp_iov.iov_base = buffer;
-// 					resp_iov.iov_len = length;
-// 					
-// 					resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-
 					iov.iov_base = buffer;
 					iov.iov_len = length;
 
@@ -516,16 +466,6 @@ static int packet_recv_thread(void *data)
 				} else
 					buffer[0] = TUNNEL_IP_INVALID;
 
-// 				resp_msg.msg_name = &client;
-// 				resp_msg.msg_namelen = sizeof( struct sockaddr_in );
-// 				resp_msg.msg_control = NULL;
-// 				resp_msg.msg_controllen = 0;
-// 
-// 				resp_iov.iov_base = buffer;
-// 				resp_iov.iov_len = length;
-// 
-// 				resp_msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-
 				iov.iov_base = buffer;
 				iov.iov_len = length;
 
@@ -537,6 +477,20 @@ static int packet_recv_thread(void *data)
 
 		}
 		atomic_set(&data_ready_cond, 0);
+	}
+
+	if(server_sock) {
+
+		sock_release(server_sock);
+		server_sock = NULL;
+
+	}
+
+	if(inet_sock) {
+
+		sock_release(inet_sock);
+		inet_sock = NULL;
+
 	}
 
 	while(!kthread_should_stop()) {
