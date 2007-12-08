@@ -444,6 +444,20 @@ void *unix_listen( void *arg ) {
 
 								}
 
+								if (debug_level != 0)
+									dprintf(unix_client->sock, " -d %i", debug_level);
+
+								if (originator_interval != 1000)
+									dprintf(unix_client->sock, " -o %i", originator_interval);
+
+								if (vis_if.sock) {
+									addr_to_string(vis_if.addr.sin_addr.s_addr, str, sizeof(str));
+									dprintf(unix_client->sock, " -s %s", str);
+								}
+
+								if (no_policy_routing)
+									dprintf(unix_client->sock, " --no-policy-routing");
+
 								list_for_each( debug_pos, &if_list ) {
 
 									batman_if = list_entry( debug_pos, struct batman_if, list );
