@@ -128,7 +128,6 @@ void usage( void ) {
 	fprintf( stderr, "       -r routing class\n" );
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "       -v print version\n" );
-	fprintf( stderr, "       --no-policy-routing\n" );
 
 }
 

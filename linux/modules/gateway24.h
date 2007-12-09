@@ -37,9 +37,10 @@
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 #include <linux/list.h>		/* list handling */
 #include <linux/if.h>		/*IFNAMSIZ*/
-#include <linux/miscdevice.h>
-
+#include <linux/netdevice.h>
+#include <asm/uaccess.h>
 #include <linux/proc_fs.h>
+
 
 /* io controls */
 #define IOCSETDEV 1
@@ -58,6 +59,8 @@
 #define LEASE_TIME 1500
 
 #define DBG(msg,args...) do { printk(KERN_DEBUG "batgat: [%s:%u] " msg "\n", __func__ ,__LINE__, ##args); } while(0)
+#define netdev_priv(dev) (struct gate_priv*)dev->priv
+#define ip_hdr(skb) (struct iphdr*)skb->nh.iph
 
 #define PROC_ROOT_DIR "batgat"
 #define PROC_FILE_CLIENTS "clients"
