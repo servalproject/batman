@@ -99,9 +99,9 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing) {
 
-	prof_start( PROF_schedule_forward_packet );
 	struct forw_node *forw_node_new;
 	uint8_t tq_avg = 0;
+	prof_start( PROF_schedule_forward_packet );
 
 	debug_output( 4, "schedule_forward_packet():  \n" );
 
@@ -185,13 +185,13 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 void send_outstanding_packets() {
 
-	prof_start( PROF_send_outstanding_packets );
 	struct forw_node *forw_node;
 	struct list_head *forw_pos, *if_pos, *temp;
 	struct batman_if *batman_if;
 	static char orig_str[ADDR_STR_LEN];
 	uint8_t directlink;
 	uint32_t curr_time;
+	prof_start( PROF_send_outstanding_packets );
 
 
 	if ( list_empty( &forw_list ) )

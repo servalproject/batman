@@ -86,10 +86,10 @@ int choose_orig( void *data, int32_t size ) {
 /* this function finds or creates an originator entry for the given address if it does not exits */
 struct orig_node *get_orig_node( uint32_t addr ) {
 
-	prof_start( PROF_get_orig_node );
 	struct orig_node *orig_node;
 	struct hashtable_t *swaphash;
 	static char orig_str[ADDR_STR_LEN];
+	prof_start( PROF_get_orig_node );
 
 
 	orig_node = ((struct orig_node *)hash_find( orig_hash, &addr ));
@@ -145,10 +145,10 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate, uint32_t curr_time ) {
 
-	prof_start( PROF_update_originator );
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
 	uint8_t max_tq = 0, max_bcast_own = 0;
+	prof_start( PROF_update_originator );
 
 
 	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
@@ -249,7 +249,6 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 void purge_orig( uint32_t curr_time ) {
 
-	prof_start( PROF_purge_originator );
 	struct hash_it_t *hashit = NULL;
 	struct list_head *neigh_pos, *neigh_temp, *prev_list_head;
 	struct list_head *gw_pos, *gw_pos_tmp;
@@ -258,6 +257,7 @@ void purge_orig( uint32_t curr_time ) {
 	struct gw_node *gw_node;
 	uint8_t gw_purged = 0, neigh_purged;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
+	prof_start( PROF_purge_originator );
 
 
 	/* for all origins... */

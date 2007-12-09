@@ -195,55 +195,55 @@ int8_t use_kernel_module( char *dev ) {
 
 	return -1;
 
-	int32_t fd, sock, dummy = 0;
-	char *colon_ptr;
-
-	/* if given interface is an alias bind to parent interface */
-	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
-		*colon_ptr = '\0';
-
-	if ( ( sock = open( "/dev/batman", O_WRONLY ) ) < 0 ) {
-
-		printf( "Warning - batman kernel modul interface (/dev/batman) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
-
-		if ( colon_ptr != NULL )
-			*colon_ptr = ':';
-
-		return -1;
-
-	}
-
-	if ( ( fd = ioctl( sock, IOCGETNWDEV, dummy ) ) < 0 ) {
-
-		printf( "Warning - can't get batman interface from kernel module: %s\n", strerror(errno) );
-
-		if ( colon_ptr != NULL )
-			*colon_ptr = ':';
-
-		close( sock );
-		return -1;
-
-	}
-
-	if ( ioctl( fd, strlen( dev ) + 1, dev ) < 0 ) {
-
-		printf( "Warning - can't bind batman kernel interface: %s\n", strerror(errno) );
-
-		if ( colon_ptr != NULL )
-			*colon_ptr = ':';
-
-		close( sock );
-		close( fd );
-		return -1;
-
-	}
-
-	if ( colon_ptr != NULL )
-		*colon_ptr = ':';
-
-	close( sock );
-
-	return fd;
+// 	int32_t fd, sock, dummy = 0;
+// 	char *colon_ptr;
+// 
+// 	/* if given interface is an alias bind to parent interface */
+// 	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+// 		*colon_ptr = '\0';
+// 
+// 	if ( ( sock = open( "/dev/batman", O_WRONLY ) ) < 0 ) {
+// 
+// 		printf( "Warning - batman kernel modul interface (/dev/batman) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
+// 
+// 		if ( colon_ptr != NULL )
+// 			*colon_ptr = ':';
+// 
+// 		return -1;
+// 
+// 	}
+// 
+// 	if ( ( fd = ioctl( sock, IOCGETNWDEV, dummy ) ) < 0 ) {
+// 
+// 		printf( "Warning - can't get batman interface from kernel module: %s\n", strerror(errno) );
+// 
+// 		if ( colon_ptr != NULL )
+// 			*colon_ptr = ':';
+// 
+// 		close( sock );
+// 		return -1;
+// 
+// 	}
+// 
+// 	if ( ioctl( fd, strlen( dev ) + 1, dev ) < 0 ) {
+// 
+// 		printf( "Warning - can't bind batman kernel interface: %s\n", strerror(errno) );
+// 
+// 		if ( colon_ptr != NULL )
+// 			*colon_ptr = ':';
+// 
+// 		close( sock );
+// 		close( fd );
+// 		return -1;
+// 
+// 	}
+// 
+// 	if ( colon_ptr != NULL )
+// 		*colon_ptr = ':';
+// 
+// 	close( sock );
+// 
+// 	return fd;
 
 }
 

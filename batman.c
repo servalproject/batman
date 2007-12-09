@@ -128,6 +128,7 @@ void usage( void ) {
 	fprintf( stderr, "       -r routing class\n" );
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "       -v print version\n" );
+	fprintf( stderr, "       --no-policy-routing\n" );
 
 }
 
@@ -233,14 +234,14 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 
 void choose_gw() {
 
-	prof_start( PROF_choose_gw );
+	
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
 	uint8_t max_gw_class = 0, max_tq = 0;
 	uint32_t current_time, max_gw_factor = 0, tmp_gw_factor = 0;
 	int download_speed, upload_speed;
 	static char orig_str[ADDR_STR_LEN];
-
+	prof_start( PROF_choose_gw );
 
 	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
 
@@ -365,8 +366,8 @@ void choose_gw() {
 
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len ) {
 
-	prof_start( PROF_update_routes );
 	static char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
+	prof_start( PROF_update_routes );
 
 
 	debug_output( 4, "update_routes() \n" );
@@ -458,11 +459,11 @@ void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, 
 
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t gw_port ) {
 
-	prof_start( PROF_update_gw_list );
 	struct list_head *gw_pos, *gw_pos_tmp;
 	struct gw_node *gw_node;
 	static char orig_str[ADDR_STR_LEN];
 	int download_speed, upload_speed;
+	prof_start( PROF_update_gw_list );
 
 	list_for_each_safe( gw_pos, gw_pos_tmp, &gw_list ) {
 
@@ -582,10 +583,11 @@ unsigned char get_gw_class( int down, int up ) {
 
 int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 
-	prof_start( PROF_is_duplicate );
 	struct list_head *neigh_pos;
 	struct neigh_node *neigh_node;
 
+	prof_start( PROF_is_duplicate );
+	
 	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
 		neigh_node = list_entry( neigh_pos, struct neigh_node, list );
@@ -623,6 +625,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
 	uint8_t total_count;
+	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 
 
 	if ( orig_node == orig_neigh_node ) {
@@ -685,7 +688,6 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 	in->tq = ((in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penality) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
 
-	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 

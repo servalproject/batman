@@ -223,7 +223,7 @@ void *debugMalloc(uint32_t length, int32_t tag)
 void *debugRealloc(void *memoryParameter, uint32_t length, int32_t tag)
 {
 	unsigned char *memory;
-	struct chunkHeader *chunkHeader;
+	struct chunkHeader *chunkHeader=NULL;
 	struct chunkTrailer *chunkTrailer;
 	unsigned char *result;
 	uint32_t copyLength;

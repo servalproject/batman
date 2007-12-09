@@ -31,35 +31,33 @@ static struct file_operations fops = {
 	.ioctl = batgat_ioctl,
 };
 
-static struct miscdevice bat_miscdev = {
-	0,
- 	DRIVER_DEVICE,
-  	&fops
-};
-
-
+static int Major;
 
 int init_module()
 {
 
-	printk(KERN_INFO, "B.A.T.M.A.N. gateway modul\n");
+	printk(KERN_INFO "B.A.T.M.A.N. gateway modul\n");
 	
-	if(misc_register(&bat_miscdev)) {
-		printk("can't register character device\n");
-		return -EIO;
+	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
+
+		DBG( "registering the character device failed with %d", Major );
+		return Major;
+
 	}
 
+	DBG( "I was assigned major number %d. To talk to", Major );
+	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
+	printk(KERN_INFO "Remove the device file and module when done." );
 
 
-	printk(KERN_INFO, "modul successfully loaded\n");
+	printk(KERN_INFO "modul successfully loaded\n");
 	return(0);
 }
 
 void cleanup_module()
 {	
-	misc_deregister(&bat_miscdev);
-
-	printk( "modul successfully unloaded" );
+	unregister_chrdev( Major, DRIVER_DEVICE );
+	printk(KERN_INFO "modul successfully unloaded\n" );
 	return;
 }
 
@@ -78,6 +76,7 @@ static int batgat_release(struct inode *inode, struct file *file)
 
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg )
 {
+	printk(KERN_INFO "ioctl\n");
 	return(0);
 }
 
