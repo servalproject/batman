@@ -26,7 +26,8 @@
 
 #include <linux/version.h>	/* KERNEL_VERSION ... */
 #include <linux/fs.h>		/* fops ...*/
-
+#include <linux/devfs_fs_kernel.h>
+#include <linux/module.h>
 #include <linux/in.h>		/* sockaddr_in */
 #include <linux/net.h>		/* socket */
 #include <linux/string.h>	/* strlen, strstr, strncmp ... */
@@ -35,13 +36,8 @@
 #include <net/sock.h>		/* sock */
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 #include <linux/list.h>		/* list handling */
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-	#include <linux/kthread.h>
-	#include <linux/inetdevice.h>	/* __in_dev_get_rtnl */
-#else
-	#include <linux/if.h>	/*IFNAMSIZ*/
-#endif
+#include <linux/if.h>		/*IFNAMSIZ*/
+#include <linux/miscdevice.h>
 
 #include <linux/proc_fs.h>
 

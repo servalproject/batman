@@ -20,15 +20,14 @@
 #include "gateway.h"
 #include "hash.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	#include <linux/devfs_fs_kernel.h>
-#else
-	static struct class *batman_class;
-#endif
+
+static struct class *batman_class;
+
 
 static int batgat_open(struct inode *inode, struct file *filp);
 static int batgat_release(struct inode *inode, struct file *file);
 static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg );
+
 
 static void udp_data_ready(struct sock *sk, int len);
 static int packet_recv_thread(void *data);
@@ -65,11 +64,14 @@ static struct hashtable_t *vip_hash;
 
 static struct list_head free_client_list;
 
+
+
+DEFINE_SPINLOCK(hash_lock);
 atomic_t data_ready_cond;
 atomic_t exit_cond;
-
 DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static struct task_struct *kthread_task = NULL;
+
 
 static struct proc_dir_entry *proc_dir, *clients_file;
 
@@ -83,17 +85,13 @@ int init_module()
 
 	}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batgat", 0 ) )
-		DBG( "could not create /dev/batgat" );
-#else
 	batman_class = class_create( THIS_MODULE, "batgat" );
 
 	if ( IS_ERR( batman_class ) )
 		DBG( "could not register class 'batgat'" );
 	else
 		class_device_create( batman_class, NULL, MKDEV( Major, 0 ), NULL, "batgat" );
-#endif
+
 
 
 	DBG( "I was assigned major number %d. To talk to", Major );
@@ -116,16 +114,12 @@ void cleanup_module()
 {
 	struct free_client_data *entry, *next;
 	struct gw_client *gw_client;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	devfs_remove( "batgat", 0 );
-#else
+
 	class_device_destroy( batman_class, MKDEV( Major, 0 ) );
 	class_destroy( batman_class );
-#endif
 
 	/* Unregister the device */
 	unregister_chrdev( Major, DRIVER_DEVICE );
-
 
 	if(kthread_task) {
 
@@ -134,6 +128,7 @@ void cleanup_module()
 		kthread_stop(kthread_task);
 
 	}
+
 
 	if(gate_device) {
 // 		dev_put(gate_device);
@@ -157,22 +152,13 @@ void cleanup_module()
 
 static int batgat_open(struct inode *inode, struct file *filp)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	MOD_INC_USE_COUNT;
-#else
 	try_module_get(THIS_MODULE);
-#endif
 	return( 0 );
-
 }
 
 static int batgat_release(struct inode *inode, struct file *file)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	MOD_DEC_USE_COUNT;
-#else
 	module_put(THIS_MODULE);
-#endif
 	return( 0 );
 }
 
@@ -204,7 +190,6 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	switch( cmd ) {
 
 		case IOCSETDEV:
-
 
 			if( ( ret_value = create_bat_netdev() ) == 0 && !kthread_task) {
 
@@ -248,6 +233,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 		case IOCREMDEV:
 
 			DBG("disconnect daemon");
+
 			if (kthread_task) {
 
 				atomic_set(&exit_cond, 1);
@@ -388,7 +374,7 @@ static int packet_recv_thread(void *data)
 			if( ( jiffies - time ) / HZ > LEASE_TIME ) {
 
 				hashit = NULL;
-
+				spin_lock(&hash_lock);
 				while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
 					client_data = hashit->bucket->data;
 					if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
@@ -405,7 +391,7 @@ static int packet_recv_thread(void *data)
 
 					}
 				}
-
+				spin_unlock(&hash_lock);
 				time = jiffies;
 			}
 
@@ -430,7 +416,9 @@ static int packet_recv_thread(void *data)
 
 			} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
 
+				spin_lock(&hash_lock);
 				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+				spin_unlock(&hash_lock);
 
 				if(client_data == NULL) {
 
@@ -458,7 +446,9 @@ static int packet_recv_thread(void *data)
 			} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
 
 				DBG("keep alive");
+				spin_lock(&hash_lock);
 				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+				spin_unlock(&hash_lock);
 				if(client_data != NULL) {
 					DBG("refresh ip");
 					buffer[0] = TUNNEL_KEEPALIVE_REPLY;
@@ -476,7 +466,9 @@ static int packet_recv_thread(void *data)
 				DBG( "recive unknown message" );
 
 		}
+
 		atomic_set(&data_ready_cond, 0);
+
 	}
 
 	if(server_sock) {
@@ -543,7 +535,9 @@ static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 	msg_number[0] = TUNNEL_DATA;
 
 	/* we use saddr , because hash choose and compare begin at + 4 bytes */
+	spin_lock(&hash_lock);
 	client_data = ((struct gw_client *)hash_find(vip_hash, & iph->saddr )); /* daddr */
+	spin_unlock(&hash_lock);
 
 	if( client_data != NULL ) {
 
@@ -635,7 +629,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 	struct hashtable_t *swaphash;
 
 
-
+	spin_lock(&hash_lock);
 	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr->sin_addr.s_addr));
 
 	if (gw_client != NULL) {
@@ -672,6 +666,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 	}
 
+	
 	hash_add(wip_hash, gw_client);
 	hash_add(vip_hash, gw_client);
 
@@ -698,7 +693,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 		vip_hash = swaphash;
 
 	}
-
+	spin_unlock(&hash_lock);
 	return gw_client;
 
 }
@@ -778,7 +773,7 @@ static int proc_clients_read(char *buf, char **start, off_t offset, int size, in
 	int bytes_written = 0, total_bytes = 0;
 
 	struct hash_it_t *hashit = NULL;
-
+	spin_lock(&hash_lock);
 	while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
 
 		client_data = hashit->bucket->data;
@@ -789,7 +784,7 @@ static int proc_clients_read(char *buf, char **start, off_t offset, int size, in
 		total_bytes += (bytes_written > (size - total_bytes) ? size - total_bytes : bytes_written);
 
 	}
-	
+	spin_unlock(&hash_lock);
 	*eof = 1;
 	return total_bytes;
 }
