@@ -33,7 +33,8 @@ static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev );
 static int packet_recv_thread(void *data);
 
 static int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct iovec *vec, size_t num, size_t size);
-
+static int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct iovec *vec, size_t num, size_t size, int flags);
+		
 static struct file_operations fops = {
 	.open = batgat_open,
 	.release = batgat_release,
@@ -46,12 +47,14 @@ static struct completion thread_complete;
 spinlock_t hash_lock = SPIN_LOCK_UNLOCKED;
 
 static struct net_device gate_device = {
-	init: bat_netdev_setup,
-
+	init: bat_netdev_setup, name: "gate%d",
 };
+
+atomic_t gate_device_run;
 
 static struct hashtable_t *wip_hash;
 static struct hashtable_t *vip_hash;
+static struct list_head free_client_list;
 
 int init_module()
 {
@@ -69,7 +72,9 @@ int init_module()
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	printk(KERN_INFO "Remove the device file and module when done." );
 
-
+	INIT_LIST_HEAD(&free_client_list);
+	atomic_set(&gate_device_run, 0);
+	
 	printk(KERN_INFO "modul successfully loaded\n");
 	return(0);
 }
@@ -100,6 +105,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	struct batgat_ioc_args ioc;
 	struct free_client_data *entry, *next;
 	struct gw_client *gw_client;
+	struct gate_priv *priv;
 	
 	int ret_value = 0;
 
@@ -124,73 +130,80 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 			if( ( ret_value = create_bat_netdev() ) == 0 && !thread_pid) {
 				init_completion(&thread_complete);
-				thread_pid = kernel_thread( packet_recv_thread, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGHAND );
-				if(thread_pid<0) {
-					DBG( "unable to start packet receive thread");
-					ret_value = -EFAULT;
-					goto end;
-				}
+// 				thread_pid = kernel_thread( packet_recv_thread, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGHAND );
+// 				if(thread_pid<0) {
+// 					printk(KERN_INFO "unable to start packet receive thread\n");
+// 					ret_value = -EFAULT;
+// 					goto end;
+// 				}
 			}
-/*
+
 			if( ret_value == -1 || ret_value == 0 ) {
 
 				tmp_ip[0] = 169; tmp_ip[1] = 254; tmp_ip[2] = 0; tmp_ip[3] = 0;
 				ioc.universal = *(uint32_t*)tmp_ip;
-				ioc.ifindex = gate_device->ifindex;
+				ioc.ifindex = gate_device.ifindex;
 
-				strlcpy( ioc.dev_name, gate_device->name, IFNAMSIZ - 1 );
+				strncpy( ioc.dev_name, gate_device.name, IFNAMSIZ - 1 );
 
 				DBG("name %s index %d", ioc.dev_name, ioc.ifindex);
 				
 				if( ret_value == -1 ) {
 
-					DBG("device already exists");
 					ioc.exists = 1;
 					ret_value = 0;
-					
+
 				}
 
 				if( copy_to_user( (void *)arg, &ioc, sizeof( ioc ) ) )
 
 					ret_value = -EFAULT;
 
-			}*/
+			}
 
 			break;
 
 		case IOCREMDEV:
 
-// 			DBG("disconnect daemon");
-// 
+			printk(KERN_INFO "disconnect daemon\n");
+
 // 			if(thread_pid) {
 // 
 // 				kill_proc(thread_pid, SIGTERM, 0 );
 // 				wait_for_completion( &thread_complete );
 // 
 // 			}
-// 			device->thread_pid = 0;
-// 
-// 			DBG("thread shutdown");
-// 
-// // 			dev_put(gate_device);
-// 
-// 			if(gate_device) {
-// 				unregister_netdev(gate_device);
-// 				gate_device = NULL;
-// 				DBG("gate shutdown");
-// 			}
-// 
-// 			list_for_each_entry_safe(entry, next, &free_client_list, list) {
-// 
-// 				if(entry->gw_client) {
-// 					gw_client = entry->gw_client;
-// 					list_del(&entry->list);
-// 					kfree(gw_client);
-// 				}
-// 
-// 			}
-// 
-// 			DBG( "device unregistered successfully" );
+
+			thread_pid = 0;
+
+			printk(KERN_INFO "thread shutdown\n");
+
+// 			dev_put(gate_device);
+
+			if(atomic_read(&gate_device_run)) {
+
+				priv = (struct gate_priv*)gate_device.priv;
+
+				if( priv->tun_socket )
+					sock_release(priv->tun_socket);
+
+				kfree(gate_device.priv);
+				gate_device.priv = NULL;
+				unregister_netdev(&gate_device);
+				atomic_dec(&gate_device_run);
+				printk(KERN_INFO "gate shutdown\n");
+
+			}
+
+			list_for_each_entry_safe(entry, next, &free_client_list, list) {
+
+				gw_client = entry->gw_client;
+				list_del(&entry->list);
+				kfree(gw_client);
+
+			}
+
+			printk(KERN_INFO "device unregistered successfully\n" );
 			break;
 		default:
 			DBG( "ioctl %d is not supported",cmd );
@@ -205,6 +218,45 @@ end:
 
 static int packet_recv_thread(void *data)
 {
+	struct msghdr msg, inet_msg;
+	struct iovec iov, inet_iov;
+	struct iphdr *iph;
+	struct gw_client *client_data;
+	struct sockaddr_in client, inet_addr, server_addr;
+	struct free_client_data *tmp_entry;
+
+	static struct socket *server_sock = NULL;
+	static struct socket *inet_sock = NULL;
+	
+	int length;
+	unsigned char buffer[1600];
+	
+	msg.msg_name = &client;
+	msg.msg_namelen = sizeof( struct sockaddr_in );
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+	
+	
+	daemonize();
+	spin_lock_irq(&current->sigmask_lock);
+	siginitsetinv(&current->blocked, sigmask(SIGTERM) |sigmask(SIGKILL) | sigmask(SIGSTOP)| sigmask(SIGHUP));
+	recalc_sigpending(current);
+	spin_unlock_irq(&current->sigmask_lock);
+
+	while(!signal_pending(current)) {
+
+		client_data = NULL;
+
+		iov.iov_base = buffer;
+		iov.iov_len = sizeof(buffer);
+
+		while ( ( length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), MSG_NOSIGNAL | MSG_DONTWAIT ) ) > 0 ) {
+			printk(KERN_INFO "thread\n");
+		}
+	}
+
+	complete(&thread_complete);
 	return 0;
 }
 
@@ -236,100 +288,53 @@ static int bat_netdev_setup( struct net_device *dev )
 
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 {
-	struct gate_priv *priv = netdev_priv( dev );
-	struct sockaddr_in sa;
-	struct iphdr *iph = ip_hdr(skb);
-	struct iovec iov[2];
-	struct msghdr msg;
-	
-	struct gw_client *client_data;
-	unsigned char msg_number[1];
-
-	msg_number[0] = TUNNEL_DATA;
-
-	/* we use saddr , because hash choose and compare begin at + 4 bytes */
-	spin_lock(&hash_lock);
-	client_data = ((struct gw_client *)hash_find(vip_hash, & iph->saddr )); /* daddr */
-	spin_unlock(&hash_lock);
-
-	if( client_data != NULL ) {
-
-		sa.sin_family = AF_INET;
-		sa.sin_addr.s_addr = client_data->wip_addr;
-		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
-
-		msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
-		msg.msg_name = &sa;
-		msg.msg_namelen = sizeof(sa);
-		msg.msg_control = NULL;
-		msg.msg_controllen = 0;
-
-		iov[0].iov_base = msg_number;
-		iov[0].iov_len = 1;
-		iov[1].iov_base = skb->data + sizeof( struct ethhdr );
-		iov[1].iov_len = skb->len - sizeof( struct ethhdr );
-		kernel_sendmsg(priv->tun_socket, &msg, iov, 2, skb->len - sizeof( struct ethhdr ) + 1);
-
-	} else
-		printk(KERN_INFO "client not found");
-
-		kfree_skb( skb );
-		return( 0 );
+	kfree_skb(skb);
+	return(0);
 }
 
 static int bat_netdev_open( struct net_device *dev )
 {
-	printk(KERN_INFO "receive open" );
+	printk(KERN_INFO "receive open\n" );
 	netif_start_queue( dev );
 	return( 0 );
 }
 
 static int bat_netdev_close( struct net_device *dev )
 {
-	struct gate_priv *priv = netdev_priv(dev);
-	printk(KERN_INFO "receive close" );
 
-	if(priv->tun_socket)
-		sock_release(priv->tun_socket);
-	
+	printk(KERN_INFO "receive close\n" );	
 	netif_stop_queue( dev );
 	return( 0 );
 }
 
 static int create_bat_netdev()
 {
+
 	struct gate_priv *priv;
-
-// 	if( gate_device == NULL ) {
-
-// 		if( ( gate_device = alloc_netdev( sizeof( struct gate_priv ) , "gate%d", bat_netdev_setup ) ) == NULL )
-// 			return -ENOMEM;
+	if(!atomic_read(&gate_device_run)) {
 
 		if( ( register_netdev( &gate_device ) ) < 0 )
 			return -ENODEV;
 
-		priv = (struct gate_priv*)&gate_device;
-
+		priv = (struct gate_priv*)gate_device.priv;
 		if( sock_create( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &priv->tun_socket ) < 0 ) {
 
-			printk(KERN_INFO "can't create gate socket");
+			printk(KERN_INFO "can't create gate socket\n");
 			netif_stop_queue(&gate_device);
 			return -EFAULT;
 
 		}
 
-// 		dev_hold(gate_device);
+		atomic_inc(&gate_device_run);
 
+	} else {
 
-// 	} else {
-// 
-// 		printk(KERN_INFO "bat_device for is already created" );
-// 		return( -1 );
-// 
-// 	}
+		printk(KERN_INFO "net device already exists\n");
+		return(-1);
+
+	}
 
 	return( 0 );
-
 }
 
 static int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct iovec *vec, size_t num, size_t size)
@@ -338,16 +343,27 @@ static int kernel_sendmsg(struct socket *sock, struct msghdr *msg, struct iovec 
 	int result;
 
 	set_fs(KERNEL_DS);
-	/*
-	* the following is safe, since for compiler definitions of kvec and
-	* iovec are identical, yielding the same in-core layout and alignment
-	*/
+
 	msg->msg_iov = vec;
 	msg->msg_iovlen = num;
 	result = sock_sendmsg(sock, msg, size);
 	set_fs(oldfs);
 	return result;
 }
+
+static int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct iovec *vec, size_t num, size_t size, int flags)
+{
+	mm_segment_t oldfs = get_fs();
+	int result;
+
+	set_fs(KERNEL_DS);
+
+	msg->msg_iov = (struct iovec *)vec, msg->msg_iovlen = num;
+	result = sock_recvmsg(sock, msg, size, flags);
+	set_fs(oldfs);
+	return result;
+}
+
 
 
 MODULE_LICENSE("GPL");

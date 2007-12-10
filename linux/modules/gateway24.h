@@ -59,8 +59,16 @@
 #define LEASE_TIME 1500
 
 #define DBG(msg,args...) do { printk(KERN_DEBUG "batgat: [%s:%u] " msg "\n", __func__ ,__LINE__, ##args); } while(0)
-#define netdev_priv(dev) (struct gate_priv*)dev->priv
 #define ip_hdr(skb) (struct iphdr*)skb->nh.iph
+
+
+#ifndef list_for_each_entry_safe
+#define list_for_each_entry_safe(pos, n, head, member) \
+	for (pos = list_entry((head)->next, typeof(*pos), member), \
+	n = list_entry(pos->member.next, typeof(*pos), member); \
+	&pos->member != (head); \
+	pos = n, n = list_entry(n->member.next, typeof(*n), member))
+#endif
 
 #define PROC_ROOT_DIR "batgat"
 #define PROC_FILE_CLIENTS "clients"
