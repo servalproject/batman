@@ -40,7 +40,7 @@
 #include <linux/netdevice.h>
 #include <asm/uaccess.h>
 #include <linux/proc_fs.h>
-
+// #include <linux/smp_lock.h>	/* lock_kernel */
 
 /* io controls */
 #define IOCSETDEV 1
