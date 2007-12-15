@@ -70,7 +70,7 @@ static struct list_head free_client_list;
 int init_module()
 {
 
-	printk(KERN_INFO "B.A.T.M.A.N. gateway modul\n");
+	printk(KERN_DEBUG "B.A.T.M.A.N. gateway modul\n");
 	
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
 
@@ -81,7 +81,7 @@ int init_module()
 
 	DBG( "I was assigned major number %d. To talk to", Major );
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
-	printk(KERN_INFO "Remove the device file and module when done." );
+	printk(KERN_DEBUG "Remove the device file and module when done." );
 
 	INIT_LIST_HEAD(&free_client_list);
 	atomic_set(&gate_device_run, 0);
@@ -90,7 +90,7 @@ int init_module()
 	vip_hash = hash_new( 128, compare_vip, choose_vip );
 	wip_hash = hash_new( 128, compare_wip, choose_wip );
 	
-	printk(KERN_INFO "modul successfully loaded\n");
+	printk(KERN_DEBUG "modul successfully loaded\n");
 	return(0);
 }
 
@@ -133,7 +133,7 @@ void cleanup_module()
 
 	}
 
-	printk(KERN_INFO "modul successfully unloaded\n" );
+	printk(KERN_DEBUG "modul successfully unloaded\n" );
 	return;
 }
 
@@ -163,7 +163,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	if( cmd == IOCSETDEV || cmd == IOCREMDEV ) {
 
 		if( !access_ok( VERIFY_READ, (void *)arg, sizeof( ioc ) ) ) {
-			printk(KERN_INFO "access to memory area of arg not allowed" );
+			printk(KERN_DEBUG "access to memory area of arg not allowed" );
 			ret_value = -EFAULT;
 			goto end;
 		}
@@ -183,7 +183,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				init_completion(&thread_complete);
 				thread_pid = kernel_thread( packet_recv_thread, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGHAND );
 				if(thread_pid<0) {
-					printk(KERN_INFO "unable to start packet receive thread\n");
+					printk(KERN_DEBUG "unable to start packet receive thread\n");
 					ret_value = -EFAULT;
 					goto end;
 				}
@@ -216,7 +216,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 		case IOCREMDEV:
 
-			printk(KERN_INFO "disconnect daemon\n");
+			printk(KERN_DEBUG "disconnect daemon\n");
 
 			if(thread_pid) {
 
@@ -227,7 +227,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 			thread_pid = 0;
 
-			printk(KERN_INFO "thread shutdown\n");
+			printk(KERN_DEBUG "thread shutdown\n");
 
 // 			dev_put(gate_device);
 
@@ -242,7 +242,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				gate_device.priv = NULL;
 				unregister_netdev(&gate_device);
 				atomic_dec(&gate_device_run);
-				printk(KERN_INFO "gate shutdown\n");
+				printk(KERN_DEBUG "gate shutdown\n");
 
 			}
 
@@ -254,7 +254,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 
 			}
 
-			printk(KERN_INFO "device unregistered successfully\n" );
+			printk(KERN_DEBUG "device unregistered successfully\n" );
 			break;
 		default:
 			DBG( "ioctl %d is not supported",cmd );
@@ -277,8 +277,11 @@ static int packet_recv_thread(void *data)
 	struct sockaddr_in client, inet_addr, server_addr;
 	struct free_client_data *tmp_entry;
 
-	static struct socket *server_sock = NULL;
-	static struct socket *inet_sock = NULL;
+	struct socket *server_sock = NULL;
+	struct socket *inet_sock = NULL;
+
+	unsigned long time = jiffies;
+	struct hash_it_t *hashit;
 
 	int length, ret_value;
 	unsigned char buffer[1600];
@@ -289,14 +292,14 @@ static int packet_recv_thread(void *data)
 
 	if ( ( sock_create( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
 
-		printk(KERN_INFO "can't create raw socket\n");
+		printk(KERN_DEBUG "can't create raw socket\n");
 		return -1;
 
 	}
 
 	if( sock_create( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &server_sock ) < 0 ) {
 
-		printk(KERN_INFO "can't create udp socket\n");
+		printk(KERN_DEBUG "can't create udp socket\n");
 		sock_release(inet_sock);
 		return -1;
 
@@ -305,7 +308,7 @@ static int packet_recv_thread(void *data)
 
 	if( server_sock->ops->bind(server_sock, (struct sockaddr *) &server_addr, sizeof( server_addr ) ) < 0 ) {
 
-		printk(KERN_INFO "can't bind udp server socket\n");
+		printk(KERN_DEBUG "can't bind udp server socket\n");
 		sock_release(server_sock);
 		sock_release(inet_sock);
 		return -1;
@@ -320,6 +323,8 @@ static int packet_recv_thread(void *data)
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+
+	iph = ( struct iphdr*)(buffer + 1 );
 	
 	strcpy(current->comm,"udp_recv");
 	daemonize();
@@ -347,6 +352,30 @@ static int packet_recv_thread(void *data)
 
 		while ( ( length = kernel_recvmsg( server_sock, &msg, &iov, 1, sizeof(buffer), MSG_NOSIGNAL | MSG_DONTWAIT ) ) > 0 ) {
 
+			if( ( jiffies - time ) / HZ > LEASE_TIME ) {
+
+				hashit = NULL;
+				spin_lock(&hash_lock);
+				while( NULL != ( hashit = hash_iterate( wip_hash, hashit ) ) ) {
+					client_data = hashit->bucket->data;
+					if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
+
+						hash_remove_bucket(wip_hash, hashit);
+						hash_remove_bucket(vip_hash, hashit);
+
+						tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
+						if(tmp_entry != NULL) {
+							tmp_entry->gw_client = client_data;
+							list_add(&tmp_entry->list,&free_client_list);
+						} else
+							printk(KERN_DEBUG "can't add free gw_client to free list\n");
+
+					}
+				}
+				spin_unlock(&hash_lock);
+				time = jiffies;
+			}
+
 			if( length > 0 && buffer[0] == TUNNEL_IP_REQUEST ) {
 
 				client_data = get_ip_addr(&client);
@@ -363,9 +392,56 @@ static int packet_recv_thread(void *data)
 						DBG("tunnel ip request socket return %d", ret_value);
 
 				} else
-					printk(KERN_INFO "can't get an ip address");
+					printk(KERN_DEBUG "can't get an ip address\n");
 
-			}
+			} else if( length > 0 && buffer[0] == TUNNEL_DATA ) {
+
+				spin_lock(&hash_lock);
+				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+				spin_unlock(&hash_lock);
+
+				if(client_data == NULL) {
+
+					buffer[0] = TUNNEL_IP_INVALID;
+					iov.iov_base = buffer;
+					iov.iov_len = length;
+
+					if( ( ret_value = kernel_sendmsg(server_sock, &msg, &iov, 1, length ) ) < 0 )
+						DBG("tunnel ip invalid socket return %d", ret_value);
+					continue;
+
+				}
+
+				client_data->last_keep_alive = jiffies;
+
+				inet_iov.iov_base = &buffer[1];
+				inet_iov.iov_len = length - 1;
+
+				inet_addr.sin_port = 0;
+				inet_addr.sin_addr.s_addr = iph->daddr;
+
+				if( (ret_value = kernel_sendmsg(inet_sock, &inet_msg, &inet_iov, 1, length - 1 ) ) < 0 )
+					DBG("tunnel data socket return %d", ret_value);
+
+			} else if( length > 0 && buffer[0] == TUNNEL_KEEPALIVE_REQUEST ) {
+
+				spin_lock(&hash_lock);
+				client_data = ((struct gw_client *)hash_find(wip_hash, &client.sin_addr.s_addr));
+				spin_unlock(&hash_lock);
+				if(client_data != NULL) {
+					buffer[0] = TUNNEL_KEEPALIVE_REPLY;
+					client_data->last_keep_alive = jiffies;
+				} else
+					buffer[0] = TUNNEL_IP_INVALID;
+
+				iov.iov_base = buffer;
+				iov.iov_len = length;
+
+				if( ( ret_value = kernel_sendmsg(server_sock, &msg, &iov, 1, length ) ) < 0 )
+					DBG("tunnel keep alive socket return %d", ret_value);
+
+			} else
+				printk(KERN_DEBUG "recive unknown message\n" );
 
 		}
 
@@ -375,7 +451,7 @@ static int packet_recv_thread(void *data)
 	if(server_sock)
 		sock_release(server_sock);
 
-	printk(KERN_INFO "thread terminated\n");
+	printk(KERN_DEBUG "thread terminated\n");
 	complete(&thread_complete);
 	return 0;
 }
@@ -408,13 +484,50 @@ static int bat_netdev_setup( struct net_device *dev )
 
 static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 {
-	kfree_skb(skb);
-	return(0);
+	struct gate_priv *priv = priv = (struct gate_priv*)dev->priv;
+	struct sockaddr_in sa;
+	struct iphdr *iph = ip_hdr( skb );
+	struct iovec iov[2];
+	struct msghdr msg;
+	
+	struct gw_client *client_data;
+	unsigned char msg_number[1];
+
+	msg_number[0] = TUNNEL_DATA;
+
+	/* we use saddr , because hash choose and compare begin at + 4 bytes */
+	spin_lock(&hash_lock);
+	client_data = ((struct gw_client *)hash_find(vip_hash, & iph->saddr )); /* daddr */
+	spin_unlock(&hash_lock);
+
+	if( client_data != NULL ) {
+
+		sa.sin_family = AF_INET;
+		sa.sin_addr.s_addr = client_data->wip_addr;
+		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
+
+		msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
+		msg.msg_name = &sa;
+		msg.msg_namelen = sizeof(sa);
+		msg.msg_control = NULL;
+		msg.msg_controllen = 0;
+
+		iov[0].iov_base = msg_number;
+		iov[0].iov_len = 1;
+		iov[1].iov_base = skb->data + sizeof( struct ethhdr );
+		iov[1].iov_len = skb->len - sizeof( struct ethhdr );
+		kernel_sendmsg(priv->tun_socket, &msg, iov, 2, skb->len - sizeof( struct ethhdr ) + 1);
+
+	} else
+		printk(KERN_DEBUG "client not found\n");
+
+	kfree_skb( skb );
+	return( 0 );
 }
 
 static int bat_netdev_open( struct net_device *dev )
 {
-	printk(KERN_INFO "receive open\n" );
+	printk(KERN_DEBUG "receive open\n" );
 	netif_start_queue( dev );
 	return( 0 );
 }
@@ -422,7 +535,7 @@ static int bat_netdev_open( struct net_device *dev )
 static int bat_netdev_close( struct net_device *dev )
 {
 
-	printk(KERN_INFO "receive close\n" );	
+	printk(KERN_DEBUG "receive close\n" );
 	netif_stop_queue( dev );
 	return( 0 );
 }
@@ -439,7 +552,7 @@ static int create_bat_netdev()
 		priv = (struct gate_priv*)gate_device.priv;
 		if( sock_create( PF_INET, SOCK_DGRAM, IPPROTO_UDP, &priv->tun_socket ) < 0 ) {
 
-			printk(KERN_INFO "can't create gate socket\n");
+			printk(KERN_DEBUG "can't create gate socket\n");
 			netif_stop_queue(&gate_device);
 			return -EFAULT;
 
@@ -449,7 +562,7 @@ static int create_bat_netdev()
 
 	} else {
 
-		printk(KERN_INFO "net device already exists\n");
+		printk(KERN_DEBUG "net device already exists\n");
 		return(-1);
 
 	}
@@ -469,19 +582,19 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr->sin_addr.s_addr));
 
 	if (gw_client != NULL) {
-		printk(KERN_INFO "found client in hash");
+		printk(KERN_DEBUG "found client in hash");
 		return gw_client;
 	}
 
 	list_for_each_entry_safe(entry, next, &free_client_list, list) {
-		printk(KERN_INFO "use free client from list");
+		printk(KERN_DEBUG "use free client from list");
 		gw_client = entry->gw_client;
 		list_del(&entry->list);
 		break;
 	}
 
 	if(gw_client == NULL) {
-		printk(KERN_INFO "malloc client");
+		printk(KERN_DEBUG "malloc client");
 		gw_client = kmalloc( sizeof(struct gw_client), GFP_KERNEL );
 		gw_client->vip_addr = 0;
 	}
@@ -512,7 +625,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 		if (swaphash == NULL) {
 
-			printk(KERN_INFO "Couldn't resize hash table" );
+			printk(KERN_DEBUG "Couldn't resize hash table" );
 
 		}
 
@@ -522,7 +635,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 		if (swaphash == NULL) {
 
-			printk(KERN_INFO "Couldn't resize hash table" );
+			printk(KERN_DEBUG "Couldn't resize hash table" );
 
 		}
 

@@ -298,8 +298,8 @@ static int packet_recv_thread(void *data)
 	struct sockaddr_in client, inet_addr, server_addr;
 	struct free_client_data *tmp_entry;
 
-	static struct socket *server_sock = NULL;
-	static struct socket *inet_sock = NULL;
+	struct socket *server_sock = NULL;
+	struct socket *inet_sock = NULL;
 	
 	int length,ret_value;
 	unsigned char buffer[1600];
