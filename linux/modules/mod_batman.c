@@ -109,7 +109,7 @@ int init_module( void ) {
 	}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batman", 0 ) ) {
+	if ( devfs_mk_cdev( MKDEV( Major, 0 ), S_IFCHR | S_IRUGO | S_IWUGO, "batman", 0 ) )
 		printk( "B.A.T.M.A.N.: Could not create /dev/batman \n" );
 #else
 	batman_class = class_create( THIS_MODULE, "batman" );

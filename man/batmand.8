@@ -114,8 +114,8 @@ Since no topology database is computed by the protocol an additional solution to
 .TP
 .B \-v print version
 .TP
-.B \-\-no-policy-routing
-This option disables the policy routing feature of batmand - no policy rules and special throw or unreachable routing entries are created. Firmware and package maintainers can use this option to tightly integrate batmand into their own routing policies. This option is only available in daemon mode.
+.B \-\-policy-routing-script
+This option disables the policy routing feature of batmand - all routing changes are send to the script which can make use of this information or not. Firmware and package maintainers can use this option to tightly integrate batmand into their own routing policies. This option is only available in daemon mode.
 .SH EXAMPLES
 .TP
 .B batmand eth1 wlan0:test

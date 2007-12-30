@@ -79,7 +79,9 @@ pthread_t curr_gateway_thread_id = 0;
 
 uint32_t pref_gateway = 0;
 
-uint8_t no_policy_routing = 0;
+char *policy_routing_script = NULL;
+int policy_routing_pipe = 0;
+pid_t policy_routing_script_pid;
 
 unsigned char *hna_buff = NULL;
 
@@ -128,6 +130,7 @@ void usage( void ) {
 	fprintf( stderr, "       -r routing class\n" );
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "       -v print version\n" );
+	fprintf( stderr, "       --policy-routing-script\n" );
 
 }
 
@@ -178,6 +181,7 @@ void verbose_usage( void ) {
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
+	fprintf( stderr, "       --policy-routing-script send all routing table changes to the script\n" );
 
 }
 
@@ -233,7 +237,7 @@ void add_del_hna( struct orig_node *orig_node, int8_t del ) {
 
 void choose_gw() {
 
-	
+
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
 	uint8_t max_gw_class = 0, max_tq = 0;
@@ -586,7 +590,7 @@ int isDuplicate( struct orig_node *orig_node, uint16_t seqno ) {
 	struct neigh_node *neigh_node;
 
 	prof_start( PROF_is_duplicate );
-	
+
 	list_for_each( neigh_pos, &orig_node->neigh_list ) {
 
 		neigh_node = list_entry( neigh_pos, struct neigh_node, list );

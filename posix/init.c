@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -85,7 +86,51 @@ int my_daemon() {
 
 }
 
+void create_routing_pipe()
+{
+	int fd[2], pipe_opts;
 
+	if (pipe(fd) < 0) {
+		printf("Could not create a pipe to '%s': %s\n", policy_routing_script, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	if ((policy_routing_script_pid = fork()) < 0) {
+
+		printf("Could not fork to execute '%s': %s\n", policy_routing_script, strerror(errno));
+		exit(EXIT_FAILURE);
+
+	/* parent */
+	} else if (policy_routing_script_pid > 0) {
+
+		close(fd[0]);
+		policy_routing_pipe = fd[1];
+
+		/* make pipe non blocking */
+		pipe_opts = fcntl(policy_routing_pipe, F_GETFL, 0);
+		fcntl(policy_routing_pipe, F_SETFL, pipe_opts | O_NONBLOCK);
+
+	/* child */
+	} else {
+
+		close(fd[1]);
+
+		if (fd[0] != STDIN_FILENO) {
+
+			if (dup2(fd[0], STDIN_FILENO) != STDIN_FILENO) {
+				printf("Could not dup2 to redirect stdin to '%s'\n", policy_routing_script);
+				exit(EXIT_FAILURE);
+			}
+
+			close(fd[0]);
+
+		}
+
+		if (execl(policy_routing_script, policy_routing_script, NULL) < 0)
+			printf("Could not execute '%s': %s\n", policy_routing_script, strerror(errno));
+
+	}
+}
 
 void add_hna_to_list(char *hna_string, int8_t del, uint8_t change)
 {
@@ -180,6 +225,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
 	struct list_head *list_pos, *list_pos_tmp;
+	struct stat fstats;
 	uint8_t found_args = 1, batch_mode = 0, info_output = 0, was_hna = 0;
 	int8_t res;
 
@@ -189,7 +235,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	uint32_t vis_server = 0;
 	static struct option long_options[] =
 	{
-		{"no-policy-routing",     no_argument,       0, 'n'},
+		{"policy-routing-script",     required_argument,       0, 'n'},
 		{0, 0, 0, 0}
 	};
 
@@ -302,8 +348,14 @@ void apply_init_args( int argc, char *argv[] ) {
 				break;
 
 			case 'n':
-				no_policy_routing = 1;
-				found_args++;
+				policy_routing_script = optarg;
+
+				if (lstat(policy_routing_script, &fstats) < 0) {
+					printf( "Could not get file information of '%s': %s\n", policy_routing_script, strerror(errno));
+					exit(EXIT_FAILURE);
+				}
+
+				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
 
 			case 'o':
@@ -443,6 +495,9 @@ void apply_init_args( int argc, char *argv[] ) {
 			exit(EXIT_FAILURE);
 
 		}
+
+		if (policy_routing_script != NULL)
+			create_routing_pipe();
 
 		/* delete ignored "HNAs to be removed" */
 		list_for_each_safe( list_pos, list_pos_tmp, &hna_del_list ) {

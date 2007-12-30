@@ -27,6 +27,7 @@
 #include <pthread.h>
 #include <sys/un.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "list-batman.h"
 #include "bitarray.h"
@@ -139,7 +140,9 @@ extern uint8_t routing_class;
 extern uint8_t num_hna;
 extern int16_t originator_interval;
 extern uint32_t pref_gateway;
-extern uint8_t no_policy_routing;
+extern char *policy_routing_script;
+extern int policy_routing_pipe;
+extern pid_t policy_routing_script_pid;
 
 extern int8_t stop;
 

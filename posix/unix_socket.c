@@ -455,8 +455,8 @@ void *unix_listen( void *arg ) {
 									dprintf(unix_client->sock, " -s %s", str);
 								}
 
-								if (no_policy_routing)
-									dprintf(unix_client->sock, " --no-policy-routing");
+								if (policy_routing_script != NULL)
+									dprintf(unix_client->sock, " --policy-routing-script %s", policy_routing_script);
 
 								list_for_each( debug_pos, &if_list ) {
 

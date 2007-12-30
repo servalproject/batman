@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <sys/times.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <net/if.h>
 
 #include "../os.h"
@@ -429,6 +430,9 @@ void restore_defaults() {
 
 	if ( debug_level == 0 )
 		closelog();
+
+	close(policy_routing_pipe);
+	waitpid(policy_routing_script_pid, NULL, 0);
 
 }
 
