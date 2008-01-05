@@ -465,6 +465,8 @@ static int packet_recv_thread(void *data)
 			} else
 				DBG( "recive unknown message" );
 
+			iov.iov_base = buffer;
+			iov.iov_len = sizeof(buffer);
 		}
 
 		atomic_set(&data_ready_cond, 0);
