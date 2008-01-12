@@ -431,8 +431,10 @@ void restore_defaults() {
 	if ( debug_level == 0 )
 		closelog();
 
-	close(policy_routing_pipe);
-	waitpid(policy_routing_script_pid, NULL, 0);
+	if (policy_routing_script != NULL) {
+		close(policy_routing_pipe);
+		waitpid(policy_routing_script_pid, NULL, 0);
+	}
 
 }
 
