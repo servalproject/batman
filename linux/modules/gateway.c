@@ -93,7 +93,7 @@ int init_module()
 		class_device_create( batman_class, NULL, MKDEV( Major, 0 ), NULL, "batgat" );
 
 
-
+	DBG( "batgat loaded %s", REVISION_VERSION );
 	DBG( "I was assigned major number %d. To talk to", Major );
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	DBG( "Remove the device file and module when done." );

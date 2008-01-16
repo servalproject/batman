@@ -66,6 +66,10 @@
 #define PROC_ROOT_DIR "batgat"
 #define PROC_FILE_CLIENTS "clients"
 
+#ifndef REVISION_VERSION
+#define REVISION_VERSION "1"
+#endif
+
 struct gw_client {
 	uint32_t wip_addr;
 	uint32_t vip_addr;

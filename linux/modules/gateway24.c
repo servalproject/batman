@@ -79,6 +79,7 @@ int init_module()
 
 	}
 
+	DBG( "batgat loaded %s", REVISION_VERSION );
 	DBG( "I was assigned major number %d. To talk to", Major );
 	DBG( "the driver, create a dev file with 'mknod /dev/batgat c %d 0'.", Major );
 	printk(KERN_DEBUG "Remove the device file and module when done." );
