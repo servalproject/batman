@@ -1,28 +1,25 @@
 UNAME:=$(shell uname -r)
-KERNEL26:=2.6
-KERNELVERSION:=$(findstring $(KERNEL26),$(UNAME))
+LINUX26=2.6
+LINUX_VERSION:=$(findstring $(LINUX26),$(UNAME))
+REVISION :=	$(shell if [ -d .svn ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
 
-ifeq ($(KERNELVERSION),$(KERNEL26))
-obj-m += mod_batgat.o
-mod_batgat-objs := gateway.o hash.o
+include $(PWD)/Makefile.kbuild
+
+ifneq ($(LINUX_VERSION),$(LINUX26))
+TARGET:=batgat
+INCLUDE:=-I/lib/modules/$(UNAME)/build/include -I/usr/src/kernel-headers-$(UNAME)/include
+CFLAGS+=-D__KERNEL__ -DMODULE -O2 -Wall $(INCLUDE)
+CC:=gcc
+endif
+
+ifeq ($(LINUX_VERSION),$(LINUX26))
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-
 else
-TARGET:=mod_batgat
-INCLUDE:=-I/lib/modules/$(UNAME)/build/include -I/usr/src/kernel-headers-$(UNAME)/include
-CFLAGS:=-D__KERNEL__ -DMODULE -O2 -Wall $(INCLUDE)
-CC:=gcc
-
-all: mod_batgat.o
-
-mod_batgat.o: gateway24.o hash.o
-	$(LD) -r $^ -o $@
-
 
 clean:
 	rm -f *.o *~
