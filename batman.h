@@ -85,7 +85,7 @@
 #define TQ_TOTAL_WINDOW_SIZE 10
 #define TQ_LOCAL_BIDRECT_SEND_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
 #define TQ_LOCAL_BIDRECT_RECV_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
-#define TQ_TOTAL_BIDRECT_LIMIT TQ_MAX_VALUE / 10
+#define TQ_TOTAL_BIDRECT_LIMIT 1
 
 #define PERFECT_TQ_PENALTY 5
 
@@ -171,6 +171,7 @@ extern struct debug_clients debug_clients;
 
 extern pthread_mutex_t hna_chg_list_mutex;
 
+extern uint8_t neigh_points;
 
 struct bat_packet
 {

@@ -224,6 +224,8 @@ void del_default_route() {
 	if ( curr_gateway_thread_id != 0 )
 		pthread_join( curr_gateway_thread_id, NULL );
 
+	curr_gateway_thread_id = 0;
+
 }
 
 

@@ -147,7 +147,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_tq = 0, max_bcast_own = 0;
+	uint8_t max_tq = 0, max_bcast_own = 0, tmp_tq_avg;
 	prof_start( PROF_update_originator );
 
 
@@ -171,10 +171,16 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 			}
 
-			/* if we got have a better tq value via this neighbour or same tq value if it is currently our best neighbour (to avoid route flipping) */
-			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg == max_tq ) ) ) {
+			tmp_tq_avg = tmp_neigh_node->tq_avg;
 
-				max_tq = tmp_neigh_node->tq_avg;
+			/* one hop neighbor */
+			if (tmp_neigh_node->addr == orig_node->orig)
+				tmp_tq_avg = (TQ_MAX_VALUE - tmp_neigh_node->tq_avg <= neigh_points ? TQ_MAX_VALUE : tmp_neigh_node->tq_avg + neigh_points);
+
+			/* if we got have a better tq value via this neighbour or same tq value if it is currently our best neighbour (to avoid route flipping) */
+			if ( ( tmp_tq_avg > max_tq ) || ( ( tmp_tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_tq_avg == max_tq ) ) ) {
+
+				max_tq = tmp_tq_avg;
 				max_bcast_own = tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num];
 				best_neigh_node = tmp_neigh_node;
 
@@ -210,10 +216,15 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	}
 
+	tmp_tq_avg = neigh_node->tq_avg;
 
-	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {
+	/* one hop neighbor */
+	if (neigh_node->addr == orig_node->orig)
+		tmp_tq_avg = (TQ_MAX_VALUE - neigh_node->tq_avg <= neigh_points ? TQ_MAX_VALUE : neigh_node->tq_avg + neigh_points);
 
-		max_tq = neigh_node->tq_avg;
+	if ( ( tmp_tq_avg > max_tq ) || ( ( tmp_tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( tmp_tq_avg == max_tq ) ) ) {
+
+		max_tq = tmp_tq_avg;
 		max_bcast_own = neigh_node->orig_node->bcast_own_sum[if_incoming->if_num];
 		best_neigh_node = neigh_node;
 
@@ -255,7 +266,7 @@ void purge_orig( uint32_t curr_time ) {
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
-	uint8_t gw_purged = 0, neigh_purged;
+	uint8_t gw_purged = 0, neigh_purged, max_tq, tmp_tq_avg = 0;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	prof_start( PROF_purge_originator );
 
@@ -313,7 +324,7 @@ void purge_orig( uint32_t curr_time ) {
 		} else {
 
 			best_neigh_node = NULL;
-			neigh_purged = 0;
+			max_tq = neigh_purged = 0;
 			prev_list_head = (struct list_head *)&orig_node->neigh_list;
 
 			/* for all neighbours towards this originator ... */
@@ -348,8 +359,16 @@ void purge_orig( uint32_t curr_time ) {
 
 				} else {
 
-					if ( ( best_neigh_node == NULL ) || ( neigh_node->tq_avg > best_neigh_node->tq_avg ) )
+					tmp_tq_avg = neigh_node->tq_avg;
+
+					/* one hop neighbor */
+					if (neigh_node->addr == orig_node->orig)
+						tmp_tq_avg = (TQ_MAX_VALUE - neigh_node->tq_avg <= neigh_points ? TQ_MAX_VALUE : neigh_node->tq_avg + neigh_points);
+
+					if ((best_neigh_node == NULL) || (tmp_tq_avg > max_tq)) {
 						best_neigh_node = neigh_node;
+						max_tq = tmp_tq_avg;
+					}
 
 					prev_list_head = &neigh_node->list;
 
@@ -357,7 +376,15 @@ void purge_orig( uint32_t curr_time ) {
 
 			}
 
-			if ( ( neigh_purged ) && ( ( best_neigh_node == NULL ) || ( orig_node->router == NULL ) || ( best_neigh_node->tq_avg > orig_node->router->tq_avg ) ) )
+			if (orig_node->router != NULL) {
+				tmp_tq_avg = orig_node->router->tq_avg;
+
+				/* one hop neighbor */
+				if (orig_node->router->addr == orig_node->orig)
+					tmp_tq_avg = (TQ_MAX_VALUE - orig_node->router->tq_avg <= neigh_points ? TQ_MAX_VALUE : orig_node->router->tq_avg + neigh_points);
+			}
+
+			if ((neigh_purged) && ((best_neigh_node == NULL) || (orig_node->router == NULL) || (max_tq > tmp_tq_avg)))
 				update_routes( orig_node, best_neigh_node, orig_node->hna_buff, orig_node->hna_buff_len );
 
 		}
@@ -401,6 +428,7 @@ void debug_orig() {
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node;
 	struct gw_node *gw_node;
+	uint8_t tmp_tq_avg;
 	uint16_t batman_count = 0;
 	uint32_t uptime_sec;
 	int download_speed, upload_speed, debug_out_size;
@@ -433,7 +461,13 @@ void debug_orig() {
 
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				debug_output( 2, "%s %-15s (%3i) %''15s [%10s], gw_class %3i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, gw_node->orig_node->router->tq_avg, str2, gw_node->orig_node->router->if_incoming->dev, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
+				tmp_tq_avg = 0;
+
+				/* one hop neighbor */
+				if (gw_node->orig_node->router->addr == gw_node->orig_node->orig)
+					tmp_tq_avg = (TQ_MAX_VALUE - gw_node->orig_node->router->tq_avg <= neigh_points ? TQ_MAX_VALUE - gw_node->orig_node->router->tq_avg : neigh_points);
+
+				debug_output( 2, "%s %-15s (%3i + %i) %''15s [%10s], gw_class %3i - %i%s/%i%s, reliability: %i \n", ( curr_gateway == gw_node ? "=>" : "  " ), str, gw_node->orig_node->router->tq_avg, tmp_tq_avg, str2, gw_node->orig_node->router->if_incoming->dev, gw_node->orig_node->gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ), gw_node->unavail_factor );
 
 				batman_count++;
 
@@ -495,7 +529,13 @@ void debug_orig() {
 
 				addr_to_string( neigh_node->addr, str, sizeof (str) );
 
-				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i)", str, neigh_node->tq_avg );
+				tmp_tq_avg = 0;
+
+				/* one hop neighbor */
+				if (orig_node->router->addr == neigh_node->addr)
+					tmp_tq_avg = (TQ_MAX_VALUE - neigh_node->tq_avg <= neigh_points ? TQ_MAX_VALUE - neigh_node->tq_avg : neigh_points);
+
+				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i + %i)", str, neigh_node->tq_avg, tmp_tq_avg );
 
 				if ( debug_out_size + 30 > sizeof(debug_out_str) - 1 ) {
 

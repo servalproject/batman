@@ -354,6 +354,15 @@ void *unix_listen( void *arg ) {
 
 								dprintf( unix_client->sock, "EOD\n" );
 
+							} else if ( buff[0] == 'm' ) {
+
+								if ( status > 2 ) {
+									debug_output(3, "Unix socket: changing direct neighbor points from: %i to: %i\n", neigh_points, buff[2]);
+									neigh_points = buff[2];
+								}
+
+								dprintf( unix_client->sock, "EOD\n" );
+
 							} else if ( buff[0] == 'r' ) {
 
 								if ( status > 2 ) {
@@ -457,6 +466,9 @@ void *unix_listen( void *arg ) {
 
 								if (policy_routing_script != NULL)
 									dprintf(unix_client->sock, " --policy-routing-script %s", policy_routing_script);
+
+								if (neigh_points != 0)
+									dprintf(unix_client->sock, " --neigh_points %i", neigh_points);
 
 								list_for_each( debug_pos, &if_list ) {
 
