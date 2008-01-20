@@ -89,4 +89,4 @@ clean-long:
 
 install:
 	mkdir -p $(SBINDIR)
-	install -m 0755 batmand $(SBINDIR)
+	install -m 0755 $(BINARY_NAME) $(SBINDIR)
