@@ -408,7 +408,7 @@ void *unix_listen( void *arg ) {
 										pref_gateway = tmp_ip_holder.s_addr;
 
 										if ( curr_gateway != NULL )
-											curr_gateway = NULL;
+											del_default_route();
 
 									} else {
 

@@ -246,7 +246,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 			debug_output(3, "Gateway client - restart gateway selection: better gateway found (tq curr: %i, tq new: %i) \n", curr_gateway->orig_node->router->tq_avg, orig_node->router->tq_avg);
 
-			curr_gateway = NULL;
+			del_default_route();
 
 		}
 

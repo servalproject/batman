@@ -126,7 +126,7 @@
  *
  ***/
 
-#define BH_UDP_PORTS {4307, 162} /* vis, SNMP-TRAP */
+#define BH_UDP_PORTS {4307, 162, 137, 138, 139, 5353} /* vis, SNMP-TRAP, netbios, mdns */
 
 
 

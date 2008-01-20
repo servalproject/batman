@@ -425,6 +425,9 @@ int add_del_interface_rules( int8_t del ) {
 		if ( ifr->ifr_addr.sa_family != AF_INET )
 			continue;
 
+		/* the tunnel thread will remove the default route by itself */
+		if (strncmp(ifr->ifr_name, "gate", 4) == 0)
+			continue;
 
 		memset( &ifr_tmp, 0, sizeof (struct ifreq) );
 		strncpy( ifr_tmp.ifr_name, ifr->ifr_name, IFNAMSIZ - 1 );
@@ -432,9 +435,7 @@ int add_del_interface_rules( int8_t del ) {
 		if ( ioctl( tmp_fd, SIOCGIFFLAGS, &ifr_tmp ) < 0 ) {
 
 			debug_output( 0, "Error - can't get flags of interface %s (interface rules): %s\n", ifr->ifr_name, strerror(errno) );
-			close( tmp_fd );
-			debugFree( buf, 1602 );
-			return -1;
+			continue;
 
 		}
 
@@ -446,9 +447,7 @@ int add_del_interface_rules( int8_t del ) {
 		if ( ioctl( tmp_fd, SIOCGIFADDR, &ifr_tmp ) < 0 ) {
 
 			debug_output( 0, "Error - can't get IP address of interface %s (interface rules): %s\n", ifr->ifr_name, strerror(errno) );
-			close( tmp_fd );
-			debugFree( buf, 1603 );
-			return -1;
+			continue;
 
 		}
 
@@ -457,9 +456,7 @@ int add_del_interface_rules( int8_t del ) {
 		if ( ioctl( tmp_fd, SIOCGIFNETMASK, &ifr_tmp ) < 0 ) {
 
 			debug_output( 0, "Error - can't get netmask address of interface %s (interface rules): %s\n", ifr->ifr_name, strerror(errno) );
-			close( tmp_fd );
-			debugFree( buf, 1604 );
-			return -1;
+			continue;
 
 		}
 

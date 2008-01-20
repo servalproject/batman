@@ -55,7 +55,7 @@ PACKAGE_NAME=	batmand
 BINARY_NAME=	batmand
 SOURCE_VERSION_HEADER= batman.h
 
-REVISION:=	$(shell if [ -d .svn -a -x `which svn` ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk -a -x `which svk` ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
+REVISION:=	$(shell if [ -d .svn ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
 REVISION_VERSION=	\"\ rv$(REVISION)\"
 
 BAT_VERSION=	$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')

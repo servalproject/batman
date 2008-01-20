@@ -217,15 +217,9 @@ void handler( int32_t sig ) {
 }
 
 
-void del_default_route() {
-
+void del_default_route()
+{
 	curr_gateway = NULL;
-
-	if ( curr_gateway_thread_id != 0 )
-		pthread_join( curr_gateway_thread_id, NULL );
-
-	curr_gateway_thread_id = 0;
-
 }
 
 
@@ -234,18 +228,20 @@ int8_t add_default_route() {
 
 	struct curr_gw_data *curr_gw_data;
 
-
 	curr_gw_data = debugMalloc( sizeof(struct curr_gw_data), 207 );
 	curr_gw_data->orig = curr_gateway->orig_node->orig;
 	curr_gw_data->gw_node = curr_gateway;
 	curr_gw_data->batman_if = curr_gateway->orig_node->batman_if;
-
 
 	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gw_data ) != 0 ) {
 
 		debug_output( 0, "Error - couldn't spawn thread: %s\n", strerror(errno) );
 		debugFree( curr_gw_data, 1213 );
 		curr_gateway = NULL;
+
+	} else {
+
+		pthread_detach(curr_gateway_thread_id);
 
 	}
 
