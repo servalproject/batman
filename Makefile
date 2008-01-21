@@ -18,9 +18,10 @@
 
 
 CC =		gcc
-CFLAGS =	-Wall -O1 -g3 -DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -DREVISION_VERSION=$(REVISION_VERSION)
-STRIP=		strip
+CFLAGS =	-Wall -O1 -g3
+EXTRA_CFLAGS =	-DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -DREVISION_VERSION=$(REVISION_VERSION)
 LDFLAGS =	-lpthread
+
 SBINDIR =	$(INSTALL_PREFIX)/usr/sbin
 
 UNAME=		$(shell uname)
@@ -56,7 +57,7 @@ BINARY_NAME=	batmand
 SOURCE_VERSION_HEADER= batman.h
 
 REVISION:=	$(shell if [ -d .svn ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
-REVISION_VERSION=	\"\ rv$(REVISION)\"
+REVISION_VERSION=\"\ rv$(REVISION)\"
 
 BAT_VERSION=	$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
 FILE_NAME=	$(PACKAGE_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
@@ -66,6 +67,9 @@ all:		$(BINARY_NAME)
 
 $(BINARY_NAME):	$(SRC_O) $(SRC_H) Makefile
 	$(CC) -o $@ $(SRC_O) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 sources:
 	mkdir -p $(FILE_NAME)
