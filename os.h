@@ -66,8 +66,8 @@ int8_t use_gateway_module();
 
 /* posix.c */
 void print_animation( void );
-void   del_default_route();
-int8_t add_default_route();
+void del_default_route();
+void add_default_route();
 int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming );
 int8_t send_udp_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
 void del_gw_interface();

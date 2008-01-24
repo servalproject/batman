@@ -171,7 +171,8 @@ extern struct debug_clients debug_clients;
 
 extern pthread_mutex_t hna_chg_list_mutex;
 
-extern uint8_t neigh_points;
+extern uint8_t hop_penalty;
+extern uint8_t tunnel_running;
 
 struct bat_packet
 {
@@ -242,7 +243,7 @@ struct gw_node
 	struct list_head list;
 	struct orig_node *orig_node;
 	uint16_t gw_port;
-	uint16_t unavail_factor;
+	uint16_t gw_failure;
 	uint32_t last_failure;
 	uint32_t deleted;
 };

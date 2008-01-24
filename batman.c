@@ -110,7 +110,7 @@ pthread_mutex_t hna_chg_list_mutex;
 
 unsigned char *vis_packet = NULL;
 uint16_t vis_packet_size = 0;
-uint8_t neigh_points;
+uint8_t hop_penalty;
 
 
 
@@ -241,7 +241,7 @@ void choose_gw() {
 
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
-	uint8_t max_gw_class = 0, max_tq = 0, tmp_tq_avg;
+	uint8_t max_gw_class = 0, max_tq = 0;
 	uint32_t current_time, max_gw_factor = 0, tmp_gw_factor = 0;
 	int download_speed, upload_speed;
 	static char orig_str[ADDR_STR_LEN];
@@ -277,7 +277,7 @@ void choose_gw() {
 		/* if it is our only gateway retry immediately */
 		if ((gw_node != (struct gw_node *)gw_list.next) || (gw_node->list.next != (struct list_head *)&gw_list)) {
 
-			if ( ( gw_node->unavail_factor * gw_node->unavail_factor * 30000 ) + gw_node->last_failure > current_time )
+			if (gw_node->last_failure + 30000 > current_time)
 				continue;
 
 		}
@@ -288,31 +288,25 @@ void choose_gw() {
 		if ( gw_node->deleted )
 			continue;
 
-		tmp_tq_avg = gw_node->orig_node->router->tq_avg;
-
-		/* one hop neighbor */
-		if (gw_node->orig_node->router->addr == gw_node->orig_node->orig)
-			tmp_tq_avg = (TQ_MAX_VALUE - gw_node->orig_node->router->tq_avg <= neigh_points ? TQ_MAX_VALUE : gw_node->orig_node->router->tq_avg + neigh_points);
-
 		switch ( routing_class ) {
 
 			case 1:   /* fast connection */
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				if (((tmp_gw_factor = (((tmp_tq_avg * 100 ) / TQ_LOCAL_WINDOW_SIZE) *
-								  ((tmp_tq_avg * 100) / TQ_LOCAL_WINDOW_SIZE) *
+				if (((tmp_gw_factor = (((gw_node->orig_node->router->tq_avg * 100 ) / TQ_LOCAL_WINDOW_SIZE) *
+								  ((gw_node->orig_node->router->tq_avg * 100) / TQ_LOCAL_WINDOW_SIZE) *
 								     (download_speed / 64))) > max_gw_factor) ||
-								  ((tmp_gw_factor == max_gw_factor) && (tmp_tq_avg > max_tq)))
+								  ((tmp_gw_factor == max_gw_factor) && (gw_node->orig_node->router->tq_avg > max_tq)))
 					tmp_curr_gw = gw_node;
 				break;
 
 			case 2:   /* stable connection (use best statistic) */
-				if (tmp_tq_avg > max_tq)
+				if (gw_node->orig_node->router->tq_avg > max_tq)
 					tmp_curr_gw = gw_node;
 				break;
 
 			default:  /* fast-switch (use best statistic but change as soon as a better gateway appears) */
-				if (tmp_tq_avg > max_tq)
+				if (gw_node->orig_node->router->tq_avg > max_tq)
 					tmp_curr_gw = gw_node;
 				break;
 
@@ -321,8 +315,8 @@ void choose_gw() {
 		if ( gw_node->orig_node->gwflags > max_gw_class )
 			max_gw_class = gw_node->orig_node->gwflags;
 
-		if (tmp_tq_avg > max_tq)
-			max_tq = tmp_tq_avg;
+		if (gw_node->orig_node->router->tq_avg > max_tq)
+			max_tq = gw_node->orig_node->router->tq_avg;
 
 		if ( tmp_gw_factor > max_gw_factor )
 			max_gw_factor = tmp_gw_factor;
@@ -332,7 +326,7 @@ void choose_gw() {
 			tmp_curr_gw = gw_node;
 
 			addr_to_string( tmp_curr_gw->orig_node->orig, orig_str, ADDR_STR_LEN );
-			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, tq: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, tmp_tq_avg, tmp_gw_factor );
+			debug_output( 3, "Preferred gateway found: %s (gw_flags: %i, tq: %i, gw_product: %i)\n", orig_str, gw_node->orig_node->gwflags, gw_node->orig_node->router->tq_avg, tmp_gw_factor );
 
 			break;
 
@@ -512,13 +506,12 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t 
 
 	debug_output( 3, "Found new gateway %s -> class: %i - %i%s/%i%s\n", orig_str, new_gwflags, ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ) );
 
-	gw_node = debugMalloc( sizeof(struct gw_node), 103 );
-	memset( gw_node, 0, sizeof(struct gw_node) );
+	gw_node = debugMalloc(sizeof(struct gw_node), 103);
+	memset(gw_node, 0, sizeof(struct gw_node));
 	INIT_LIST_HEAD( &gw_node->list );
 
 	gw_node->orig_node = orig_node;
 	gw_node->gw_port = gw_port;
-	gw_node->unavail_factor = 0;
 	gw_node->last_failure = get_time();
 
 	list_add_tail( &gw_node->list, &gw_list );

@@ -47,6 +47,8 @@ extern struct vis_if vis_if;
 static clock_t start_time;
 static float system_tick;
 
+uint8_t tunnel_running = 0;
+
 
 
 uint32_t get_time( void ) {
@@ -224,28 +226,34 @@ void del_default_route()
 
 
 
-int8_t add_default_route() {
-
+void add_default_route()
+{
 	struct curr_gw_data *curr_gw_data;
+
+	if (tunnel_running) {
+		debug_output(3, "Error - couldn't create tunnel: old tunnel is still active\n");
+		return;
+	}
 
 	curr_gw_data = debugMalloc( sizeof(struct curr_gw_data), 207 );
 	curr_gw_data->orig = curr_gateway->orig_node->orig;
 	curr_gw_data->gw_node = curr_gateway;
 	curr_gw_data->batman_if = curr_gateway->orig_node->batman_if;
 
-	if ( pthread_create( &curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gw_data ) != 0 ) {
+	tunnel_running = 1;
 
-		debug_output( 0, "Error - couldn't spawn thread: %s\n", strerror(errno) );
-		debugFree( curr_gw_data, 1213 );
+	if (pthread_create(&curr_gateway_thread_id, NULL, &client_to_gw_tun, curr_gw_data) != 0) {
+
+		debug_output(0, "Error - couldn't spawn thread: %s\n", strerror(errno));
+		debugFree(curr_gw_data, 1213);
 		curr_gateway = NULL;
+		tunnel_running = 0;
 
 	} else {
 
 		pthread_detach(curr_gateway_thread_id);
 
 	}
-
-	return 1;
 
 }
 

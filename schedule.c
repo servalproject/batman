@@ -152,6 +152,9 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 		}
 
+		/* apply hop penalty */
+		((struct bat_packet *)forw_node_new->pack_buff)->tq -= hop_penalty;
+
 		debug_output( 4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, ((struct bat_packet *)forw_node_new->pack_buff)->tq, in->ttl - 1, ((struct bat_packet *)forw_node_new->pack_buff)->ttl );
 
 		forw_node_new->send_time = get_time();

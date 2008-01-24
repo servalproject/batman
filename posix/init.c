@@ -231,19 +231,19 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	int32_t optchar, option_index, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
-	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0, neigh_points_opt = 0;
+	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0, hop_penalty_opt = 0;
 	uint32_t vis_server = 0;
 	static struct option long_options[] =
 	{
 		{"policy-routing-script",     required_argument,       0, 'n'},
-		{"neigh-points",     required_argument,       0, 'm'},
+		{"hop-penalty",     required_argument,       0, 'm'},
 		{0, 0, 0, 0}
 	};
 
 	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
 	stop = 0;
 	prog_name = argv[0];
-	neigh_points = 0;
+	hop_penalty = 0;
 
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
@@ -364,8 +364,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				errno = 0;
 
-				neigh_points = strtol( optarg, NULL, 10 );
-				neigh_points_opt = 1;
+				hop_penalty = strtol( optarg, NULL, 10 );
+				hop_penalty_opt = 1;
 
 				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
 				break;
@@ -440,15 +440,15 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'v':
 
-				printf( "B.A.T.M.A.N. %s%s (compatibility version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
+				printf("B.A.T.M.A.N. %s%s (compatibility version %i)\n", SOURCE_VERSION, (strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : ""), COMPAT_VERSION);
 				exit(EXIT_SUCCESS);
 
 			case 'V':
 
 				print_animation();
 
-				printf( "\x1B[0;0HB.A.T.M.A.N. %s%s (compatibility version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
-				printf( "\x1B[9;0H \t May the bat guide your path ...\n\n\n" );
+				printf("\x1B[0;0HB.A.T.M.A.N. %s%s (compatibility version %i)\n", SOURCE_VERSION, (strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : ""), COMPAT_VERSION);
+				printf("\x1B[9;0H \t May the bat guide your path ...\n\n\n");
 
 				exit(EXIT_SUCCESS);
 
@@ -633,7 +633,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 		} else {
 
-			printf( "B.A.T.M.A.N. %s%s (compatibility version %i)\n", SOURCE_VERSION, ( strncmp( REVISION_VERSION, "0", 1 ) != 0 ? REVISION_VERSION : "" ), COMPAT_VERSION );
+			printf("B.A.T.M.A.N. %s%s (compatibility version %i)\n", SOURCE_VERSION, (strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : ""), COMPAT_VERSION);
 
 			debug_clients.clients_num[ debug_level - 1 ]++;
 			debug_level_info = debugMalloc( sizeof(struct debug_level_info), 205 );
@@ -700,8 +700,8 @@ void apply_init_args( int argc, char *argv[] ) {
 				printf( "visualisation server: %s\n", str1 );
 			}
 
-			if ( neigh_points > 0 )
-				printf( "direct neighbor points: %i\n", neigh_points );
+			if ( hop_penalty > 0 )
+				printf( "hop penalty points: %i\n", hop_penalty );
 
 		}
 
@@ -752,10 +752,10 @@ more_hna:
 			batch_mode = 1;
 			snprintf( unix_buff, 10, "g:%c", gateway_class );
 
-		} else if (neigh_points_opt) {
+		} else if (hop_penalty_opt) {
 
 			batch_mode = 1;
-			snprintf(unix_buff, 10, "m:%c", neigh_points);
+			snprintf(unix_buff, 10, "m:%c", hop_penalty);
 
 		} else if ( info_output ) {
 

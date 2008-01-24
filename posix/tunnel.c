@@ -148,8 +148,8 @@ int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_
 }
 
 
-void *client_to_gw_tun( void *arg ) {
-
+void *client_to_gw_tun( void *arg )
+{
 	struct curr_gw_data *curr_gw_data = (struct curr_gw_data *)arg;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
 	struct timeval tv;
@@ -178,62 +178,40 @@ void *client_to_gw_tun( void *arg ) {
 
 
 	/* connect to server (establish udp tunnel) */
-	if ( ( udp_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
-
-		debug_output( 0, "Error - can't create udp socket: %s\n", strerror(errno) );
-		curr_gateway = NULL;
-		debugFree( arg, 1209 );
-		return NULL;
-
+	if ((udp_sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+		debug_output(0, "Error - can't create udp socket: %s\n", strerror(errno));
+		goto out;
 	}
 
-	if ( bind( udp_sock, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in) ) < 0 ) {
-
-		debug_output( 0, "Error - can't bind tunnel socket: %s\n", strerror(errno) );
-		close( udp_sock );
-		curr_gateway = NULL;
-		debugFree( arg, 1210 );
-		return NULL;
-
+	if (bind(udp_sock, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in)) < 0) {
+		debug_output(0, "Error - can't bind tunnel socket: %s\n", strerror(errno));
+		goto udp_out;
 	}
 
 
 	/* make udp socket non blocking */
-	sock_opts = fcntl( udp_sock, F_GETFL, 0 );
-	fcntl( udp_sock, F_SETFL, sock_opts | O_NONBLOCK );
+	sock_opts = fcntl(udp_sock, F_GETFL, 0);
+	fcntl(udp_sock, F_SETFL, sock_opts | O_NONBLOCK);
 
 
-	if ( get_tun_ip( &gw_addr, udp_sock, &my_tun_addr ) < 0 ) {
-
+	if (get_tun_ip(&gw_addr, udp_sock, &my_tun_addr) < 0) {
 		curr_gw_data->gw_node->last_failure = get_time();
-		curr_gw_data->gw_node->unavail_factor++;
+		curr_gw_data->gw_node->gw_failure++;
 
-		curr_gateway = NULL;
-		close( udp_sock );
-		debugFree( arg, 1210 );
-		return NULL;
-
+		goto udp_out;
 	}
 
 	ip_lease_time = get_time();
 
-	addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
-	addr_to_string( curr_gw_data->orig, gw_str, sizeof(gw_str) );
-	debug_output( 3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str );
+	addr_to_string(my_tun_addr, my_str, sizeof(my_str));
+	addr_to_string(curr_gw_data->orig, gw_str, sizeof(gw_str));
+	debug_output(3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str);
 
 
-	if ( add_dev_tun( curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0 ) {
-
-		add_del_route( 0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0 );
-
-	} else {
-
-		close( udp_sock );
-		curr_gateway = NULL;
-		debugFree( arg, 1211 );
-		return NULL;
-
-	}
+	if (add_dev_tun(curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0)
+		add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0);
+	else
+		goto udp_out;
 
 
 	FD_ZERO(&wait_sockets);
@@ -385,7 +363,7 @@ void *client_to_gw_tun( void *arg ) {
 				debug_output(3, "Gateway client - disconnecting from unresponsive gateway (%s): could not refresh IP lease \n", gw_str);
 
 				curr_gw_data->gw_node->last_failure = current_time;
-				curr_gw_data->gw_node->unavail_factor++;
+				curr_gw_data->gw_node->gw_failure++;
 				break;
 
 			}
@@ -398,7 +376,7 @@ void *client_to_gw_tun( void *arg ) {
 			debug_output( 3, "Gateway client - disconnecting from unresponsive gateway (%s): gateway seems to be a blackhole \n", gw_str );
 
 			curr_gw_data->gw_node->last_failure = current_time;
-			curr_gw_data->gw_node->unavail_factor++;
+			curr_gw_data->gw_node->gw_failure++;
 
 			break;
 
@@ -415,17 +393,18 @@ void *client_to_gw_tun( void *arg ) {
 	}
 
 	/* cleanup */
-	add_del_route( 0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1 );
+	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1);
+	del_dev_tun(tun_fd);
 
+udp_out:
 	close( udp_sock );
 
-	del_dev_tun( tun_fd );
-
+out:
 	curr_gateway = NULL;
-	debugFree( arg, 1212 );
+	tunnel_running = 0;
+	debugFree(arg, 1212);
 
 	return NULL;
-
 }
 
 struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_t *wip_hash, struct hashtable_t *vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
