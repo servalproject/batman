@@ -215,7 +215,7 @@ struct neigh_node
 	struct list_head list;
 	uint32_t addr;
 	uint8_t real_packet_count;
-	uint8_t tq_recv[TQ_GLOBAL_WINDOW_SIZE];
+	uint8_t tq_recv[TQ_GLOBAL_WINDOW_SIZE * 2];
 	uint8_t tq_index;
 	uint16_t tq_avg;
 	uint8_t last_ttl;
