@@ -231,20 +231,22 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	int32_t optchar, option_index, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
-	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0, hop_penalty_opt = 0;
+	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0;
+	char hop_penalty_opt = 0, purge_timeout_opt = 0, minimum_send_opt = 0, minimum_recv_opt = 0;
 	uint32_t vis_server = 0;
 	static struct option long_options[] =
 	{
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},
+		{"purge-timeout",     required_argument,       0, 'q'},
+		{"minimum-send",     required_argument,       0, 'w'},
+		{"minimum-recv",     required_argument,       0, 'x'},
 		{0, 0, 0, 0}
 	};
 
 	memset( &tmp_ip_holder, 0, sizeof (struct in_addr) );
 	stop = 0;
 	prog_name = argv[0];
-	hop_penalty = 0;
-
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
 
@@ -265,7 +267,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				add_hna_to_list(optarg, 1, 0);
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'b':
@@ -296,7 +298,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'g':
@@ -338,7 +340,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				gateway_class_opt = 1;
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'H':
@@ -357,7 +359,7 @@ void apply_init_args( int argc, char *argv[] ) {
 					exit(EXIT_FAILURE);
 				}
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'm':
@@ -367,7 +369,37 @@ void apply_init_args( int argc, char *argv[] ) {
 				hop_penalty = strtol( optarg, NULL, 10 );
 				hop_penalty_opt = 1;
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
+				break;
+
+			case 'q':
+
+				errno = 0;
+
+				purge_timeout = strtol(optarg, NULL, 10);
+				purge_timeout_opt = 1;
+
+				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
+				break;
+
+			case 'w':
+
+				errno = 0;
+
+				minimum_send = strtol(optarg, NULL, 10);
+				minimum_send_opt = 1;
+
+				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
+				break;
+
+			case 'x':
+
+				errno = 0;
+
+				minimum_recv = strtol(optarg, NULL, 10);
+				minimum_recv_opt = 1;
+
+				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
 				break;
 
 			case 'o':
@@ -383,7 +415,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				}
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'p':
@@ -401,7 +433,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				pref_gw_opt = 1;
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'r':
@@ -419,7 +451,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				routing_class_opt = 1;
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 's':
@@ -435,7 +467,7 @@ void apply_init_args( int argc, char *argv[] ) {
 				vis_server = tmp_ip_holder.s_addr;
 
 
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
 			case 'v':
@@ -700,9 +732,6 @@ void apply_init_args( int argc, char *argv[] ) {
 				printf( "visualisation server: %s\n", str1 );
 			}
 
-			if ( hop_penalty > 0 )
-				printf( "hop penalty points: %i\n", hop_penalty );
-
 		}
 
 	/* connect to running batmand via unix socket */
@@ -756,6 +785,21 @@ more_hna:
 
 			batch_mode = 1;
 			snprintf(unix_buff, 10, "m:%c", hop_penalty);
+
+		} else if (purge_timeout_opt) {
+
+			batch_mode = 1;
+			snprintf(unix_buff, 20, "q:%i", purge_timeout);
+
+		} else if (minimum_send_opt) {
+
+			batch_mode = 1;
+			snprintf(unix_buff, 10, "w:%c", minimum_send);
+
+		} else if (minimum_recv_opt) {
+
+			batch_mode = 1;
+			snprintf(unix_buff, 10, "x:%c", minimum_recv);
 
 		} else if ( info_output ) {
 

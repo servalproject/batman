@@ -40,17 +40,17 @@
 
 
 #define SOURCE_VERSION "0.3-beta" //put exactly one distinct word inside the string like "0.3-pre-alpha" or "0.3-rc1" or "0.3"
-#define COMPAT_VERSION 4
+#define COMPAT_VERSION 5
 #define PORT 4305
 #define GW_PORT 4306
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
-#define TQ_MAX_VALUE 255
+#define TQ_MAX_VALUE 999
 
 #define UNIX_PATH "/var/run/batmand.socket"
 
-#define VIS_COMPAT_VERSION 21
+#define VIS_COMPAT_VERSION 22
 
 
 
@@ -82,12 +82,13 @@
 #define TTL 50                /* Time To Live of broadcast messages */
 #define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on TQ_LOCAL_WINDOW_SIZE */
 #define TQ_LOCAL_WINDOW_SIZE 64     /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
-#define TQ_TOTAL_WINDOW_SIZE 10
+#define TQ_GLOBAL_WINDOW_SIZE 10
 #define TQ_LOCAL_BIDRECT_SEND_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
 #define TQ_LOCAL_BIDRECT_RECV_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
 #define TQ_TOTAL_BIDRECT_LIMIT 1
 
 #define PERFECT_TQ_PENALTY 5
+#define TQ_HOP_PENALTY 30
 
 
 #define NUM_WORDS ( TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE )
@@ -171,8 +172,11 @@ extern struct debug_clients debug_clients;
 
 extern pthread_mutex_t hna_chg_list_mutex;
 
-extern uint8_t hop_penalty;
 extern uint8_t tunnel_running;
+extern uint8_t hop_penalty;
+extern uint32_t purge_timeout;
+extern uint8_t minimum_send;
+extern uint8_t minimum_recv;
 
 struct bat_packet
 {
@@ -184,7 +188,8 @@ struct bat_packet
 	uint16_t gwport;
 	uint32_t orig;
 	uint32_t old_orig;
-	uint8_t  tq;
+	uint16_t tq;
+	uint8_t hna_len;
 } __attribute__((packed));
 
 struct orig_node                 /* structure for orig_list maintaining nodes of mesh */
@@ -194,7 +199,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct batman_if *batman_if;
 	TYPE_OF_WORD *bcast_own;
 	uint8_t *bcast_own_sum;
-	uint8_t tq_own;
+	uint16_t tq_own;
 	int tq_asym_penality;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
@@ -210,9 +215,9 @@ struct neigh_node
 	struct list_head list;
 	uint32_t addr;
 	uint8_t real_packet_count;
-	uint8_t tq_recv[TQ_TOTAL_WINDOW_SIZE];
+	uint8_t tq_recv[TQ_GLOBAL_WINDOW_SIZE];
 	uint8_t tq_index;
-	uint8_t tq_avg;
+	uint16_t tq_avg;
 	uint8_t last_ttl;
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD real_bits[NUM_WORDS];

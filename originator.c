@@ -147,7 +147,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	struct list_head *list_pos;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_tq = 0, max_bcast_own = 0;
+	uint8_t max_bcast_own = 0;
+	uint16_t max_tq = 0;
 	prof_start( PROF_update_originator );
 
 
@@ -254,7 +255,8 @@ void purge_orig( uint32_t curr_time ) {
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
-	uint8_t gw_purged = 0, neigh_purged, max_tq;
+	uint8_t gw_purged = 0, neigh_purged;
+	uint16_t max_tq;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	prof_start( PROF_purge_originator );
 
@@ -264,7 +266,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		orig_node = hashit->bucket->data;
 
-		if ( (int)( ( orig_node->last_valid + ( 2 * PURGE_TIMEOUT ) ) < curr_time ) ) {
+		if ( (int)( ( orig_node->last_valid + ( 2 * purge_timeout ) ) < curr_time ) ) {
 
 			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 			debug_output( 4, "Originator timeout: originator %s, last_valid %u \n", orig_str, orig_node->last_valid );
@@ -320,7 +322,7 @@ void purge_orig( uint32_t curr_time ) {
 
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
-				if ( (int)( ( neigh_node->last_valid + PURGE_TIMEOUT ) < curr_time ) ) {
+				if ( (int)( ( neigh_node->last_valid + purge_timeout ) < curr_time ) ) {
 
 					addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 					addr_to_string( neigh_node->addr, neigh_str, ADDR_STR_LEN );
@@ -372,7 +374,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		gw_node = list_entry(gw_pos, struct gw_node, list);
 
-		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + (2 * PURGE_TIMEOUT)) < curr_time) ) ) {
+		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + (2 * purge_timeout)) < curr_time) ) ) {
 
 			list_del( prev_list_head, gw_pos, &gw_list );
 			debugFree( gw_pos, 1406 );

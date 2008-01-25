@@ -110,7 +110,11 @@ pthread_mutex_t hna_chg_list_mutex;
 
 unsigned char *vis_packet = NULL;
 uint16_t vis_packet_size = 0;
-uint8_t hop_penalty;
+
+uint8_t hop_penalty = TQ_HOP_PENALTY;
+uint32_t purge_timeout = PURGE_TIMEOUT;
+uint8_t minimum_send = TQ_LOCAL_BIDRECT_SEND_MINIMUM;
+uint8_t minimum_recv = TQ_LOCAL_BIDRECT_RECV_MINIMUM;
 
 
 
@@ -241,7 +245,8 @@ void choose_gw() {
 
 	struct list_head *pos;
 	struct gw_node *gw_node, *tmp_curr_gw = NULL;
-	uint8_t max_gw_class = 0, max_tq = 0;
+	uint8_t max_gw_class = 0;
+	uint16_t max_tq = 0;
 	uint32_t current_time, max_gw_factor = 0, tmp_gw_factor = 0;
 	int download_speed, upload_speed;
 	static char orig_str[ADDR_STR_LEN];
@@ -671,7 +676,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 	/* if we have too few packets (too less data) we set tq_own to zero */
 	/* if we receive too few packets it is not considered bidirectional */
-	if ( ( total_count < TQ_LOCAL_BIDRECT_SEND_MINIMUM ) || ( neigh_node->real_packet_count < TQ_LOCAL_BIDRECT_RECV_MINIMUM ) ) {
+	if ( ( total_count < minimum_send ) || ( neigh_node->real_packet_count < minimum_recv ) ) {
 
 		orig_neigh_node->tq_own = 0;
 
@@ -752,7 +757,7 @@ void generate_vis_packet() {
 
 			memcpy( &vis_data->ip, (unsigned char *)&orig_node->orig, 4 );
 
-			vis_data->data = orig_node->router->tq_avg;
+			vis_data->data = htons(orig_node->router->tq_avg);
 			vis_data->type = DATA_TYPE_NEIGH;
 
 		}
@@ -1331,7 +1336,7 @@ int8_t batman() {
 	if ( debug_level > 0 )
 		printf( "Deleting all BATMAN routes\n" );
 
-	purge_orig( get_time() + ( 5 * PURGE_TIMEOUT ) + originator_interval );
+	purge_orig( get_time() + ( 5 * purge_timeout ) + originator_interval );
 
 	hash_destroy( orig_hash );
 

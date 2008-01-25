@@ -128,12 +128,14 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "unix_socket_path=%s\n", UNIX_PATH);
 	dprintf(sock, "own_ogm_jitter=%i\n", JITTER);
 	dprintf(sock, "default_ttl=%i\n", TTL);
-	dprintf(sock, "originator_timeout=%i\n", PURGE_TIMEOUT);
+	dprintf(sock, "originator_timeout=%i (default: %i)\n", purge_timeout, PURGE_TIMEOUT);
 	dprintf(sock, "tq_local_window_size=%i\n", TQ_LOCAL_WINDOW_SIZE);
-	dprintf(sock, "tq_total_window_size=%i\n", TQ_TOTAL_WINDOW_SIZE);
-	dprintf(sock, "tq_local_bidirect_send_minimum=%i\n", TQ_LOCAL_BIDRECT_SEND_MINIMUM);
-	dprintf(sock, "tq_local_bidirect_recv_minimum=%i\n", TQ_LOCAL_BIDRECT_RECV_MINIMUM);
+	dprintf(sock, "tq_global_window_size=%i\n", TQ_GLOBAL_WINDOW_SIZE);
+	dprintf(sock, "tq_local_bidirect_send_minimum=%i (default: %i)\n", minimum_send, TQ_LOCAL_BIDRECT_SEND_MINIMUM);
+	dprintf(sock, "tq_local_bidirect_recv_minimum=%i (default: %i)\n", minimum_recv, TQ_LOCAL_BIDRECT_RECV_MINIMUM);
+	dprintf(sock, "tq_hop_penalty=%i (default: %i)\n", hop_penalty, TQ_HOP_PENALTY);
 	dprintf(sock, "tq_total_limit=%i\n", TQ_TOTAL_BIDRECT_LIMIT);
+	dprintf(sock, "tq_max_value=%i\n", TQ_MAX_VALUE);
 	dprintf(sock, "perfect_tq_penalty=%i\n", PERFECT_TQ_PENALTY);
 	dprintf(sock, "rt_table_networks=%i\n", BATMAN_RT_TABLE_NETWORKS);
 	dprintf(sock, "rt_table_hosts=%i\n", BATMAN_RT_TABLE_HOSTS);
@@ -359,6 +361,33 @@ void *unix_listen( void *arg ) {
 								if ( status > 2 ) {
 									debug_output(3, "Unix socket: changing hop penalty points from: %i to: %i\n", hop_penalty, buff[2]);
 									hop_penalty = buff[2];
+								}
+
+								dprintf( unix_client->sock, "EOD\n" );
+
+							} else if ( buff[0] == 'q' ) {
+
+								if ( status > 2 ) {
+									debug_output(3, "Unix socket: changing purge timeout from: %i to: %i\n", purge_timeout, strtol(buff + 2, NULL, 10));
+									purge_timeout = strtol(buff + 2, NULL, 10);
+								}
+
+								dprintf( unix_client->sock, "EOD\n" );
+
+							} else if ( buff[0] == 'w' ) {
+
+								if ( status > 2 ) {
+									debug_output(3, "Unix socket: changing minimum send from: %i to: %i\n", minimum_send, buff[2]);
+									minimum_send = buff[2];
+								}
+
+								dprintf( unix_client->sock, "EOD\n" );
+
+							} else if ( buff[0] == 'x' ) {
+
+								if ( status > 2 ) {
+									debug_output(3, "Unix socket: changing minimum recv from: %i to: %i\n", minimum_recv, buff[2]);
+									minimum_recv = buff[2];
 								}
 
 								dprintf( unix_client->sock, "EOD\n" );

@@ -100,7 +100,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t unidirectional, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing) {
 
 	struct forw_node *forw_node_new;
-	uint8_t tq_avg = 0;
+	uint16_t tq_avg = 0;
 	prof_start( PROF_schedule_forward_packet );
 
 	debug_output( 4, "schedule_forward_packet():  \n" );
@@ -212,8 +212,9 @@ void send_outstanding_packets() {
 
 			directlink = ( ( ((struct bat_packet *)forw_node->pack_buff)->flags & DIRECTLINK ) ? 1 : 0 );
 
-			/* change sequence number to network order */
-			((struct bat_packet *)forw_node->pack_buff)->seqno = htons( ((struct bat_packet *)forw_node->pack_buff)->seqno );
+			/* change sequence number and tq to network order */
+			((struct bat_packet *)forw_node->pack_buff)->seqno = htons(((struct bat_packet *)forw_node->pack_buff)->seqno);
+			((struct bat_packet *)forw_node->pack_buff)->tq = htons(((struct bat_packet *)forw_node->pack_buff)->tq);
 
 
 			if ( ((struct bat_packet *)forw_node->pack_buff)->flags & UNIDIRECTIONAL ) {
