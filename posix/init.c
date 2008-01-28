@@ -239,6 +239,8 @@ void apply_init_args( int argc, char *argv[] ) {
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},
 		{"purge-timeout",     required_argument,       0, 'q'},
+		{"global-win-size",     required_argument,       0, 't'},
+		{"local-win-size",     required_argument,       0, 'u'},
 		{"minimum-send",     required_argument,       0, 'w'},
 		{"minimum-recv",     required_argument,       0, 'x'},
 		{0, 0, 0, 0}
@@ -382,6 +384,25 @@ void apply_init_args( int argc, char *argv[] ) {
 				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
 				break;
 
+			case 't':
+
+				errno = 0;
+
+				global_win_size = strtol(optarg, NULL, 10);
+
+				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
+				break;
+
+			case 'u':
+
+				errno = 0;
+
+				local_win_size = strtol(optarg, NULL, 10);
+				num_words = local_win_size / WORD_BIT_SIZE;
+
+				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
+				break;
+
 			case 'w':
 
 				errno = 0;
@@ -440,15 +461,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				errno = 0;
 
-				routing_class = strtol( optarg, NULL, 10 );
-
-				if ( routing_class > 3 ) {
-
-					printf( "Invalid routing class specified: %i.\nThe class is a value between 0 and 3.\n", routing_class );
-					exit(EXIT_FAILURE);
-
-				}
-
+				routing_class = strtol(optarg, NULL, 10);
 				routing_class_opt = 1;
 
 				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
@@ -525,7 +538,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	/* use routing class 1 if none specified */
 	if ( ( routing_class == 0 ) && ( pref_gateway != 0 ) )
-		routing_class = 1;
+		routing_class = DEFAULT_ROUTING_CLASS;
 
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun(1) ) )
 		exit(EXIT_FAILURE);

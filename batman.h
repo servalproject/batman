@@ -89,9 +89,9 @@
 
 #define PERFECT_TQ_PENALTY 5
 #define TQ_HOP_PENALTY 30
+#define DEFAULT_ROUTING_CLASS 30
 
 
-#define NUM_WORDS ( TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE )
 
 
 
@@ -177,6 +177,9 @@ extern uint8_t hop_penalty;
 extern uint32_t purge_timeout;
 extern uint8_t minimum_send;
 extern uint8_t minimum_recv;
+extern uint8_t global_win_size;
+extern uint8_t local_win_size;
+extern uint8_t num_words;
 
 struct bat_packet
 {
@@ -200,7 +203,7 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	TYPE_OF_WORD *bcast_own;
 	uint8_t *bcast_own_sum;
 	uint16_t tq_own;
-	int tq_asym_penality;
+	int tq_asym_penalty;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
@@ -215,12 +218,12 @@ struct neigh_node
 	struct list_head list;
 	uint32_t addr;
 	uint8_t real_packet_count;
-	uint8_t tq_recv[TQ_GLOBAL_WINDOW_SIZE * 2];
+	uint16_t *tq_recv;
 	uint8_t tq_index;
 	uint16_t tq_avg;
 	uint8_t last_ttl;
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
-	TYPE_OF_WORD real_bits[NUM_WORDS];
+	TYPE_OF_WORD *real_bits;
 	struct orig_node *orig_node;
 	struct batman_if *if_incoming;
 };

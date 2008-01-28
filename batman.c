@@ -115,6 +115,9 @@ uint8_t hop_penalty = TQ_HOP_PENALTY;
 uint32_t purge_timeout = PURGE_TIMEOUT;
 uint8_t minimum_send = TQ_LOCAL_BIDRECT_SEND_MINIMUM;
 uint8_t minimum_recv = TQ_LOCAL_BIDRECT_RECV_MINIMUM;
+uint8_t global_win_size = TQ_GLOBAL_WINDOW_SIZE;
+uint8_t local_win_size = TQ_LOCAL_WINDOW_SIZE;
+uint8_t num_words = (TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE);
 
 
 
@@ -179,10 +182,11 @@ void verbose_usage( void ) {
 	fprintf( stderr, "       -p preferred gateway\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -r routing class (only needed if gateway class = 0)\n" );
-	fprintf( stderr, "          default:         0 -> set no default route\n" );
-	fprintf( stderr, "          allowed values:  1 -> use fast internet connection (gw_flags * TQ)\n" );
-	fprintf( stderr, "                           2 -> use stable internet connection (TQ)\n" );
-	fprintf( stderr, "                           3 -> use fast-switch internet connection (TQ but switch as soon as a better gateway appears)\n\n" );
+	fprintf( stderr, "          default:         0  -> set no default route\n" );
+	fprintf( stderr, "          allowed values:  1  -> use fast internet connection (gw_flags * TQ)\n" );
+	fprintf( stderr, "                           2  -> use stable internet connection (TQ)\n" );
+	fprintf( stderr, "                           3  -> use fast-switch internet connection (TQ but switch as soon as a better gateway appears)\n\n" );
+	fprintf( stderr, "                           XX -> use late-switch internet connection (TQ but switch as soon as a gateway appears which is XX TQ better)\n\n" );
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
@@ -252,7 +256,7 @@ void choose_gw() {
 	static char orig_str[ADDR_STR_LEN];
 	prof_start( PROF_choose_gw );
 
-	if ( ( routing_class == 0 ) || ( ( current_time = get_time() ) < originator_interval * TQ_LOCAL_WINDOW_SIZE ) ) {
+	if ((routing_class == 0) || ((current_time = get_time()) < originator_interval * local_win_size)) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -295,22 +299,19 @@ void choose_gw() {
 
 		switch ( routing_class ) {
 
-			case 1:   /* fast connection */
+			case 1: /* fast connection */
 				get_gw_speeds( gw_node->orig_node->gwflags, &download_speed, &upload_speed );
 
-				if (((tmp_gw_factor = (((gw_node->orig_node->router->tq_avg * 100 ) / TQ_LOCAL_WINDOW_SIZE) *
-								  ((gw_node->orig_node->router->tq_avg * 100) / TQ_LOCAL_WINDOW_SIZE) *
+				if (((tmp_gw_factor = (((gw_node->orig_node->router->tq_avg * 100 ) / local_win_size) *
+								  ((gw_node->orig_node->router->tq_avg * 100) / local_win_size) *
 								     (download_speed / 64))) > max_gw_factor) ||
 								  ((tmp_gw_factor == max_gw_factor) && (gw_node->orig_node->router->tq_avg > max_tq)))
 					tmp_curr_gw = gw_node;
 				break;
 
-			case 2:   /* stable connection (use best statistic) */
-				if (gw_node->orig_node->router->tq_avg > max_tq)
-					tmp_curr_gw = gw_node;
-				break;
-
-			default:  /* fast-switch (use best statistic but change as soon as a better gateway appears) */
+			default: /* stable connection (use best statistic) */
+				 /* fast-switch (use best statistic but change as soon as a better gateway appears) */
+				 /* late-switch (use best statistic but change as soon as a better gateway appears which has $routing_class more tq points) */
 				if (gw_node->orig_node->router->tq_avg > max_tq)
 					tmp_curr_gw = gw_node;
 				break;
@@ -691,18 +692,18 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	/* this does affect the nearly-symmetric links only a little,
 	 * but punishes asymetric links more. */
 	/* this will give a value between 0 and TQ_MAX_VALUE */
-	orig_neigh_node->tq_asym_penality = TQ_MAX_VALUE - (TQ_MAX_VALUE * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count) * (TQ_LOCAL_WINDOW_SIZE - neigh_node->real_packet_count))
-										/ (TQ_LOCAL_WINDOW_SIZE * TQ_LOCAL_WINDOW_SIZE);
+	orig_neigh_node->tq_asym_penalty = TQ_MAX_VALUE - (TQ_MAX_VALUE * (local_win_size - neigh_node->real_packet_count) * (local_win_size - neigh_node->real_packet_count))
+										/ (local_win_size * local_win_size);
 
-	in->tq = ((in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penality) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
+	in->tq = ((in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penalty) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
 
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 
-	/*debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penality: %3i, total tq: %3i \n",
-	orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penality, in->tq );*/
-	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penality: %3i, total tq: %3i \n",
-		      orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penality, in->tq );
+	/*debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penalty: %3i, total tq: %3i \n",
+	orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penalty, in->tq );*/
+	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penalty: %3i, total tq: %3i \n",
+		      orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penalty, in->tq );
 
 	/* if link has the minimum required transmission quality consider it bidirectional */
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)
@@ -1096,8 +1097,8 @@ int8_t batman() {
 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
 
 					debug_output( 4, "count own bcast (is_my_orig): old = %i, ", orig_neigh_node->bcast_own_sum[if_incoming->if_num] );
-					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]), 0 );
-					orig_neigh_node->bcast_own_sum[if_incoming->if_num] = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * NUM_WORDS]) );
+					bit_mark( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * num_words]), 0 );
+					orig_neigh_node->bcast_own_sum[if_incoming->if_num] = bit_packet_count( (TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * num_words]) );
 					debug_output( 4, "new = %i \n", orig_neigh_node->bcast_own_sum[if_incoming->if_num] );
 
 				}

@@ -97,16 +97,18 @@ The routing class can be set to four values - it enables "internet search modus"
 default: 0 -> set no default route
 .RE
 .RS 10
-allowed values: 1 -> use fast connection
+allowed values: 1  -> use fast connection
 .RE
 .RS 25
- 2 -> use stable connection
- 3 -> use fast-switch connection
+ 2  -> use stable connection
+ 3  -> use fast-switch connection
+ XX -> use late-switch connection
 .RE
 .RS 7
 In level 1, B.A.T.M.A.N tries to find the best available connection by watching the uplinks throughput and the link quality.
-In level 2, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best connection.
-In level 3, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best connection but switches to another gateway as soon as a better connection is found.
+In level 2, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best link quality.
+In level 3, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best link quality but switches to another gateway as soon as a better connection is found.
+In level XX (number between 3 and 256) B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best link quality but switches to another gateway as soon as this gateway has a TQ value which is XX better than the currently selected gateway.
 .RE
 .TP
 .B \-s visualization server

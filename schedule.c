@@ -87,8 +87,8 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 		orig_node = hashit->bucket->data;
 
 		debug_output( 4, "count own bcast (schedule_own_packet): old = %i, ", orig_node->bcast_own_sum[batman_if->if_num] );
-		bit_get_packet( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]), 1, 0 );
-		orig_node->bcast_own_sum[batman_if->if_num] = bit_packet_count( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * NUM_WORDS]) );
+		bit_get_packet( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * num_words]), 1, 0 );
+		orig_node->bcast_own_sum[batman_if->if_num] = bit_packet_count( (TYPE_OF_WORD *)&(orig_node->bcast_own[batman_if->if_num * num_words]) );
 		debug_output( 4, "new = %i \n", orig_node->bcast_own_sum[batman_if->if_num] );
 
 	}
@@ -147,13 +147,13 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 			tq_avg = orig_node->router->tq_avg;
 
-			if ((orig_node->router->orig_node->tq_own > TQ_MAX_VALUE - PERFECT_TQ_PENALTY) && (orig_node->router->orig_node->tq_asym_penality > TQ_MAX_VALUE - PERFECT_TQ_PENALTY))
+			if ((orig_node->router->orig_node->tq_own > TQ_MAX_VALUE - PERFECT_TQ_PENALTY) && (orig_node->router->orig_node->tq_asym_penalty > TQ_MAX_VALUE - PERFECT_TQ_PENALTY))
 				((struct bat_packet *)forw_node_new->pack_buff)->tq -= PERFECT_TQ_PENALTY;
 
 		}
 
 		/* apply hop penalty */
-		((struct bat_packet *)forw_node_new->pack_buff)->tq -= hop_penalty;
+		((struct bat_packet *)forw_node_new->pack_buff)->tq = (((struct bat_packet *)forw_node_new->pack_buff)->tq * (TQ_MAX_VALUE - hop_penalty)) / (TQ_MAX_VALUE);
 
 		debug_output( 4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, ((struct bat_packet *)forw_node_new->pack_buff)->tq, in->ttl - 1, ((struct bat_packet *)forw_node_new->pack_buff)->ttl );
 

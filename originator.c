@@ -43,6 +43,12 @@ struct neigh_node * create_neighbor(struct orig_node *orig_node, struct orig_nod
 	neigh_node->orig_node = orig_neigh_node;
 	neigh_node->if_incoming = if_incoming;
 
+	neigh_node->tq_recv = debugMalloc(sizeof(uint16_t) * global_win_size, 406);
+	memset(neigh_node->tq_recv, 0, sizeof(uint16_t) * global_win_size);
+
+	neigh_node->real_bits = debugMalloc(sizeof(TYPE_OF_WORD) * num_words, 407);
+	memset(neigh_node->real_bits, 0, sizeof(TYPE_OF_WORD) * num_words);
+
 	list_add_tail(&neigh_node->list, &orig_node->neigh_list);
 
 	return neigh_node;
@@ -113,8 +119,8 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 	orig_node->router = NULL;
 	orig_node->batman_if = NULL;
 
-	orig_node->bcast_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS, 404 );
-	memset( orig_node->bcast_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * NUM_WORDS );
+	orig_node->bcast_own = debugMalloc( found_ifs * sizeof(TYPE_OF_WORD) * num_words, 404 );
+	memset( orig_node->bcast_own, 0, found_ifs * sizeof(TYPE_OF_WORD) * num_words );
 
 	orig_node->bcast_own_sum = debugMalloc( found_ifs * sizeof(uint8_t), 405 );
 	memset( orig_node->bcast_own_sum, 0, found_ifs * sizeof(uint8_t) );
@@ -228,14 +234,22 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	orig_node->gwflags = in->gwflags;
 
 
-	/* restart gateway selection if we have more packets and routing class 3 */
-	if ( ( routing_class == 3 ) && ( orig_node->gwflags != 0 ) && ( curr_gateway != NULL ) ) {
+	/* restart gateway selection if we have more packets and fast or late switching enabled */
+	if ((routing_class > 2) && (orig_node->gwflags != 0) && (curr_gateway != NULL)) {
 
-		if ( ( curr_gateway->orig_node != orig_node ) && ((pref_gateway == 0) || (pref_gateway == orig_node->orig)) && ( curr_gateway->orig_node->router->tq_avg < orig_node->router->tq_avg ) ) {
+		/* if the node is not our current gateway and
+		   we have preferred gateray disabled and a better tq value or we found our preferred gateway */
+		if ((curr_gateway->orig_node != orig_node) &&
+				   (((pref_gateway == 0) && (orig_node->router->tq_avg > curr_gateway->orig_node->router->tq_avg)) || (pref_gateway == orig_node->orig))) {
 
-			debug_output(3, "Gateway client - restart gateway selection: better gateway found (tq curr: %i, tq new: %i) \n", curr_gateway->orig_node->router->tq_avg, orig_node->router->tq_avg);
+			/* it is our preferred gateway or we have fast switching or the tq is $routing_class better than our old tq */
+			if ((pref_gateway == orig_node->orig) || (routing_class == 3) || (orig_node->router->tq_avg - curr_gateway->orig_node->router->tq_avg >= routing_class)) {
 
-			del_default_route();
+				debug_output(3, "Gateway client - restart gateway selection: better gateway found (tq curr: %i, tq new: %i) \n", curr_gateway->orig_node->router->tq_avg, orig_node->router->tq_avg);
+
+				del_default_route();
+
+			}
 
 		}
 
@@ -278,8 +292,10 @@ void purge_orig( uint32_t curr_time ) {
 
 				neigh_node = list_entry(neigh_pos, struct neigh_node, list);
 
-				list_del( (struct list_head *)&orig_node->neigh_list, neigh_pos, &orig_node->neigh_list );
-				debugFree( neigh_node, 1401 );
+				list_del((struct list_head *)&orig_node->neigh_list, neigh_pos, &orig_node->neigh_list);
+				debugFree(neigh_node->tq_recv, 1407);
+				debugFree(neigh_node->real_bits, 1409);
+				debugFree(neigh_node, 1401);
 
 			}
 
@@ -344,8 +360,10 @@ void purge_orig( uint32_t curr_time ) {
 					}
 
 					neigh_purged = 1;
-					list_del( prev_list_head, neigh_pos, &orig_node->neigh_list );
-					debugFree( neigh_node, 1406 );
+					list_del(prev_list_head, neigh_pos, &orig_node->neigh_list);
+					debugFree(neigh_node->tq_recv, 1408);
+					debugFree(neigh_node->real_bits, 1410);
+					debugFree(neigh_node, 1406);
 
 				} else {
 

@@ -129,8 +129,8 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "own_ogm_jitter=%i\n", JITTER);
 	dprintf(sock, "default_ttl=%i\n", TTL);
 	dprintf(sock, "originator_timeout=%i (default: %i)\n", purge_timeout, PURGE_TIMEOUT);
-	dprintf(sock, "tq_local_window_size=%i\n", TQ_LOCAL_WINDOW_SIZE);
-	dprintf(sock, "tq_global_window_size=%i\n", TQ_GLOBAL_WINDOW_SIZE);
+	dprintf(sock, "tq_local_window_size=%i (default: %i)\n", local_win_size, TQ_LOCAL_WINDOW_SIZE);
+	dprintf(sock, "tq_global_window_size=%i (default: %i)\n", global_win_size, TQ_GLOBAL_WINDOW_SIZE);
 	dprintf(sock, "tq_local_bidirect_send_minimum=%i (default: %i)\n", minimum_send, TQ_LOCAL_BIDRECT_SEND_MINIMUM);
 	dprintf(sock, "tq_local_bidirect_recv_minimum=%i (default: %i)\n", minimum_recv, TQ_LOCAL_BIDRECT_RECV_MINIMUM);
 	dprintf(sock, "tq_hop_penalty=%i (default: %i)\n", hop_penalty, TQ_HOP_PENALTY);

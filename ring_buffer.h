@@ -24,5 +24,5 @@
 
 
 
-void ring_buffer_set(uint8_t lq_recv[], uint8_t *lq_index, uint16_t value);
-uint16_t ring_buffer_avg( uint8_t lq_recv[] );
+void ring_buffer_set(uint16_t tq_recv[], uint8_t *tq_index, uint16_t value);
+uint16_t ring_buffer_avg(uint16_t tq_recv[]);
