@@ -46,6 +46,13 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 	va_list args;
 
 
+	if (!log_facility_active) {
+		va_start( args, format );
+		vprintf( format, args );
+		va_end( args );
+		return;
+	}
+
 	if ( debug_prio == 0 ) {
 
 		if ( debug_level == 0 ) {

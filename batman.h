@@ -153,10 +153,12 @@ extern struct gw_node *curr_gateway;
 extern pthread_t curr_gateway_thread_id;
 
 extern uint8_t found_ifs;
+extern uint8_t active_ifs;
 extern int32_t receive_max_sock;
 extern fd_set receive_wait_set;
 
 extern uint8_t unix_client;
+extern uint8_t log_facility_active;
 
 extern struct hashtable_t *orig_hash;
 
@@ -264,7 +266,8 @@ struct batman_if
 	int32_t udp_send_sock;
 	int32_t udp_recv_sock;
 	int32_t udp_tunnel_sock;
-	int16_t if_num;
+	uint8_t if_num;
+	uint8_t if_active;
 	int32_t if_index;
 	uint8_t if_rp_filter_old;
 	uint8_t if_send_redirects_old;
@@ -274,7 +277,6 @@ struct batman_if
 	uint32_t netaddr;
 	uint8_t netmask;
 	struct bat_packet out;
-// 	struct batgat_ioc_args *gate_params;
 };
 
 struct gw_client

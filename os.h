@@ -49,8 +49,10 @@ int8_t add_dev_tun( struct batman_if *batman_if, uint32_t dest_addr, char *tun_d
 int8_t set_tun_addr( int32_t fd, uint32_t tun_addr, char *tun_dev );
 
 /* init.c */
-void apply_init_args( int argc, char *argv[] );
-void init_interface( struct batman_if *batman_if );
+void apply_init_args(int argc, char *argv[]);
+void init_interface(struct batman_if *batman_if);
+void deactivate_interface(struct batman_if *batman_if);
+void check_inactive_interfaces();
 void init_interface_gw();
 
 /* kernel.c */
@@ -61,7 +63,6 @@ int32_t get_send_redirects( char *dev );
 void set_forwarding( int32_t state );
 int32_t get_forwarding( void );
 int8_t bind_to_iface( int32_t sock, char *dev );
-int8_t use_kernel_module( char *dev );
 int8_t use_gateway_module();
 
 /* posix.c */
@@ -69,7 +70,7 @@ void print_animation( void );
 void del_default_route();
 void add_default_route();
 int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming );
-int8_t send_udp_packet( unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock );
+int8_t send_udp_packet(unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock, struct batman_if *batman_if);
 void del_gw_interface();
 void restore_defaults();
 void cleanup();

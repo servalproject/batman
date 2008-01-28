@@ -88,10 +88,12 @@ unsigned char *hna_buff = NULL;
 uint8_t num_hna = 0;
 
 uint8_t found_ifs = 0;
+uint8_t active_ifs = 0;
 int32_t receive_max_sock = 0;
 fd_set receive_wait_set;
 
 uint8_t unix_client = 0;
+uint8_t log_facility_active = 0;
 
 struct hashtable_t *orig_hash;
 
@@ -841,7 +843,7 @@ void send_vis_packet() {
 	generate_vis_packet();
 
 	if ( vis_packet != NULL )
-		send_udp_packet( vis_packet, vis_packet_size, &vis_if.addr, vis_if.sock );
+		send_udp_packet(vis_packet, vis_packet_size, &vis_if.addr, vis_if.sock, NULL);
 
 }
 
@@ -1219,6 +1221,8 @@ int8_t batman() {
 			purge_orig( curr_time );
 
 			debug_orig();
+
+			check_inactive_interfaces();
 
 			if ( debug_clients.clients_num[4] > 0 ) {
 

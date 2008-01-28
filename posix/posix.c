@@ -329,17 +329,20 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 
 
 
-int8_t send_udp_packet( unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock ) {
+int8_t send_udp_packet(unsigned char *packet_buff, int32_t packet_buff_len, struct sockaddr_in *broad, int32_t send_sock, struct batman_if *batman_if)
+{
+	if ((batman_if != NULL) && (!batman_if->if_active))
+		return 0;
 
 	if ( sendto( send_sock, packet_buff, packet_buff_len, 0, (struct sockaddr *)broad, sizeof(struct sockaddr_in) ) < 0 ) {
 
 		if ( errno == 1 ) {
 
-			debug_output( 0, "Error - can't send udp packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs( broad->sin_port ) );
+			debug_output(0, "Error - can't send udp packet: %s.\nDoes your firewall allow outgoing packets on port %i ?\n", strerror(errno), ntohs(broad->sin_port));
 
 		} else {
 
-			debug_output( 0, "Error - can't send udp packet: %s.\n", strerror(errno) );
+			debug_output(0, "Error - can't send udp packet: %s\n", strerror(errno));
 
 		}
 
@@ -400,15 +403,7 @@ void restore_defaults() {
 
 		batman_if = list_entry( if_pos, struct batman_if, list );
 
-		close( batman_if->udp_recv_sock );
-		close( batman_if->udp_send_sock );
-
-		if ( ( batman_if->netaddr > 0 ) && ( batman_if->netmask > 0 ) ) {
-
-			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, 1, 1 );
-			add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, 1, 1 );
-
-		}
+		deactivate_interface(batman_if);
 
 		list_del( (struct list_head *)&if_list, if_pos, &if_list );
 		debugFree( if_pos, 1214 );
