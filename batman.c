@@ -112,6 +112,7 @@ unsigned char *vis_packet = NULL;
 uint16_t vis_packet_size = 0;
 
 uint8_t hop_penalty = TQ_HOP_PENALTY;
+uint8_t asym_power = TQ_ASYM_POWER;
 uint32_t purge_timeout = PURGE_TIMEOUT;
 uint8_t minimum_send = TQ_LOCAL_BIDRECT_SEND_MINIMUM;
 uint8_t minimum_recv = TQ_LOCAL_BIDRECT_RECV_MINIMUM;
@@ -627,6 +628,15 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 
 }
 
+/* don't use math lib */
+float my_powf(float x, int y) {
+	int i;
+	float ret;
+	for (ret=1, i = 0; i< y; i++) 
+		ret *= x;
+	return(ret);
+}
+
 
 
 int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming, uint8_t is_duplicate) {
@@ -689,12 +699,12 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 	}
 
-	/* 1 - ((1-x)**2) */
+	/* 1 - ((1-x)** asym_power) */
 	/* this does affect the nearly-symmetric links only a little,
 	 * but punishes asymetric links more. */
 	/* this will give a value between 0 and TQ_MAX_VALUE */
 	packet_loss = ((float) (local_win_size - neigh_node->real_packet_count)) / ((float) (local_win_size * local_win_size));
-	orig_neigh_node->tq_asym_penalty = 1.0 - packet_loss * packet_loss;
+	orig_neigh_node->tq_asym_penalty = 1.0 - my_powf(packet_loss, asym_power);
 
 	in->tq = ((float)in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penalty);
 

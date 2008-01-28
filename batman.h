@@ -88,6 +88,7 @@
 #define TQ_TOTAL_BIDRECT_LIMIT 1
 
 #define TQ_HOP_PENALTY 30
+#define TQ_ASYM_POWER 3
 #define DEFAULT_ROUTING_CLASS 30
 
 
@@ -173,6 +174,7 @@ extern pthread_mutex_t hna_chg_list_mutex;
 
 extern uint8_t tunnel_running;
 extern uint8_t hop_penalty;
+extern uint8_t asym_power;
 extern uint32_t purge_timeout;
 extern uint8_t minimum_send;
 extern uint8_t minimum_recv;

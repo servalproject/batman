@@ -232,12 +232,13 @@ void apply_init_args( int argc, char *argv[] ) {
 	int32_t optchar, option_index, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
 	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0;
-	char hop_penalty_opt = 0, purge_timeout_opt = 0, minimum_send_opt = 0, minimum_recv_opt = 0;
+	char hop_penalty_opt = 0, asym_power_opt, purge_timeout_opt = 0, minimum_send_opt = 0, minimum_recv_opt = 0;
 	uint32_t vis_server = 0;
 	static struct option long_options[] =
 	{
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},
+		{"asym-power",     required_argument,       0, 'P'},
 		{"purge-timeout",     required_argument,       0, 'q'},
 		{"global-win-size",     required_argument,       0, 't'},
 		{"local-win-size",     required_argument,       0, 'u'},
@@ -252,7 +253,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
 
-	while ( ( optchar = getopt_long( argc, argv, "a:A:bcd:hHio:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
+	while ( ( optchar = getopt_long( argc, argv, "a:A:bcd:hHio:m:P:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
 
 		switch ( optchar ) {
 
@@ -370,6 +371,16 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				hop_penalty = strtol( optarg, NULL, 10 );
 				hop_penalty_opt = 1;
+
+				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
+				break;
+
+			case 'P':
+
+				errno = 0;
+
+				asym_power = strtol( optarg, NULL, 10 );
+				asym_power_opt = 1;
 
 				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
@@ -798,6 +809,11 @@ more_hna:
 
 			batch_mode = 1;
 			snprintf(unix_buff, 10, "m:%c", hop_penalty);
+
+		} else if (asym_power_opt) {
+
+			batch_mode = 1;
+			snprintf(unix_buff, 10, "P:%c", asym_power);
 
 		} else if (purge_timeout_opt) {
 
