@@ -87,7 +87,6 @@
 #define TQ_LOCAL_BIDRECT_RECV_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
 #define TQ_TOTAL_BIDRECT_LIMIT 1
 
-#define PERFECT_TQ_PENALTY 5
 #define TQ_HOP_PENALTY 30
 #define DEFAULT_ROUTING_CLASS 30
 
@@ -202,8 +201,8 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct batman_if *batman_if;
 	TYPE_OF_WORD *bcast_own;
 	uint8_t *bcast_own_sum;
-	uint16_t tq_own;
-	int tq_asym_penalty;
+	float tq_own;
+	float tq_asym_penalty;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;

@@ -136,7 +136,6 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "tq_hop_penalty=%i (default: %i)\n", hop_penalty, TQ_HOP_PENALTY);
 	dprintf(sock, "tq_total_limit=%i\n", TQ_TOTAL_BIDRECT_LIMIT);
 	dprintf(sock, "tq_max_value=%i\n", TQ_MAX_VALUE);
-	dprintf(sock, "perfect_tq_penalty=%i\n", PERFECT_TQ_PENALTY);
 	dprintf(sock, "rt_table_networks=%i\n", BATMAN_RT_TABLE_NETWORKS);
 	dprintf(sock, "rt_table_hosts=%i\n", BATMAN_RT_TABLE_HOSTS);
 	dprintf(sock, "rt_table_unreach=%i\n", BATMAN_RT_TABLE_UNREACH);
