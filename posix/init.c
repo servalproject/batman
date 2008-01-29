@@ -1033,6 +1033,13 @@ void activate_interface(struct batman_if *batman_if)
 	batman_if->addr.sin_port = htons(PORT);
 	batman_if->addr.sin_addr.s_addr = ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr;
 
+	if (batman_if->addr.sin_addr.s_addr == 0) {
+
+		debug_output(3, "Error - invalid ip address detected (0.0.0.0): %s\n", batman_if->dev);
+		goto error;
+
+	}
+
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFBRDADDR, &int_req ) < 0 ) {
 
 		debug_output(3, "Error - can't get broadcast IP address of interface %s: %s\n", batman_if->dev, strerror(errno) );
@@ -1125,6 +1132,9 @@ void activate_interface(struct batman_if *batman_if)
 		goto error;
 
 	}
+
+	batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
+	batman_if->out.old_orig = batman_if->addr.sin_addr.s_addr;
 
 	batman_if->if_active = 1;
 	active_ifs++;
