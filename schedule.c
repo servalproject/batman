@@ -39,7 +39,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 	INIT_LIST_HEAD( &forw_node_new->list );
 
-	forw_node_new->send_time = get_time() + originator_interval - JITTER + rand_num( 2 * JITTER );
+	forw_node_new->send_time = get_time_msec() + originator_interval - JITTER + rand_num(2 * JITTER);
 	forw_node_new->if_outgoing = batman_if;
 	forw_node_new->own = 1;
 
@@ -154,7 +154,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 		debug_output( 4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, ((struct bat_packet *)forw_node_new->pack_buff)->tq, in->ttl - 1, ((struct bat_packet *)forw_node_new->pack_buff)->ttl );
 
-		forw_node_new->send_time = get_time();
+		forw_node_new->send_time = get_time_msec();
 		forw_node_new->own = 0;
 
 		forw_node_new->if_outgoing = if_outgoing;
@@ -197,13 +197,13 @@ void send_outstanding_packets() {
 	if ( list_empty( &forw_list ) )
 		return;
 
-	curr_time = get_time();
+	curr_time = get_time_msec();
 
 	list_for_each_safe( forw_pos, temp, &forw_list ) {
 
 		forw_node = list_entry( forw_pos, struct forw_node, list );
 
-		if ( forw_node->send_time <= curr_time ) {
+		if ((int)(curr_time - forw_node->send_time) >= 0) {
 
 			addr_to_string( ((struct bat_packet *)forw_node->pack_buff)->orig, orig_str, ADDR_STR_LEN );
 

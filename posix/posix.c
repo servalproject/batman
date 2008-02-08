@@ -44,20 +44,32 @@
 
 extern struct vis_if vis_if;
 
-static clock_t start_time;
+static clock_t last_clock_tick;
 static float system_tick;
 
 uint8_t tunnel_running = 0;
 
 
-
-uint32_t get_time( void ) {
+void update_internal_clock()
+{
 	struct tms tp;
-	return (uint32_t)( ( (float)( times(&tp) - start_time ) * 1000 ) / system_tick );
+	clock_t current_clock_tick = times(&tp);
 
+	batman_clock_ticks += (current_clock_tick - last_clock_tick);
+	last_clock_tick = current_clock_tick;
 }
 
+uint32_t get_time_msec()
+{
+	update_internal_clock();
+	return (uint32_t)(((float)(batman_clock_ticks) * 1000) / system_tick);
+}
 
+uint64_t get_time_msec64()
+{
+	update_internal_clock();
+	return (uint64_t)(((float)(batman_clock_ticks) * 1000) / system_tick);
+}
 
 /* batman animation */
 void sym_print( char x, char y, char *z ) {
@@ -538,7 +550,6 @@ int main( int argc, char *argv[] ) {
 	int8_t res;
 	struct tms tp;
 
-
 	/* check if user is root */
 	if ( ( getuid() ) || ( getgid() ) ) {
 
@@ -557,9 +568,10 @@ int main( int argc, char *argv[] ) {
 
 	pthread_mutex_init(&hna_chg_list_mutex, NULL);
 
-	start_time = times(&tp);
+	/* save start value */
 	system_tick = (float)sysconf(_SC_CLK_TCK);
-
+	last_clock_tick = times(&tp);
+	update_internal_clock();
 
 	apply_init_args( argc, argv );
 

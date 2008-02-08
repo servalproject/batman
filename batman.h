@@ -175,6 +175,8 @@ extern struct debug_clients debug_clients;
 extern pthread_mutex_t hna_chg_list_mutex;
 
 extern uint8_t tunnel_running;
+extern uint64_t batman_clock_ticks;
+
 extern uint8_t hop_penalty;
 extern uint8_t asym_power;
 extern uint32_t purge_timeout;
@@ -269,8 +271,8 @@ struct batman_if
 	uint8_t if_num;
 	uint8_t if_active;
 	int32_t if_index;
-	uint8_t if_rp_filter_old;
-	uint8_t if_send_redirects_old;
+	int8_t if_rp_filter_old;
+	int8_t if_send_redirects_old;
 	pthread_t listen_thread_id;
 	struct sockaddr_in addr;
 	struct sockaddr_in broad;

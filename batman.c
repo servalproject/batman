@@ -113,6 +113,8 @@ pthread_mutex_t hna_chg_list_mutex;
 unsigned char *vis_packet = NULL;
 uint16_t vis_packet_size = 0;
 
+uint64_t batman_clock_ticks = 0;
+
 uint8_t hop_penalty = TQ_HOP_PENALTY;
 uint8_t asym_power = TQ_ASYM_POWER;
 uint32_t purge_timeout = PURGE_TIMEOUT;
@@ -259,7 +261,10 @@ void choose_gw() {
 	static char orig_str[ADDR_STR_LEN];
 	prof_start( PROF_choose_gw );
 
-	if ((routing_class == 0) || ((current_time = get_time()) < originator_interval * local_win_size)) {
+
+	current_time = get_time_msec();
+	// TODO: current_time - (originator_interval * local_win_size) ->>> repeats after 49 days ?
+	if ((routing_class == 0) || ((int)(current_time - (originator_interval * local_win_size)) > 0)) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -289,7 +294,7 @@ void choose_gw() {
 		/* if it is our only gateway retry immediately */
 		if ((gw_node != (struct gw_node *)gw_list.next) || (gw_node->list.next != (struct list_head *)&gw_list)) {
 
-			if (gw_node->last_failure + 30000 > current_time)
+			if ((int)(current_time - (gw_node->last_failure + 30000)) > 0)
 				continue;
 
 		}
@@ -489,7 +494,7 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t 
 
 			if ( new_gwflags == 0 ) {
 
-				gw_node->deleted = get_time();
+				gw_node->deleted = get_time_msec();
 				gw_node->orig_node->gwflags = new_gwflags;
 				debug_output( 3, "Gateway %s removed from gateway list\n", orig_str );
 
@@ -521,7 +526,7 @@ void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t 
 
 	gw_node->orig_node = orig_node;
 	gw_node->gw_port = gw_port;
-	gw_node->last_failure = get_time();
+	gw_node->last_failure = get_time_msec();
 
 	list_add_tail( &gw_node->list, &gw_list );
 
@@ -634,7 +639,7 @@ int isBntog( uint32_t neigh, struct orig_node *orig_tog_node ) {
 float my_powf(float x, int y) {
 	int i;
 	float ret;
-	for (ret=1, i = 0; i< y; i++) 
+	for (ret=1, i = 0; i< y; i++)
 		ret *= x;
 	return(ret);
 }
@@ -918,7 +923,7 @@ int8_t batman() {
 	int8_t res;
 
 
-	debug_timeout = vis_timeout = get_time();
+	debug_timeout = vis_timeout = get_time_msec();
 
 	if ( NULL == ( orig_hash = hash_new( 128, compare_orig, choose_orig ) ) )
 		return(-1);
@@ -958,7 +963,6 @@ int8_t batman() {
 	}
 
 	list_for_each( list_pos, &if_list ) {
-
 		batman_if = list_entry( list_pos, struct batman_if, list );
 
 		batman_if->out.version = COMPAT_VERSION;
@@ -967,18 +971,9 @@ int8_t batman() {
 		batman_if->out.gwflags = ( batman_if->if_num > 0 ? 0 : gateway_class );
 		batman_if->out.seqno = 1;
 		batman_if->out.gwport = htons(GW_PORT);
-		batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
-		batman_if->out.old_orig = batman_if->addr.sin_addr.s_addr;
 		batman_if->out.tq = TQ_MAX_VALUE;
 
-		batman_if->if_rp_filter_old = get_rp_filter( batman_if->dev );
-		set_rp_filter( 0 , batman_if->dev );
-
-		batman_if->if_send_redirects_old = get_send_redirects( batman_if->dev );
-		set_send_redirects( 0 , batman_if->dev );
-
-		schedule_own_packet( batman_if );
-
+		schedule_own_packet(batman_if);
 	}
 
 	if_rp_filter_all_old = get_rp_filter( "all" );
@@ -1001,8 +996,9 @@ int8_t batman() {
 		debug_output( 4, " \n \n" );
 
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
-		curr_time = get_time();
-		select_timeout = ( curr_time < ((struct forw_node *)forw_list.next)->send_time ? ((struct forw_node *)forw_list.next)->send_time - curr_time : 10 );
+		curr_time = get_time_msec();
+		select_timeout = (((struct forw_node *)forw_list.next)->send_time - curr_time > 0 ?
+					((struct forw_node *)forw_list.next)->send_time - curr_time : 10);
 
 		res = receive_packet( in, sizeof(in), &hna_buff_len, &neigh, select_timeout, &if_incoming );
 
@@ -1011,7 +1007,7 @@ int8_t batman() {
 
 		if ( res > 0 ) {
 
-			curr_time = get_time();
+			curr_time = get_time_msec();
 
 			addr_to_string( ((struct bat_packet *)&in)->orig, orig_str, sizeof(orig_str) );
 			addr_to_string( neigh, neigh_str, sizeof(neigh_str) );
@@ -1214,7 +1210,7 @@ int8_t batman() {
 		send_outstanding_packets();
 
 
-		if ( debug_timeout + 1000 < curr_time ) {
+		if ((int)(curr_time - (debug_timeout + 1000)) > 0) {
 
 			debug_timeout = curr_time;
 
@@ -1234,7 +1230,7 @@ int8_t batman() {
 			if ( ( routing_class != 0 ) && ( curr_gateway == NULL ) )
 				choose_gw();
 
-			if ( ( vis_if.sock ) && ( vis_timeout + 10000 < curr_time ) ) {
+			if ((vis_if.sock) && ((int)(curr_time - (vis_timeout + 10000)) > 0)) {
 
 				vis_timeout = curr_time;
 				send_vis_packet();
@@ -1352,7 +1348,7 @@ int8_t batman() {
 	if ( debug_level > 0 )
 		printf( "Deleting all BATMAN routes\n" );
 
-	purge_orig( get_time() + ( 5 * purge_timeout ) + originator_interval );
+	purge_orig(get_time_msec() + (5 * purge_timeout) + originator_interval);
 
 	hash_destroy( orig_hash );
 
@@ -1390,15 +1386,6 @@ int8_t batman() {
 		debugFree( vis_packet, 1108 );
 
 	set_forwarding( forward_old );
-
-	list_for_each( list_pos, &if_list ) {
-
-		batman_if = list_entry( list_pos, struct batman_if, list );
-
-		set_rp_filter( batman_if->if_rp_filter_old , batman_if->dev );
-		set_send_redirects( batman_if->if_send_redirects_old , batman_if->dev );
-
-	}
 
 	set_rp_filter( if_rp_filter_all_old, "all" );
 	set_rp_filter( if_rp_filter_default_old, "default" );

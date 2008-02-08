@@ -615,6 +615,9 @@ void apply_init_args( int argc, char *argv[] ) {
 			batman_if->dev = argv[found_args];
 			batman_if->if_num = found_ifs;
 
+			batman_if->if_rp_filter_old = -1;
+			batman_if->if_send_redirects_old = -1;
+
 			list_add_tail( &batman_if->list, &if_list );
 
 			init_interface ( batman_if );
@@ -1003,6 +1006,15 @@ void deactivate_interface(struct batman_if *batman_if)
 	batman_if->if_active = 0;
 	active_ifs--;
 
+	if (batman_if->if_rp_filter_old > -1)
+		set_rp_filter(batman_if->if_rp_filter_old, batman_if->dev);
+
+	if (batman_if->if_send_redirects_old > -1)
+		set_send_redirects(batman_if->if_send_redirects_old, batman_if->dev);
+
+	batman_if->if_rp_filter_old = -1;
+	batman_if->if_send_redirects_old = -1;
+
 	interface_listen_sockets();
 	debug_output(3, "Interface deactivated: %s\n", batman_if->dev);
 }
@@ -1010,7 +1022,7 @@ void deactivate_interface(struct batman_if *batman_if)
 void activate_interface(struct batman_if *batman_if)
 {
 	struct ifreq int_req;
-	int16_t on = 1;
+	int on = 1;
 
 	if ( ( batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
 
@@ -1098,7 +1110,7 @@ void activate_interface(struct batman_if *batman_if)
 
 	}
 
-	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof(int) ) < 0 ) {
+	if ( setsockopt( batman_if->udp_send_sock, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on) ) < 0 ) {
 
 		debug_output(3, "Error - can't enable broadcasts: %s\n", strerror(errno) );
 		goto error;
@@ -1141,6 +1153,12 @@ void activate_interface(struct batman_if *batman_if)
 
 	interface_listen_sockets();
 	debug_output(3, "Interface activated: %s\n", batman_if->dev);
+
+	batman_if->if_rp_filter_old = get_rp_filter(batman_if->dev);
+	set_rp_filter(0, batman_if->dev);
+
+	batman_if->if_send_redirects_old = get_send_redirects(batman_if->dev);
+	set_send_redirects(0, batman_if->dev);
 
 	return;
 

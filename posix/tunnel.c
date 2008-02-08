@@ -195,13 +195,13 @@ void *client_to_gw_tun( void *arg )
 
 
 	if (get_tun_ip(&gw_addr, udp_sock, &my_tun_addr) < 0) {
-		curr_gw_data->gw_node->last_failure = get_time();
+		curr_gw_data->gw_node->last_failure = get_time_msec();
 		curr_gw_data->gw_node->gw_failure++;
 
 		goto udp_out;
 	}
 
-	ip_lease_time = get_time();
+	ip_lease_time = get_time_msec();
 
 	addr_to_string(my_tun_addr, my_str, sizeof(my_str));
 	addr_to_string(curr_gw_data->orig, gw_str, sizeof(gw_str));
@@ -229,7 +229,7 @@ void *client_to_gw_tun( void *arg )
 
 		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
 
-		current_time = get_time();
+		current_time = get_time_msec();
 
 		if ( res > 0 ) {
 
@@ -345,7 +345,7 @@ void *client_to_gw_tun( void *arg )
 
 
 		/* refresh leased IP */
-		if (((ip_lease_time + IP_LEASE_TIMEOUT) < current_time) && ((last_refresh_attempt + 1000) < current_time)) {
+		if (((int)(current_time - (ip_lease_time + IP_LEASE_TIMEOUT)) > 0) && ((int)(current_time - (last_refresh_attempt + 1000)) > 0)) {
 
 			if (num_refresh_lease < 12) {
 
@@ -371,7 +371,7 @@ void *client_to_gw_tun( void *arg )
 		}
 
 		/* drop connection to gateway if the gateway does not respond */
-		if ( ( gw_state == GW_STATE_UNKNOWN ) && ( gw_state_time != 0 ) && ( ( gw_state_time + GW_STATE_UNKNOWN_TIMEOUT ) < current_time ) ) {
+		if ((gw_state == GW_STATE_UNKNOWN) && (gw_state_time != 0) && ((int)(current_time - (gw_state_time + GW_STATE_UNKNOWN_TIMEOUT)) > 0)) {
 
 			debug_output( 3, "Gateway client - disconnecting from unresponsive gateway (%s): gateway seems to be a blackhole \n", gw_str );
 
@@ -383,7 +383,7 @@ void *client_to_gw_tun( void *arg )
 		}
 
 		/* change back to unknown state if gateway did not respond in time */
-		if ( ( gw_state == GW_STATE_VERIFIED ) && ( ( gw_state_time + GW_STATE_VERIFIED_TIMEOUT ) < current_time ) ) {
+		if ((gw_state == GW_STATE_VERIFIED) && ((int)(current_time - (gw_state_time + GW_STATE_VERIFIED_TIMEOUT)) > 0)) {
 
 			gw_state = GW_STATE_UNKNOWN;
 			gw_state_time = 0;
@@ -424,7 +424,7 @@ struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_
 
 	gw_client->wip_addr = client_addr->sin_addr.s_addr;
 	gw_client->client_port = client_addr->sin_port;
-	gw_client->last_keep_alive = get_time();
+	gw_client->last_keep_alive = get_time_msec();
 	gw_client->vip_addr = 0;
 
 	list_for_each_safe(list_pos, list_pos_tmp, free_ip_list) {
@@ -564,7 +564,7 @@ void *gw_listen() {
 	next_free_ip[3] = 1;
 
 	addr_len = sizeof (struct sockaddr_in);
-	client_timeout = get_time();
+	client_timeout = get_time_msec();
 
 	client_addr.sin_family = AF_INET;
 	client_addr.sin_port = htons(PORT + 1);
@@ -599,7 +599,7 @@ void *gw_listen() {
 
 		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
 
-		current_time = get_time();
+		current_time = get_time_msec();
 
 		if ( res > 0 ) {
 
@@ -726,7 +726,7 @@ void *gw_listen() {
 
 
 		/* close unresponsive client connections (free unused IPs) */
-		if ( ( client_timeout + 60000 ) < current_time ) {
+		if ((int)(current_time - (client_timeout + 60000)) > 0) {
 
 			client_timeout = current_time;
 
@@ -736,7 +736,7 @@ void *gw_listen() {
 
 				gw_client = hashit->bucket->data;
 
-				if ((gw_client->last_keep_alive + IP_LEASE_TIMEOUT + GW_STATE_UNKNOWN_TIMEOUT) < current_time) {
+				if ((int)(current_time - (gw_client->last_keep_alive + IP_LEASE_TIMEOUT + GW_STATE_UNKNOWN_TIMEOUT)) > 0) {
 
 					hash_remove_bucket(wip_hash, hashit);
 					hash_remove(vip_hash, gw_client);

@@ -261,8 +261,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 
 
-void purge_orig( uint32_t curr_time ) {
-
+void purge_orig(uint32_t curr_time)
+{
 	struct hash_it_t *hashit = NULL;
 	struct list_head *neigh_pos, *neigh_temp, *prev_list_head;
 	struct list_head *gw_pos, *gw_pos_tmp;
@@ -280,7 +280,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		orig_node = hashit->bucket->data;
 
-		if ( (int)( ( orig_node->last_valid + ( 2 * purge_timeout ) ) < curr_time ) ) {
+		if ((int)(curr_time - (orig_node->last_valid + (2 * purge_timeout))) > 0) {
 
 			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 			debug_output( 4, "Originator timeout: originator %s, last_valid %u \n", orig_str, orig_node->last_valid );
@@ -311,8 +311,7 @@ void purge_orig( uint32_t curr_time ) {
 					addr_to_string( gw_node->orig_node->orig, orig_str, ADDR_STR_LEN );
 					debug_output( 3, "Removing gateway %s from gateway list \n", orig_str );
 
-					gw_node->deleted = get_time();
-
+					gw_node->deleted = get_time_msec();
 					gw_purged = 1;
 
 					break;
@@ -338,7 +337,7 @@ void purge_orig( uint32_t curr_time ) {
 
 				neigh_node = list_entry( neigh_pos, struct neigh_node, list );
 
-				if ( (int)( ( neigh_node->last_valid + purge_timeout ) < curr_time ) ) {
+				if ((int)(curr_time - (neigh_node->last_valid + purge_timeout)) > 0) {
 
 					addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 					addr_to_string( neigh_node->addr, neigh_str, ADDR_STR_LEN );
@@ -392,7 +391,7 @@ void purge_orig( uint32_t curr_time ) {
 
 		gw_node = list_entry(gw_pos, struct gw_node, list);
 
-		if ( ( gw_node->deleted ) && ( (int)((gw_node->deleted + (2 * purge_timeout)) < curr_time) ) ) {
+		if ((gw_node->deleted) && ((int)(curr_time - (gw_node->deleted + (2 * purge_timeout))) > 0)) {
 
 			list_del( prev_list_head, gw_pos, &gw_list );
 			debugFree( gw_pos, 1406 );
@@ -423,7 +422,7 @@ void debug_orig() {
 	struct neigh_node *neigh_node;
 	struct gw_node *gw_node;
 	uint16_t batman_count = 0;
-	uint32_t uptime_sec;
+	uint64_t uptime_sec;
 	int download_speed, upload_speed, debug_out_size;
 	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN], debug_out_str[1001];
 
@@ -431,7 +430,7 @@ void debug_orig() {
 	if ( debug_clients.clients_num[1] > 0 ) {
 
 		addr_to_string( ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr, orig_str, sizeof(orig_str) );
-		uptime_sec = (uint32_t)( get_time() / 1000 );
+		uptime_sec = (uint64_t)(get_time_msec64() / 1000);
 
 		debug_output(2, "BOD\n");
 		debug_output(2, "%''12s     (%s/%i) %''15s [%10s], gw_class ... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Gateway", "#", TQ_MAX_VALUE, "Nexthop", "outgoingIF", SOURCE_VERSION, (strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : ""), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60);
@@ -472,7 +471,7 @@ void debug_orig() {
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
 
 		addr_to_string( ((struct batman_if *)if_list.next)->addr.sin_addr.s_addr, orig_str, sizeof(orig_str) );
-		uptime_sec = (uint32_t)( get_time() / 1000 );
+		uptime_sec = (uint64_t)(get_time_msec64() / 1000);
 
 		debug_output(1, "BOD \n");
 		debug_output(1, "  %-11s (%s/%i) %''15s [%10s]: %''20s ... [B.A.T.M.A.N. %s%s, MainIF/IP: %s/%s, UT: %id%2ih%2im] \n", "Originator", "#", TQ_MAX_VALUE, "Nexthop", "outgoingIF", "Potential nexthops", SOURCE_VERSION, (strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : ""), ((struct batman_if *)if_list.next)->dev, orig_str, uptime_sec/86400, ((uptime_sec%86400)/3600), ((uptime_sec)%3600)/60);
