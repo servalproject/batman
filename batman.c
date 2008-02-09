@@ -997,7 +997,7 @@ int8_t batman() {
 
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time_msec();
-		select_timeout = (((struct forw_node *)forw_list.next)->send_time - curr_time > 0 ?
+		select_timeout = ((int)(((struct forw_node *)forw_list.next)->send_time - curr_time) > 0 ?
 					((struct forw_node *)forw_list.next)->send_time - curr_time : 10);
 
 		res = receive_packet( in, sizeof(in), &hna_buff_len, &neigh, select_timeout, &if_incoming );
