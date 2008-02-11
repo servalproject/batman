@@ -263,8 +263,7 @@ void choose_gw() {
 
 
 	current_time = get_time_msec();
-	// TODO: current_time - (originator_interval * local_win_size) ->>> repeats after 49 days ?
-	if ((routing_class == 0) || ((int)(current_time - (originator_interval * local_win_size)) > 0)) {
+	if ((routing_class == 0) || ((int64)(get_time_msec64() - (originator_interval * local_win_size)) < 0)) {
 
 		prof_stop( PROF_choose_gw );
 		return;
@@ -294,7 +293,7 @@ void choose_gw() {
 		/* if it is our only gateway retry immediately */
 		if ((gw_node != (struct gw_node *)gw_list.next) || (gw_node->list.next != (struct list_head *)&gw_list)) {
 
-			if ((int)(current_time - (gw_node->last_failure + 30000)) > 0)
+			if ((int)(current_time - (gw_node->last_failure + 30000)) < 0)
 				continue;
 
 		}
