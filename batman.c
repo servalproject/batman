@@ -263,7 +263,7 @@ void choose_gw() {
 
 
 	current_time = get_time_msec();
-	if ((routing_class == 0) || ((int64)(get_time_msec64() - (originator_interval * local_win_size)) < 0)) {
+	if ((routing_class == 0) || ((int64_t)(get_time_msec64() - (originator_interval * local_win_size)) < 0)) {
 
 		prof_stop( PROF_choose_gw );
 		return;
