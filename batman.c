@@ -709,7 +709,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	/* this does affect the nearly-symmetric links only a little,
 	 * but punishes asymetric links more. */
 	/* this will give a value between 0 and TQ_MAX_VALUE */
-	packet_loss = ((float) (local_win_size - neigh_node->real_packet_count)) / ((float) (local_win_size * local_win_size));
+	packet_loss = ((float) (local_win_size - neigh_node->real_packet_count)) / ((float) local_win_size );
 	orig_neigh_node->tq_asym_penalty = 1.0 - my_powf(packet_loss, asym_power);
 
 	in->tq = ((float)in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penalty);
