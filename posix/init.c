@@ -1022,7 +1022,7 @@ void deactivate_interface(struct batman_if *batman_if)
 void activate_interface(struct batman_if *batman_if)
 {
 	struct ifreq int_req;
-	int on = 1;
+	int on = 1, sock_opts;
 
 	if ( ( batman_if->udp_recv_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
 
@@ -1130,6 +1130,10 @@ void activate_interface(struct batman_if *batman_if)
 		goto error;
 
 	}
+
+	// make udp socket non blocking
+	sock_opts = fcntl(batman_if->udp_send_sock, F_GETFL, 0);
+	fcntl(batman_if->udp_send_sock, F_SETFL, sock_opts | O_NONBLOCK);
 
 	if ( bind_to_iface( batman_if->udp_recv_sock, batman_if->dev ) < 0 ) {
 

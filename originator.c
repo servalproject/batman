@@ -152,6 +152,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate, uint32_t curr_time ) {
 
 	struct list_head *list_pos;
+	struct gw_node *gw_node;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
 	uint8_t max_bcast_own = 0;
 	uint16_t max_tq = 0;
@@ -245,9 +246,25 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 			/* it is our preferred gateway or we have fast switching or the tq is $routing_class better than our old tq */
 			if ((pref_gateway == orig_node->orig) || (routing_class == 3) || (orig_node->router->tq_avg - curr_gateway->orig_node->router->tq_avg >= routing_class)) {
 
-				debug_output(3, "Gateway client - restart gateway selection: better gateway found (tq curr: %i, tq new: %i) \n", curr_gateway->orig_node->router->tq_avg, orig_node->router->tq_avg);
+				gw_node = NULL;
 
-				del_default_route();
+				list_for_each(list_pos, &gw_list) {
+					gw_node = list_entry(list_pos, struct gw_node, list);
+
+					if (gw_node->orig_node == orig_node)
+						break;
+
+					gw_node = NULL;
+				}
+
+				/* if this gateway had not a gateway failure within the last 30 seconds */
+				if ((gw_node != NULL) && ((int)(curr_time - (gw_node->last_failure + 30000)) > 0)) {
+
+					debug_output(3, "Gateway client - restart gateway selection: better gateway found (tq curr: %i, tq new: %i) \n", curr_gateway->orig_node->router->tq_avg, orig_node->router->tq_avg);
+
+					del_default_route();
+
+				}
 
 			}
 
@@ -354,6 +371,10 @@ void purge_orig(uint32_t curr_time)
 
 						add_del_route( orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
 
+						/* if the neighbour is the route towards our gateway */
+						if ((curr_gateway != NULL) && (curr_gateway->orig_node == orig_node))
+							del_default_route();
+
 						orig_node->router = NULL;
 
 					}
@@ -446,6 +467,9 @@ void debug_orig() {
 				gw_node = list_entry( orig_pos, struct gw_node, list );
 
 				if ( gw_node->deleted )
+					continue;
+
+				if (gw_node->orig_node->router == NULL)
 					continue;
 
 				addr_to_string( gw_node->orig_node->orig, str, sizeof (str) );
