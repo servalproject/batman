@@ -46,7 +46,7 @@
 #define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
-#define TQ_MAX_VALUE 999
+#define TQ_MAX_VALUE 255
 
 #define UNIX_PATH "/var/run/batmand.socket"
 
@@ -83,11 +83,11 @@
 #define PURGE_TIMEOUT 200000  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on TQ_LOCAL_WINDOW_SIZE */
 #define TQ_LOCAL_WINDOW_SIZE 64     /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
 #define TQ_GLOBAL_WINDOW_SIZE 10
-#define TQ_LOCAL_BIDRECT_SEND_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
-#define TQ_LOCAL_BIDRECT_RECV_MINIMUM TQ_LOCAL_WINDOW_SIZE / 8
+#define TQ_LOCAL_BIDRECT_SEND_MINIMUM 1
+#define TQ_LOCAL_BIDRECT_RECV_MINIMUM 1
 #define TQ_TOTAL_BIDRECT_LIMIT 1
 
-#define TQ_HOP_PENALTY 30
+#define TQ_HOP_PENALTY 10
 #define TQ_ASYM_POWER 3
 #define DEFAULT_ROUTING_CLASS 30
 
@@ -196,7 +196,7 @@ struct bat_packet
 	uint16_t gwport;
 	uint32_t orig;
 	uint32_t old_orig;
-	uint16_t tq;
+	uint8_t tq;
 	uint8_t hna_len;
 } __attribute__((packed));
 
@@ -223,9 +223,9 @@ struct neigh_node
 	struct list_head list;
 	uint32_t addr;
 	uint8_t real_packet_count;
-	uint16_t *tq_recv;
+	uint8_t *tq_recv;
 	uint8_t tq_index;
-	uint16_t tq_avg;
+	uint8_t tq_avg;
 	uint8_t last_ttl;
 	uint32_t last_valid;            /* when last packet via this neighbour was received */
 	TYPE_OF_WORD *real_bits;
@@ -343,7 +343,7 @@ void verbose_usage( void );
 int is_batman_if( char *dev, struct batman_if **batman_if );
 void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
 void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t gw_port );
-void get_gw_speeds( unsigned char class, int *down, int *up );
+void get_gw_speeds( unsigned char gw_class, int *down, int *up );
 unsigned char get_gw_class( int down, int up );
 void choose_gw();
 

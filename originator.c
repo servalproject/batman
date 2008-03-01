@@ -154,8 +154,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	struct list_head *list_pos;
 	struct gw_node *gw_node;
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_bcast_own = 0;
-	uint16_t max_tq = 0;
+	uint8_t max_bcast_own = 0, max_tq = 0;
 	prof_start( PROF_update_originator );
 
 
@@ -286,8 +285,7 @@ void purge_orig(uint32_t curr_time)
 	struct orig_node *orig_node;
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
-	uint8_t gw_purged = 0, neigh_purged;
-	uint16_t max_tq;
+	uint8_t gw_purged = 0, neigh_purged, max_tq;
 	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	prof_start( PROF_purge_originator );
 

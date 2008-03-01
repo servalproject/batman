@@ -324,7 +324,6 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 				return 0;
 
 			((struct bat_packet *)packet_buff)->seqno = ntohs(((struct bat_packet *)packet_buff)->seqno); /* network to host order for our 16bit seqno */
-			((struct bat_packet *)packet_buff)->tq = ntohs(((struct bat_packet *)packet_buff)->tq); /* network to host order for our 16bit tq */
 
 			(*if_incoming) = batman_if;
 			break;
