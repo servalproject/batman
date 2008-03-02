@@ -337,15 +337,15 @@ struct batgat_ioc_args {
 	uint32_t ifindex;
 };
 
-int8_t batman( void );
-void usage( void );
-void verbose_usage( void );
-int is_batman_if( char *dev, struct batman_if **batman_if );
-void update_routes( struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len );
-void update_gw_list( struct orig_node *orig_node, uint8_t new_gwflags, uint16_t gw_port );
-void get_gw_speeds( unsigned char gw_class, int *down, int *up );
-unsigned char get_gw_class( int down, int up );
-void choose_gw();
+int8_t batman(void);
+void usage(void);
+void verbose_usage(void);
+int is_batman_if(char *dev, struct batman_if **batman_if);
+void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len);
+void update_gw_list(struct orig_node *orig_node, uint8_t new_gwflags, uint16_t gw_port);
+void get_gw_speeds(unsigned char gw_class, int *down, int *up);
+unsigned char get_gw_class(int down, int up);
+void choose_gw(void);
 
 void add_hna_to_list(char *hna_string, int8_t del, uint8_t change);
 

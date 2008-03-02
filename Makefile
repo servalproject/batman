@@ -61,12 +61,17 @@ REVISION_VERSION=\"\ rv$(REVISION)\"
 
 BAT_VERSION=	$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
 FILE_NAME=	$(PACKAGE_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
+NUM_CPUS = $(shell NUM_CPUS=`cat /proc/cpuinfo | grep -v 'model name' | grep processor | tail -1 | awk -F' ' '{print $$3}'`;echo `expr $$NUM_CPUS + 1`)
 
 
-all:		$(BINARY_NAME)
+all:
+	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
 $(BINARY_NAME):	$(SRC_O) $(SRC_H) Makefile
 	$(CC) -o $@ $(SRC_O) $(LDFLAGS)
+
+%.o: %.c %.h
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
