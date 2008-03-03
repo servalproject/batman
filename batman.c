@@ -116,7 +116,6 @@ uint16_t vis_packet_size = 0;
 uint64_t batman_clock_ticks = 0;
 
 uint8_t hop_penalty = TQ_HOP_PENALTY;
-uint8_t asym_power = TQ_ASYM_POWER;
 uint32_t purge_timeout = PURGE_TIMEOUT;
 uint8_t minimum_send = TQ_LOCAL_BIDRECT_SEND_MINIMUM;
 uint8_t minimum_recv = TQ_LOCAL_BIDRECT_RECV_MINIMUM;
@@ -622,16 +621,6 @@ int isBntog(uint32_t neigh, struct orig_node *orig_tog_node)
 	return 0;
 }
 
-/* don't use math lib */
-float my_powf(float x, int y)
-{
-	int i;
-	float ret;
-	for (ret=1, i = 0; i< y; i++)
-		ret *= x;
-	return(ret);
-}
-
 
 
 int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming, uint8_t is_duplicate)
@@ -641,7 +630,6 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
 	uint8_t total_count;
 	char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
-	float packet_loss;
 
 
 	if ( orig_node == orig_neigh_node ) {
@@ -691,26 +679,29 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 	} else {
 
 		/* neigh_node->real_packet_count is never zero as we only purge old information when getting new information */
-		orig_neigh_node->tq_own = ((float) total_count) / ((float)neigh_node->real_packet_count);
+		orig_neigh_node->tq_own = (TQ_MAX_VALUE * total_count) / neigh_node->real_packet_count;
 
 	}
 
-	/* 1 - ((1-x)** asym_power) */
+	/* 1 - ((1-x)** 3), normalized to TQ_MAX_VALUE */
 	/* this does affect the nearly-symmetric links only a little,
 	 * but punishes asymetric links more. */
 	/* this will give a value between 0 and TQ_MAX_VALUE */
-	packet_loss = ((float) (local_win_size - neigh_node->real_packet_count)) / ((float) local_win_size );
-	orig_neigh_node->tq_asym_penalty = 1.0 - my_powf(packet_loss, asym_power);
+	orig_neigh_node->tq_asym_penalty = TQ_MAX_VALUE - (TQ_MAX_VALUE *
+			(local_win_size - neigh_node->real_packet_count) *
+			(local_win_size - neigh_node->real_packet_count) *
+			(local_win_size - neigh_node->real_packet_count)) /
+			(local_win_size * local_win_size * local_win_size);
 
-	in->tq = ((float)in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penalty);
+	in->tq = ((in->tq * orig_neigh_node->tq_own * orig_neigh_node->tq_asym_penalty) / (TQ_MAX_VALUE *  TQ_MAX_VALUE));
 
 	addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
 	addr_to_string( orig_neigh_node->orig, neigh_str, ADDR_STR_LEN );
 
 	/*debug_output( 3, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penalty: %3i, total tq: %3i \n",
 	orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penalty, in->tq );*/
-	debug_output( 4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penalty: %3i, total tq: %3i \n",
-		      orig_str, neigh_str, total_count, neigh_node->real_packet_count, (int)(orig_neigh_node->tq_own * TQ_MAX_VALUE), (int)(orig_neigh_node->tq_asym_penalty * TQ_MAX_VALUE), in->tq );
+	debug_output(4, "bidirectional: orig = %-15s neigh = %-15s => own_bcast = %2i, real recv = %2i, local tq: %3i, asym_penalty: %3i, total tq: %3i \n",
+		      orig_str, neigh_str, total_count, neigh_node->real_packet_count, orig_neigh_node->tq_own, orig_neigh_node->tq_asym_penalty, in->tq);
 
 	/* if link has the minimum required transmission quality consider it bidirectional */
 	if (in->tq >= TQ_TOTAL_BIDRECT_LIMIT)

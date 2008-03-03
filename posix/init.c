@@ -232,18 +232,13 @@ void apply_init_args( int argc, char *argv[] ) {
 	int32_t optchar, option_index, recv_buff_len, bytes_written, download_speed = 0, upload_speed = 0;
 	char str1[16], str2[16], *slash_ptr, *unix_buff, *buff_ptr, *cr_ptr;
 	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0;
-	char hop_penalty_opt = 0, asym_power_opt, purge_timeout_opt = 0, minimum_send_opt = 0, minimum_recv_opt = 0;
+	char hop_penalty_opt = 0, purge_timeout_opt = 0;
 	uint32_t vis_server = 0;
 	static struct option long_options[] =
 	{
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},
-		{"asym-power",     required_argument,       0, 'P'},
 		{"purge-timeout",     required_argument,       0, 'q'},
-		{"global-win-size",     required_argument,       0, 't'},
-		{"local-win-size",     required_argument,       0, 'u'},
-		{"minimum-send",     required_argument,       0, 'w'},
-		{"minimum-recv",     required_argument,       0, 'x'},
 		{0, 0, 0, 0}
 	};
 
@@ -375,61 +370,12 @@ void apply_init_args( int argc, char *argv[] ) {
 				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
 
-			case 'P':
-
-				errno = 0;
-
-				asym_power = strtol( optarg, NULL, 10 );
-				asym_power_opt = 1;
-
-				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
-				break;
-
 			case 'q':
 
 				errno = 0;
 
 				purge_timeout = strtol(optarg, NULL, 10);
 				purge_timeout_opt = 1;
-
-				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
-				break;
-
-			case 't':
-
-				errno = 0;
-
-				global_win_size = strtol(optarg, NULL, 10);
-
-				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
-				break;
-
-			case 'u':
-
-				errno = 0;
-
-				local_win_size = strtol(optarg, NULL, 10);
-				num_words = local_win_size / WORD_BIT_SIZE;
-
-				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
-				break;
-
-			case 'w':
-
-				errno = 0;
-
-				minimum_send = strtol(optarg, NULL, 10);
-				minimum_send_opt = 1;
-
-				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
-				break;
-
-			case 'x':
-
-				errno = 0;
-
-				minimum_recv = strtol(optarg, NULL, 10);
-				minimum_recv_opt = 1;
 
 				found_args += ((*((char*)( optarg - 1)) == optchar ) ? 1 : 2);
 				break;
@@ -815,25 +761,10 @@ more_hna:
 			batch_mode = 1;
 			snprintf(unix_buff, 10, "m:%c", hop_penalty);
 
-		} else if (asym_power_opt) {
-
-			batch_mode = 1;
-			snprintf(unix_buff, 10, "P:%c", asym_power);
-
 		} else if (purge_timeout_opt) {
 
 			batch_mode = 1;
 			snprintf(unix_buff, 20, "q:%i", purge_timeout);
-
-		} else if (minimum_send_opt) {
-
-			batch_mode = 1;
-			snprintf(unix_buff, 10, "w:%c", minimum_send);
-
-		} else if (minimum_recv_opt) {
-
-			batch_mode = 1;
-			snprintf(unix_buff, 10, "x:%c", minimum_recv);
 
 		} else if ( info_output ) {
 

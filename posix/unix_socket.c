@@ -136,12 +136,11 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "own_ogm_jitter=%i\n", JITTER);
 	dprintf(sock, "default_ttl=%i\n", TTL);
 	dprintf(sock, "originator_timeout=%i (default: %i)\n", purge_timeout, PURGE_TIMEOUT);
-	dprintf(sock, "tq_local_window_size=%i (default: %i)\n", local_win_size, TQ_LOCAL_WINDOW_SIZE);
-	dprintf(sock, "tq_global_window_size=%i (default: %i)\n", global_win_size, TQ_GLOBAL_WINDOW_SIZE);
-	dprintf(sock, "tq_local_bidirect_send_minimum=%i (default: %i)\n", minimum_send, TQ_LOCAL_BIDRECT_SEND_MINIMUM);
-	dprintf(sock, "tq_local_bidirect_recv_minimum=%i (default: %i)\n", minimum_recv, TQ_LOCAL_BIDRECT_RECV_MINIMUM);
+	dprintf(sock, "tq_local_window_size=%i\n", TQ_LOCAL_WINDOW_SIZE);
+	dprintf(sock, "tq_global_window_size=%i\n", TQ_GLOBAL_WINDOW_SIZE);
+	dprintf(sock, "tq_local_bidirect_send_minimum=%i\n", TQ_LOCAL_BIDRECT_SEND_MINIMUM);
+	dprintf(sock, "tq_local_bidirect_recv_minimum=%i\n", TQ_LOCAL_BIDRECT_RECV_MINIMUM);
 	dprintf(sock, "tq_hop_penalty=%i (default: %i)\n", hop_penalty, TQ_HOP_PENALTY);
-	dprintf(sock, "tq_asym_power=%i (default: %i)\n", asym_power, TQ_ASYM_POWER);
 	dprintf(sock, "tq_total_limit=%i\n", TQ_TOTAL_BIDRECT_LIMIT);
 	dprintf(sock, "tq_max_value=%i\n", TQ_MAX_VALUE);
 	dprintf(sock, "rt_table_networks=%i\n", BATMAN_RT_TABLE_NETWORKS);
@@ -372,39 +371,11 @@ void *unix_listen( void *arg ) {
 
 								dprintf( unix_client->sock, "EOD\n" );
 
-							} else if ( buff[0] == 'P' ) {
-
-								if ( status > 2 ) {
-									debug_output(3, "Unix socket: changing asymetric power from: %i to: %i\n", asym_power, buff[2]);
-									asym_power = buff[2];
-								}
-
-								dprintf( unix_client->sock, "EOD\n" );
-
-
 							} else if ( buff[0] == 'q' ) {
 
 								if ( status > 2 ) {
 									debug_output(3, "Unix socket: changing purge timeout from: %i to: %i\n", purge_timeout, strtol(buff + 2, NULL, 10));
 									purge_timeout = strtol(buff + 2, NULL, 10);
-								}
-
-								dprintf( unix_client->sock, "EOD\n" );
-
-							} else if ( buff[0] == 'w' ) {
-
-								if ( status > 2 ) {
-									debug_output(3, "Unix socket: changing minimum send from: %i to: %i\n", minimum_send, buff[2]);
-									minimum_send = buff[2];
-								}
-
-								dprintf( unix_client->sock, "EOD\n" );
-
-							} else if ( buff[0] == 'x' ) {
-
-								if ( status > 2 ) {
-									debug_output(3, "Unix socket: changing minimum recv from: %i to: %i\n", minimum_recv, buff[2]);
-									minimum_recv = buff[2];
 								}
 
 								dprintf( unix_client->sock, "EOD\n" );
@@ -515,10 +486,6 @@ void *unix_listen( void *arg ) {
 
 								if (hop_penalty != 0)
 									dprintf(unix_client->sock, " --hop-penalty %i", hop_penalty);
-
-								if (asym_power != 0)
-									dprintf(unix_client->sock, " --asym-power %i", asym_power);
-
 
 								list_for_each( debug_pos, &if_list ) {
 

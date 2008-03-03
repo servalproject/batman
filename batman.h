@@ -88,7 +88,6 @@
 #define TQ_TOTAL_BIDRECT_LIMIT 1
 
 #define TQ_HOP_PENALTY 10
-#define TQ_ASYM_POWER 3
 #define DEFAULT_ROUTING_CLASS 30
 
 
@@ -178,7 +177,6 @@ extern uint8_t tunnel_running;
 extern uint64_t batman_clock_ticks;
 
 extern uint8_t hop_penalty;
-extern uint8_t asym_power;
 extern uint32_t purge_timeout;
 extern uint8_t minimum_send;
 extern uint8_t minimum_recv;
@@ -207,8 +205,8 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct batman_if *batman_if;
 	TYPE_OF_WORD *bcast_own;
 	uint8_t *bcast_own_sum;
-	float tq_own;
-	float tq_asym_penalty;
+	uint8_t tq_own;
+	int tq_asym_penalty;
 	uint32_t last_valid;        /* when last packet from this node was received */
 	uint8_t  gwflags;      /* flags related to gateway functions: gateway class */
 	unsigned char *hna_buff;
