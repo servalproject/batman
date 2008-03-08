@@ -239,6 +239,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},
 		{"purge-timeout",     required_argument,       0, 'q'},
+		{"aggregation",     no_argument,       0, 'x'},
 		{0, 0, 0, 0}
 	};
 
@@ -270,10 +271,12 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'b':
 				batch_mode++;
+				found_args++;
 				break;
 
 			case 'c':
 				unix_client++;
+				found_args++;
 				break;
 
 			case 'd':
@@ -347,6 +350,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'i':
 				info_output++;
+				found_args++;
 				break;
 
 			case 'n':
@@ -454,6 +458,11 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				exit(EXIT_SUCCESS);
 
+			case 'x':
+				aggregation_enabled++;
+				found_args++;
+				break;
+
 			case 'h':
 			default:
 				usage();
@@ -553,6 +562,12 @@ void apply_init_args( int argc, char *argv[] ) {
 			exit(EXIT_FAILURE);
 
 		while ( argc > found_args ) {
+
+			if (argv[found_args][0] == '-') {
+				fprintf(stderr, "%s: invalid option -- %s\n", argv[0], argv[found_args]);
+				usage();
+				exit(EXIT_FAILURE);
+			}
 
 			batman_if = debugMalloc( sizeof(struct batman_if), 206 );
 			memset( batman_if, 0, sizeof(struct batman_if) );

@@ -90,6 +90,8 @@
 #define TQ_HOP_PENALTY 10
 #define DEFAULT_ROUTING_CLASS 30
 
+#define MAX_AGGREGATION_BYTES 500
+#define MAX_AGGREGATION_MS 100
 
 
 
@@ -183,6 +185,7 @@ extern uint8_t minimum_recv;
 extern uint8_t global_win_size;
 extern uint8_t local_win_size;
 extern uint8_t num_words;
+extern uint8_t aggregation_enabled;
 
 struct bat_packet
 {

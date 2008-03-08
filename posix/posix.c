@@ -271,8 +271,8 @@ void add_default_route()
 
 
 
-int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int16_t *hna_buff_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming ) {
-
+int8_t receive_packet(unsigned char *packet_buff, int32_t packet_buff_len, int16_t *packet_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming)
+{
 	struct sockaddr_in addr;
 	struct timeval tv;
 	struct list_head *if_pos;
@@ -307,23 +307,21 @@ int8_t receive_packet( unsigned char *packet_buff, int32_t packet_buff_len, int1
 	if ( res == 0 )
 		return 0;
 
-	list_for_each( if_pos, &if_list ) {
+	list_for_each(if_pos, &if_list) {
 
-		batman_if = list_entry( if_pos, struct batman_if, list );
+		batman_if = list_entry(if_pos, struct batman_if, list);
 
-		if ( FD_ISSET( batman_if->udp_recv_sock, &tmp_wait_set ) ) {
+		if (FD_ISSET(batman_if->udp_recv_sock, &tmp_wait_set)) {
 
-			if ( ( *hna_buff_len = recvfrom( batman_if->udp_recv_sock, packet_buff, packet_buff_len - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) < 0 ) {
+			if ((*packet_len = recvfrom(batman_if->udp_recv_sock, packet_buff, packet_buff_len - 1, 0, (struct sockaddr *)&addr, &addr_len)) < 0) {
 
-				debug_output( 0, "Error - can't receive packet: %s\n", strerror(errno) );
+				debug_output(0, "Error - can't receive packet: %s\n", strerror(errno));
 				return -1;
 
 			}
 
-			if ( *hna_buff_len < sizeof(struct bat_packet) )
+			if (*packet_len < sizeof(struct bat_packet))
 				return 0;
-
-			((struct bat_packet *)packet_buff)->seqno = ntohs(((struct bat_packet *)packet_buff)->seqno); /* network to host order for our 16bit seqno */
 
 			(*if_incoming) = batman_if;
 			break;
