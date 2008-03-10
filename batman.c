@@ -897,7 +897,7 @@ int8_t batman(void)
 	char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN], oldorig_str[ADDR_STR_LEN];
 	int16_t hna_buff_count, hna_buff_len, packet_len, curr_packet_len;
 	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old, if_send_redirects_all_old, if_send_redirects_default_old;
-	uint8_t is_my_addr, is_my_orig, is_my_oldorig, is_broadcast, is_duplicate, is_bidirectional, is_bntog, has_unidirectional_flag, has_directlink_flag, has_version;
+	uint8_t is_my_addr, is_my_orig, is_my_oldorig, is_broadcast, is_duplicate, is_bidirectional, is_bntog, has_directlink_flag;
 	int8_t res;
 
 
@@ -1006,11 +1006,9 @@ int8_t batman(void)
 
 				is_my_addr = is_my_orig = is_my_oldorig = is_broadcast = is_duplicate = is_bidirectional = is_bntog = 0;
 
-				has_unidirectional_flag = (bat_packet->flags & UNIDIRECTIONAL ? 1 : 0);
 				has_directlink_flag = (bat_packet->flags & DIRECTLINK ? 1 : 0);
-				has_version = bat_packet->version;
 
-				debug_output(4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, UDF %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, bat_packet->seqno, bat_packet->tq, bat_packet->ttl, has_version, has_unidirectional_flag, has_directlink_flag);
+				debug_output(4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, bat_packet->seqno, bat_packet->tq, bat_packet->ttl, bat_packet->version, has_directlink_flag);
 
 				hna_buff_len = bat_packet->hna_len * 5;
 				hna_recv_buff = (hna_buff_len > 4 ? (unsigned char *)(bat_packet + 1) : NULL);
@@ -1106,12 +1104,6 @@ int8_t batman(void)
 
 					debug_output(4, "Drop packet: originator packet from myself (via neighbour) \n");
 
-				} else if (has_unidirectional_flag) {
-
-					count_real_packets(bat_packet, neigh, if_incoming);
-
-					debug_output(4, "Drop packet: originator packet with unidirectional flag \n");
-
 				} else if (bat_packet->tq == 0) {
 
 					count_real_packets(bat_packet, neigh, if_incoming);
@@ -1153,7 +1145,7 @@ int8_t batman(void)
 							/*if ( is_bidirectional && is_bntog ) {*/
 
 								/* mark direct link on incoming interface */
-								schedule_forward_packet(orig_node, bat_packet, neigh, 0, 1, hna_recv_buff, hna_buff_len, if_incoming, curr_time);
+								schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_recv_buff, hna_buff_len, if_incoming, curr_time);
 
 								debug_output(4, "Forward packet: rebroadcast neighbour packet with direct link flag \n");
 
@@ -1174,7 +1166,7 @@ int8_t batman(void)
 
 								if (!is_duplicate) {
 
-									schedule_forward_packet(orig_node, bat_packet, neigh, 0, 0, hna_recv_buff, hna_buff_len, if_incoming, curr_time);
+									schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_recv_buff, hna_buff_len, if_incoming, curr_time);
 
 									debug_output(4, "Forward packet: rebroadcast originator packet \n");
 

@@ -43,7 +43,6 @@
 #define COMPAT_VERSION 5
 #define PORT 4305
 #define GW_PORT 4306
-#define UNIDIRECTIONAL 0x80
 #define DIRECTLINK 0x40
 #define ADDR_STR_LEN 16
 #define TQ_MAX_VALUE 255
@@ -90,7 +89,7 @@
 #define TQ_HOP_PENALTY 10
 #define DEFAULT_ROUTING_CLASS 30
 
-#define MAX_AGGREGATION_BYTES 500
+#define MAX_AGGREGATION_BYTES 512   /* should not be bigger than 512 bytes or change the size of forw_node->direct_link_flags */
 #define MAX_AGGREGATION_MS 100
 
 
@@ -248,7 +247,9 @@ struct forw_node                 /* structure for forw_list maintaining packets 
 	uint32_t send_time;
 	uint8_t  own;
 	unsigned char *pack_buff;
-	int32_t  pack_buff_len;
+	uint16_t  pack_buff_len;
+	uint32_t direct_link_flags;
+	uint8_t num_packets;
 	struct batman_if *if_outgoing;
 };
 
