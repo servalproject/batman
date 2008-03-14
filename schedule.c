@@ -48,7 +48,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 	/* non-primary interfaces do not send hna information */
 	if ((num_hna > 0 ) && (batman_if->if_num == 0)) {
 
-		forw_node_new->pack_buff = debugMalloc(sizeof(struct bat_packet) + num_hna * 5, 502);
+		forw_node_new->pack_buff = debugMalloc(MAX_AGGREGATION_BYTES, 502);
 		memcpy(forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct bat_packet));
 		memcpy(forw_node_new->pack_buff + sizeof(struct bat_packet), hna_buff, num_hna * 5);
 		forw_node_new->pack_buff_len = sizeof(struct bat_packet) + num_hna * 5;
@@ -56,7 +56,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 
 	} else {
 
-		forw_node_new->pack_buff = debugMalloc(sizeof(struct bat_packet), 503);
+		forw_node_new->pack_buff = debugMalloc(MAX_AGGREGATION_BYTES, 503);
 		memcpy(forw_node_new->pack_buff, &batman_if->out, sizeof(struct bat_packet));
 		forw_node_new->pack_buff_len = sizeof(struct bat_packet);
 		((struct bat_packet *)forw_node_new->pack_buff)->hna_len = 0;
