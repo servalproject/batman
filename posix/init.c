@@ -234,7 +234,7 @@ void apply_init_args( int argc, char *argv[] ) {
 	char routing_class_opt = 0, gateway_class_opt = 0, pref_gw_opt = 0;
 	char hop_penalty_opt = 0, purge_timeout_opt = 0;
 	uint32_t vis_server = 0;
-	static struct option long_options[] =
+	struct option long_options[] =
 	{
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},

@@ -94,7 +94,7 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 	struct orig_node *orig_node;
 	struct hashtable_t *swaphash;
-	static char orig_str[ADDR_STR_LEN];
+	char orig_str[ADDR_STR_LEN];
 	prof_start( PROF_get_orig_node );
 
 
@@ -286,7 +286,7 @@ void purge_orig(uint32_t curr_time)
 	struct neigh_node *neigh_node, *best_neigh_node;
 	struct gw_node *gw_node;
 	uint8_t gw_purged = 0, neigh_purged, max_tq;
-	static char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
+	char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN];
 	prof_start( PROF_purge_originator );
 
 
@@ -443,7 +443,7 @@ void debug_orig() {
 	uint16_t batman_count = 0;
 	uint64_t uptime_sec;
 	int download_speed, upload_speed, debug_out_size;
-	static char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN], debug_out_str[1001];
+	char str[ADDR_STR_LEN], str2[ADDR_STR_LEN], orig_str[ADDR_STR_LEN], debug_out_str[1001];
 
 
 	if ( debug_clients.clients_num[1] > 0 ) {

@@ -35,9 +35,9 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 	struct orig_node *orig_node;
 
 
-	forw_node_new = debugMalloc( sizeof(struct forw_node), 501 );
+	forw_node_new = debugMalloc(sizeof(struct forw_node), 501);
 
-	INIT_LIST_HEAD( &forw_node_new->list );
+	INIT_LIST_HEAD(&forw_node_new->list);
 
 	forw_node_new->send_time = get_time_msec() + originator_interval - JITTER + rand_num(2 * JITTER);
 	forw_node_new->if_outgoing = batman_if;
@@ -135,7 +135,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 			if (((int)(forw_node_new->send_time - (curr_time + MAX_AGGREGATION_MS)) < 0) &&
 				(forw_node_new->pack_buff_len + sizeof(struct bat_packet) + hna_buff_len <= MAX_AGGREGATION_BYTES)) {
 
-				bat_packet = (struct bat_packet *)&forw_node_new->pack_buff;
+				bat_packet = (struct bat_packet *)forw_node_new->pack_buff;
 
 				/* if the base packet is sent via one interface only */
 				if (((bat_packet->flags & DIRECTLINK) && (bat_packet->ttl == 1)) ||
@@ -174,7 +174,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		forw_node_new->pack_buff_len = sizeof(struct bat_packet) + hna_buff_len;
 		memcpy(forw_node_new->pack_buff, in, forw_node_new->pack_buff_len);
 
-		bat_packet = (struct bat_packet *)&forw_node_new->pack_buff;
+		bat_packet = (struct bat_packet *)forw_node_new->pack_buff;
 
 		forw_node_new->own = 0;
 		forw_node_new->if_outgoing = if_outgoing;
@@ -248,7 +248,8 @@ void send_outstanding_packets(uint32_t curr_time)
 	struct forw_node *forw_node;
 	struct list_head *forw_pos, *if_pos, *temp;
 	struct batman_if *batman_if;
-	static char orig_str[ADDR_STR_LEN];
+	struct bat_packet *bat_packet;
+	char orig_str[ADDR_STR_LEN];
 	uint8_t directlink, curr_packet_num;
 	int16_t curr_packet_len;
 
@@ -262,14 +263,16 @@ void send_outstanding_packets(uint32_t curr_time)
 		if ((int)(curr_time - forw_node->send_time) < 0)
 			break;
 
-		addr_to_string(((struct bat_packet *)forw_node->pack_buff)->orig, orig_str, ADDR_STR_LEN);
+		bat_packet = (struct bat_packet *)forw_node->pack_buff;
 
-		directlink = ((((struct bat_packet *)forw_node->pack_buff)->flags & DIRECTLINK ) ? 1 : 0);
+		addr_to_string(bat_packet->orig, orig_str, ADDR_STR_LEN);
+
+		directlink = (bat_packet->flags & DIRECTLINK ? 1 : 0);
 
 
 		/* multihomed peer assumed */
 		/* non-primary interfaces are only broadcasted on their interface */
-		if ((( directlink) && (((struct bat_packet *)forw_node->pack_buff)->ttl == 1)) ||
+		if ((( directlink) && (bat_packet->ttl == 1)) ||
 			((forw_node->own) && (forw_node->if_outgoing->if_num > 0))) {
 
 			if (forw_node->if_outgoing == NULL) {
@@ -277,7 +280,7 @@ void send_outstanding_packets(uint32_t curr_time)
 				goto packet_free;
 			}
 
-			debug_output(4, "%s packet (originator %s, seqno %d, TTL %d) on interface %s\n", (forw_node->own ? "Sending own" : "Forwarding"), orig_str, ntohs( ((struct bat_packet *)forw_node->pack_buff)->seqno ), ((struct bat_packet *)forw_node->pack_buff)->ttl, forw_node->if_outgoing->dev);
+			debug_output(4, "%s packet (originator %s, seqno %d, TTL %d) on interface %s\n", (forw_node->own ? "Sending own" : "Forwarding"), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, forw_node->if_outgoing->dev);
 
 			if (send_udp_packet(forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock, forw_node->if_outgoing) < 0)
 					deactivate_interface(forw_node->if_outgoing);
@@ -298,21 +301,22 @@ void send_outstanding_packets(uint32_t curr_time)
 			curr_packet_num = curr_packet_len = 0;
 
 			while ((curr_packet_len + sizeof(struct bat_packet) <= forw_node->pack_buff_len) &&
-				(curr_packet_len + sizeof(struct bat_packet) + ((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->hna_len * 5 <= forw_node->pack_buff_len) &&
-				(curr_packet_len + sizeof(struct bat_packet) + ((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
+				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= forw_node->pack_buff_len) &&
+				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
 
 				if ((forw_node->direct_link_flags & (1 << curr_packet_num)) && (forw_node->if_outgoing == batman_if))
-					((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->flags = DIRECTLINK;
+					bat_packet->flags = DIRECTLINK;
 				else
-					((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->flags = 0x00;
+					bat_packet->flags = 0x00;
 
 				if (curr_packet_num > 0)
-					addr_to_string(((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->orig, orig_str, ADDR_STR_LEN);
+					addr_to_string(bat_packet->orig, orig_str, ADDR_STR_LEN);
 
-				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d) on interface %s\n", (forw_node->own ? "Sending own" : "Forwarding"), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->seqno), ((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->ttl, batman_if->dev);
+				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d) on interface %s\n", (forw_node->own ? "Sending own" : "Forwarding"), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, batman_if->dev);
 
-				curr_packet_len += sizeof(struct bat_packet) + ((struct bat_packet *)forw_node->pack_buff + curr_packet_len)->hna_len * 5;
+				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
 				curr_packet_num++;
+				bat_packet = (struct bat_packet *)(forw_node->pack_buff + curr_packet_len);
 
 			}
 

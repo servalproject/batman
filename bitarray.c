@@ -60,25 +60,25 @@ uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t cu
 }
 
 /* print the packet array, for debugging purposes */
-static char bit_string[130];
-char* bit_print( TYPE_OF_WORD *seq_bits ) {
-	int i,j,k=0,b=0;
-
-// 	printf("the last %d packets, we got %d:\n", TQ_LOCAL_WINDOW_SIZE, bit_packet_count(seq_bits));
-	for ( i=0; i<num_words; i++ ) {
-		for ( j=0; j<WORD_BIT_SIZE; j++) {
-			bit_string[k++] = ((seq_bits[i]>>j)%2 ? '1':'0'); /* print the j position */
-			if(++b == local_win_size) {
-				bit_string[k++]='|';
-			}
-		}
-		bit_string[k++]=' ';
-	}
-	bit_string[k++]='\0';
-//	debug_output( 4, "%s\n", bit_string);
-//	printf("\n\n");
-	return bit_string;
-}
+// static char bit_string[130];
+// char* bit_print( TYPE_OF_WORD *seq_bits ) {
+// 	int i,j,k=0,b=0;
+//
+// // 	printf("the last %d packets, we got %d:\n", TQ_LOCAL_WINDOW_SIZE, bit_packet_count(seq_bits));
+// 	for ( i=0; i<num_words; i++ ) {
+// 		for ( j=0; j<WORD_BIT_SIZE; j++) {
+// 			bit_string[k++] = ((seq_bits[i]>>j)%2 ? '1':'0'); /* print the j position */
+// 			if(++b == local_win_size) {
+// 				bit_string[k++]='|';
+// 			}
+// 		}
+// 		bit_string[k++]=' ';
+// 	}
+// 	bit_string[k++]='\0';
+// //	debug_output( 4, "%s\n", bit_string);
+// //	printf("\n\n");
+// 	return bit_string;
+// }
 
 /* turn corresponding bit on, so we can remember that we got the packet */
 void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n ) {
