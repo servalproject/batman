@@ -987,7 +987,7 @@ int8_t batman(void)
 
 			curr_time = get_time_msec();
 			curr_packet_len = 0;
-			bat_packet = (struct bat_packet *)&in;
+			bat_packet = (struct bat_packet *)in;
 
 			addr_to_string(neigh, neigh_str, sizeof(neigh_str));
 			addr_to_string(if_incoming->addr.sin_addr.s_addr, ifaddr_str, sizeof(ifaddr_str));
@@ -996,6 +996,7 @@ int8_t batman(void)
 				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= packet_len) &&
 				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
 
+				bat_packet = (struct bat_packet *)(in + curr_packet_len);
 				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
 
 				/* network to host order for our 16bit seqno */

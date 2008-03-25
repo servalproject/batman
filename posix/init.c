@@ -581,7 +581,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			list_add_tail( &batman_if->list, &if_list );
 
-			init_interface ( batman_if );
+			init_interface(batman_if);
 
 			if (batman_if->if_num > 0) {
 
