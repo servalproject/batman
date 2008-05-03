@@ -3,7 +3,7 @@ ifeq ($(MAKING_MODULES),1)
 endif
 
 LINUX26:=2.6
-CFLAGS +=-DREVISION_VERSION=\"\ rv$(REVISION)\"
+EXTRA_CFLAGS +=-DREVISION_VERSION=\"\ rv$(REVISION)\"
 
 ifeq ($(strip $(findstring $(LINUX26),$(LINUX_VERSION))),$(LINUX26))
 

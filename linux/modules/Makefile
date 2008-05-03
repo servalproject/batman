@@ -8,7 +8,7 @@ include $(PWD)/Makefile.kbuild
 ifneq ($(LINUX_VERSION),$(LINUX26))
 TARGET:=batgat
 INCLUDE:=-I/lib/modules/$(UNAME)/build/include -I/usr/src/kernel-headers-$(UNAME)/include
-CFLAGS+=-D__KERNEL__ -DMODULE -O2 -Wall $(INCLUDE)
+EXTRA_CFLAGS+=-D__KERNEL__ -DMODULE -O2 -Wall $(INCLUDE)
 CC:=gcc
 endif
 

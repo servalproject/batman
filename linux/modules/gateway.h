@@ -35,6 +35,7 @@
 #include <net/sock.h>		/* sock */
 #include <net/pkt_sched.h>	/* class_create, class_destroy, class_device_create */
 #include <linux/list.h>		/* list handling */
+//#include <linux/netdevice.h> /* init_net */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 	#include <linux/kthread.h>

@@ -512,10 +512,11 @@ static void bat_netdev_setup( struct net_device *dev )
 	dev->destructor = free_netdev;
 
 	dev->features        |= NETIF_F_NO_CSUM;
+#ifndef __NET_NET_NAMESPACE_H
 	dev->hard_header_cache = NULL;
+#endif
 	dev->mtu = 1471;
 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-	dev->hard_header_cache = NULL;
 
 	priv = netdev_priv( dev );
 	memset( priv, 0, sizeof( struct gate_priv ) );
@@ -762,7 +763,11 @@ static void cleanup_procfs(void)
 
 static int setup_procfs(void)
 {
+#ifdef __NET_NET_NAMESPACE_H
+	proc_dir = proc_mkdir(PROC_ROOT_DIR, init_net.proc_net);
+#else
 	proc_dir = proc_mkdir(PROC_ROOT_DIR, proc_net);
+#endif
 	clients_file = create_proc_read_entry(PROC_FILE_CLIENTS, S_IRUGO, proc_dir, proc_clients_read, NULL);
 	
 	return(0);
