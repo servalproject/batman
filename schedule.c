@@ -42,7 +42,7 @@ void schedule_own_packet( struct batman_if *batman_if ) {
 	forw_node_new->send_time = get_time_msec() + originator_interval - JITTER + rand_num(2 * JITTER);
 	forw_node_new->if_outgoing = batman_if;
 	forw_node_new->own = 1;
-	forw_node_new->num_packets = 1;
+	forw_node_new->num_packets = 0;
 	forw_node_new->direct_link_flags = 0;
 
 	/* non-primary interfaces do not send hna information */
@@ -131,7 +131,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 			/* we can aggregate the current packet to this packet if:
 			   - the send time is within our MAX_AGGREGATION_MS time
-			   - the resulting apcket wont be bigger than MAX_AGGREGATION_BYTES */
+			   - the resulting packet wont be bigger than MAX_AGGREGATION_BYTES */
 			if (((int)(forw_node_new->send_time - (curr_time + MAX_AGGREGATION_MS)) < 0) &&
 				(forw_node_new->pack_buff_len + sizeof(struct bat_packet) + hna_buff_len <= MAX_AGGREGATION_BYTES)) {
 
@@ -141,7 +141,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 				if (((bat_packet->flags & DIRECTLINK) && (bat_packet->ttl == 1)) ||
 					((forw_node_new->own) && (forw_node_new->if_outgoing->if_num > 0))) {
 
-					if ((directlink) && (in->ttl == 1) && (forw_node_new->if_outgoing == if_outgoing))
+					if ((directlink) && (in->ttl == 2) && (forw_node_new->if_outgoing == if_outgoing))
 						break;
 
 				} else {
@@ -231,8 +231,8 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		bat_packet->flags = 0x00;
 
 	if (aggregation_enabled) {
-		/* not aggregated */
-		if (forw_node_new->pack_buff_len == sizeof(struct bat_packet) + hna_buff_len)
+		/* new packet was generated and has to be appended */
+		if (forw_node_new->num_packets == 0)
 			list_add_before(prev_list_head, list_pos, &forw_node_new->list);
 	} else {
 		list_add(&forw_node_new->list, &forw_list);
@@ -272,7 +272,7 @@ void send_outstanding_packets(uint32_t curr_time)
 
 		/* multihomed peer assumed */
 		/* non-primary interfaces are only broadcasted on their interface */
-		if ((( directlink) && (bat_packet->ttl == 1)) ||
+		if (((directlink) && (bat_packet->ttl == 1)) ||
 			((forw_node->own) && (forw_node->if_outgoing->if_num > 0))) {
 
 			if (forw_node->if_outgoing == NULL) {

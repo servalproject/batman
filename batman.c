@@ -195,6 +195,7 @@ void verbose_usage(void)
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
 	fprintf( stderr, "       --policy-routing-script send all routing table changes to the script\n" );
+	fprintf( stderr, "       --aggregation enable packet aggregation (experimental feature)\n" );
 }
 
 
