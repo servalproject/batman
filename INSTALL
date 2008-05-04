@@ -4,10 +4,7 @@ B.A.T.M.A.N. Installation and Usage
 ###################################
 
 
-  ( This documentation is actually for the stable batman-0.2.x branch. 
-  However, the main steps described here for compilation and usage should 
-  be almost the same for the currently unstable 0.3.x branch. 
-  There is also a very nice HOWTO from Wesley available as a pdf at:
+  (There is also a very nice HOWTO from Wesley available as a pdf at:
   http://open-mesh.net/batman/documentation/batmand_howto.pdf )
 
 
@@ -32,8 +29,8 @@ for your system.
 Download and compile the latest stable sources from the download 
 section http://open-mesh.net/batman/downloads by executing eg.:
 
- $ wget http://downloads.open-mesh.net/batman/stable/sources/batmand_0.2-current_sources.tgz
- $ tar xzvf batmand_0.2-current_sources.tgz
+ $ wget http://downloads.open-mesh.net/batman/stable/sources/batmand_0.3-current_sources.tgz
+ $ tar xzvf batmand_0.3-current_sources.tgz
  $ cd batmand_0.x-rvxyz_sources
  $ make
 
@@ -96,9 +93,9 @@ as well as other optionally parameters.
 Alternatively you can get the latest stable release (as well as development) 
 versions from  http://open-mesh.net/batman/downoads/
 
-For example to install batmand-0.2 on a freifunk WRT do:
+For example to install batmand-0.3 on a freifunk WRT do:
 
- $ ipkg install http://downloads.open-mesh.net/batman/stable/wrt-freifunk/batmand_0.2-current_mipsel-wr-elf-32-lsb-dynamic.ipk
+ $ ipkg install http://downloads.open-mesh.net/batman/stable/wrt-freifunk/batmand_0.3-current_mipsel-wr-elf-32-lsb-dynamic.ipk
 
   Be aware that, a recent batmand-...ipk from open-mesh.net 
   should be equal to the batmand-...ipk from freifunk.schmudde.com/ipkg.
