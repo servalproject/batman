@@ -46,11 +46,12 @@ void set_rp_filter(int32_t state, char* dev)
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
 
 	if((f = fopen(filename, "w")) == NULL)
-		return;
+		goto end;
 
 	fprintf(f, "%d", state);
 	fclose(f);
 
+end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 }
@@ -70,11 +71,12 @@ int32_t get_rp_filter(char *dev)
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
 
 	if((f = fopen(filename, "r")) == NULL)
-		return 0;
+		goto end;
 
 	fscanf(f, "%d", &state);
 	fclose(f);
 
+end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 
@@ -95,11 +97,12 @@ void set_send_redirects( int32_t state, char* dev ) {
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
 
 	if((f = fopen(filename, "w")) == NULL)
-		return;
+		goto end;
 
 	fprintf(f, "%d", state);
 	fclose(f);
 
+end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 
@@ -120,11 +123,12 @@ int32_t get_send_redirects( char *dev ) {
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
 
 	if((f = fopen(filename, "r")) == NULL)
-		return 0;
+		goto end;
 
 	fscanf(f, "%d", &state);
 	fclose(f);
 
+end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 

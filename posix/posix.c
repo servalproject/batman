@@ -443,7 +443,9 @@ void restore_defaults() {
 		closelog();
 
 	if (policy_routing_script != NULL) {
+		sleep(3);
 		close(policy_routing_pipe);
+		kill(policy_routing_script_pid, SIGKILL);
 		waitpid(policy_routing_script_pid, NULL, 0);
 	}
 

@@ -126,6 +126,10 @@ void create_routing_pipe()
 
 		}
 
+		signal(SIGINT, SIG_IGN);
+		signal(SIGTERM, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
+
 		if (execl(policy_routing_script, policy_routing_script, NULL) < 0)
 			printf("Could not execute '%s': %s\n", policy_routing_script, strerror(errno));
 
@@ -924,6 +928,7 @@ int is_interface_up(char *dev)
 	if (ioctl(sock, SIOCGIFADDR, &int_req) < 0)
 		goto failure;
 
+	close(sock);
 	return 1;
 
 failure:
