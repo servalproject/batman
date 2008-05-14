@@ -29,7 +29,6 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -130,7 +129,7 @@ void create_routing_pipe()
 		signal(SIGTERM, SIG_IGN);
 		signal(SIGPIPE, SIG_IGN);
 
-		if (execl(policy_routing_script, policy_routing_script, NULL) < 0)
+		if (execl("/bin/sh", "/bin/sh", "-c", policy_routing_script, NULL) < 0)
 			printf("Could not execute '%s': %s\n", policy_routing_script, strerror(errno));
 
 	}
@@ -229,7 +228,6 @@ void apply_init_args( int argc, char *argv[] ) {
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
 	struct list_head *list_pos, *list_pos_tmp;
-	struct stat fstats;
 	uint8_t found_args = 1, batch_mode = 0, info_output = 0, was_hna = 0;
 	int8_t res;
 
@@ -359,11 +357,6 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'n':
 				policy_routing_script = optarg;
-
-				if (lstat(policy_routing_script, &fstats) < 0) {
-					printf( "Could not get file information of '%s': %s\n", policy_routing_script, strerror(errno));
-					exit(EXIT_FAILURE);
-				}
 
 				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
