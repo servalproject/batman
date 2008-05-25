@@ -197,7 +197,7 @@ B.A.T.M.A.N. is a simple set of rules a node has to comply with.
 
 NOTE:
 A firewall must not block B.A.T.M.A.N. traffic. B.A.T.M.A.N. sends its
-packets on Port 1966 UDP. This port must be open for incoming and outgoing
+packets on Port 4305 UDP. This port must be open for incoming and outgoing
 UDP traffic.
 
 
