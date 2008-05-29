@@ -195,7 +195,6 @@ void verbose_usage(void)
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
 	fprintf( stderr, "       --policy-routing-script send all routing table changes to the script\n" );
-	fprintf( stderr, "       --aggregation enable packet aggregation (experimental feature)\n" );
 }
 
 
@@ -757,7 +756,7 @@ void generate_vis_packet(void)
 
 			memcpy( &vis_data->ip, (unsigned char *)&orig_node->orig, 4 );
 
-			vis_data->data = htons(orig_node->router->tq_avg);
+			vis_data->data = orig_node->router->tq_avg;
 			vis_data->type = DATA_TYPE_NEIGH;
 
 		}
