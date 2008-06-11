@@ -1127,7 +1127,7 @@ int8_t batman(void)
 					/* drop packet if sender is not a direct neighbor and if we no route towards it */
 					if ((bat_packet->orig != neigh) && (orig_neigh_node->router == NULL)) {
 
-						debug_output(4, "Drop packet: OGM via unkown neighbor! \n");
+						debug_output(4, "Drop packet: OGM via unknown neighbor! \n");
 
 					} else {
 

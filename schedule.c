@@ -299,6 +299,7 @@ void send_outstanding_packets(uint32_t curr_time)
 			batman_if = list_entry(if_pos, struct batman_if, list);
 
 			curr_packet_num = curr_packet_len = 0;
+			bat_packet = (struct bat_packet *)forw_node->pack_buff;
 
 			while ((curr_packet_len + sizeof(struct bat_packet) <= forw_node->pack_buff_len) &&
 				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= forw_node->pack_buff_len) &&
@@ -312,7 +313,7 @@ void send_outstanding_packets(uint32_t curr_time)
 				if (curr_packet_num > 0)
 					addr_to_string(bat_packet->orig, orig_str, ADDR_STR_LEN);
 
-				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, batman_if->dev);
+				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d, IDF %s) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, batman_if->dev, (bat_packet->flags & DIRECTLINK ? "on" : "off"));
 
 				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
 				curr_packet_num++;
