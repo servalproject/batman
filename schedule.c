@@ -269,16 +269,16 @@ void send_outstanding_packets(uint32_t curr_time)
 
 		directlink = (bat_packet->flags & DIRECTLINK ? 1 : 0);
 
+		if (forw_node->if_outgoing == NULL) {
+			debug_output(0, "Error - can't forward packet: outgoing iface not specified \n");
+			goto packet_free;
+		}
 
 		/* multihomed peer assumed */
 		/* non-primary interfaces are only broadcasted on their interface */
 		if (((directlink) && (bat_packet->ttl == 1)) ||
 			((forw_node->own) && (forw_node->if_outgoing->if_num > 0))) {
 
-			if (forw_node->if_outgoing == NULL) {
-				debug_output(0, "Error - can't forward packet with %s: outgoing iface not specified \n", (forw_node->own ? "if_num > 0" : "IDF (multihomed)"));
-				goto packet_free;
-			}
 
 			debug_output(4, "%s packet (originator %s, seqno %d, TTL %d) on interface %s\n", (forw_node->own ? "Sending own" : "Forwarding"), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, forw_node->if_outgoing->dev);
 
@@ -287,11 +287,6 @@ void send_outstanding_packets(uint32_t curr_time)
 
 			goto packet_free;
 
-		}
-
-		if (forw_node->if_outgoing == NULL) {
-			debug_output(0, "Error - can't forward packet: outgoing iface not specified \n");
-			goto packet_free;
 		}
 
 		list_for_each(if_pos, &if_list) {
