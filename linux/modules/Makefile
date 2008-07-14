@@ -1,7 +1,32 @@
+PWD:=$(shell pwd)
+ifeq ($(wildcard $(KERNELPATH)),)
+KERNELPATH = /lib/modules/$(shell uname -r)/build
+# sanity check: does KERNELPATH exist?
+ifeq ($(shell cd $(KERNELPATH) && pwd),)
+$(error $(KERNELPATH) is missing, please set KERNELPATH)
+endif
+export KERNELPATH
+endif
+
+
 UNAME:=$(shell uname -r)
 LINUX26=2.6
 LINUX_VERSION:=$(findstring $(LINUX26),$(UNAME))
-REVISION :=	$(shell if [ -d .svn ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
+REVISION:=	$(shell if [ -d .svn ]; then \
+						if which svn > /dev/null; then \
+							svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; \
+						else \
+							echo "[unknown]"; \
+						fi ; \
+					else \
+						if [ -d ~/.svk ]; then \
+							if which svk > /dev/null; then \
+								echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); \
+							else \
+								echo "[unknown]"; \
+							fi; \
+						fi; \
+					fi)
 
 include $(PWD)/Makefile.kbuild
 
@@ -15,10 +40,10 @@ endif
 ifeq ($(LINUX_VERSION),$(LINUX26))
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build REVISION=$(REVISION) M=$(PWD) modules
+	make -C $(KERNELPATH) REVISION=$(REVISION) M=$(PWD) PWD=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C $(KERNELPATH) M=$(PWD) PWD=$(PWD) clean
 else
 
 clean:
