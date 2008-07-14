@@ -117,7 +117,11 @@ int init_module( void ) {
 	if ( IS_ERR(batman_class) )
 		printk( "B.A.T.M.A.N.: Could not register class 'batman' \n" );
 	else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)  
+		device_create_drvdata( batman_class, NULL, MKDEV( Major, 0 ), NULL, "batman" );
+#else
 		class_device_create( batman_class, NULL, MKDEV( Major, 0 ), NULL, "batman" );
+#endif
 #endif
 
 	for ( i = 0; i < 255; i++ ) {
@@ -139,7 +143,11 @@ void cleanup_module( void ) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	devfs_remove( "batman", 0 );
 #else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)  
+	device_destroy_drvdata( batman_class, MKDEV( Major, 0 ) );
+#else
 	class_device_destroy( batman_class, MKDEV( Major, 0 ) );
+#endif
 	class_destroy( batman_class );
 #endif
 
@@ -239,7 +247,11 @@ static int device_release( struct inode *inode, struct file *file ) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 		devfs_remove( "batman", minor_num );
 #else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)  
+		device_destroy(minor->minor_class, MKDEV(Major, minor_num));
+#else
 		class_device_destroy( minor->minor_class, MKDEV( Major, minor_num ) );
+#endif
 		class_destroy( minor->minor_class );
 #endif
 		sock_release( minor->raw_sock );
@@ -355,7 +367,11 @@ static int device_ioctl( struct inode *inode, struct file *file, unsigned int cm
 			if ( IS_ERR(minor->minor_class) )
 				printk( "B.A.T.M.A.N.: Could not register class '%s' \n", filename );
 			else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)  
+				device_create_drvdata( minor->minor_class, NULL, MKDEV( Major, minor_num ), NULL, "batman%d", minor_num );
+#else
 				class_device_create( minor->minor_class, NULL, MKDEV( Major, minor_num ), NULL, "batman%d", minor_num );
+#endif
 #endif
 			/* let udev create the device file */
 			set_current_state(TASK_INTERRUPTIBLE);
@@ -379,7 +395,11 @@ static int device_ioctl( struct inode *inode, struct file *file, unsigned int cm
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 					devfs_remove( "batman", minor_num );
 #else
-					class_device_destroy( minor->minor_class, MKDEV( Major, minor_num ) );
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)  
+					device_destroy( minor->minor_class, MKDEV(Major, minor_num ));
+#else
+					class_device_destroy( minor->minor_class, MKDEV(Major, minor_num ));
+#endif
 					class_destroy( minor->minor_class );
 #endif
 					kfree( minor );
