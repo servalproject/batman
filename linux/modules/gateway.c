@@ -148,6 +148,7 @@ void cleanup_module()
 		if(entry->gw_client != NULL) {
 			gw_client = entry->gw_client;
 			list_del(&entry->list);
+			kfree(entry);
 			kfree(gw_client);
 		}
 
@@ -267,6 +268,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				if(entry->gw_client) {
 					gw_client = entry->gw_client;
 					list_del(&entry->list);
+					kfree(entry);
 					kfree(gw_client);
 				}
 
@@ -653,6 +655,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 		DBG("use free client from list");
 		gw_client = entry->gw_client;
 		list_del(&entry->list);
+		kfree(entry);
 		break;
 	}
 
