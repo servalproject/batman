@@ -766,8 +766,16 @@ int choose_vip(void *data, int32_t size)
 
 static void cleanup_procfs(void)
 {
-	if(clients_file) remove_proc_entry("PROC_FILE_CLIENTS", proc_dir);
-	if(proc_dir) remove_proc_entry(PROC_ROOT_DIR, NULL);
+	if (clients_file)
+		remove_proc_entry(PROC_FILE_CLIENTS, proc_dir);
+
+#ifdef __NET_NET_NAMESPACE_H
+	if (proc_dir)
+		remove_proc_entry(PROC_ROOT_DIR, init_net.proc_net);
+#else
+	if (proc_dir)
+		remove_proc_entry(PROC_ROOT_DIR, proc_net);
+#endif
 }
 
 static int setup_procfs(void)
