@@ -587,6 +587,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 	if (gw_client != NULL) {
 		printk(KERN_DEBUG "found client in hash");
+		spin_unlock(&hash_lock);
 		return gw_client;
 	}
 
