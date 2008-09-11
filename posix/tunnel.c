@@ -407,7 +407,7 @@ out:
 	return NULL;
 }
 
-struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_t *wip_hash, struct hashtable_t *vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
+struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_t **wip_hash, struct hashtable_t **vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
 
 	struct gw_client *gw_client;
 	struct free_ip *free_ip;
@@ -415,7 +415,7 @@ struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_
 	struct hashtable_t *swaphash;
 
 
-	gw_client = ((struct gw_client *)hash_find(wip_hash, &client_addr->sin_addr.s_addr));
+	gw_client = ((struct gw_client *)hash_find(*wip_hash, &client_addr->sin_addr.s_addr));
 
 	if (gw_client != NULL)
 		return gw_client;
@@ -451,12 +451,22 @@ struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_
 
 	}
 
-	hash_add(wip_hash, gw_client);
-	hash_add(vip_hash, gw_client);
+	hash_add(*wip_hash, gw_client);
+	hash_add(*vip_hash, gw_client);
 
-	if (wip_hash->elements * 4 > wip_hash->size) {
+	if ((*wip_hash)->elements * 4 > (*wip_hash)->size) {
 
-		swaphash = hash_resize(wip_hash, wip_hash->size * 2);
+		swaphash = hash_resize(*wip_hash, (*wip_hash)->size * 2);
+		if (swaphash == NULL) {
+
+			debug_output( 0, "Couldn't resize hash table \n" );
+			restore_and_exit(0);
+
+		}
+
+		*wip_hash = swaphash;
+
+		swaphash = hash_resize(*vip_hash, (*vip_hash)->size * 2);
 
 		if (swaphash == NULL) {
 
@@ -465,18 +475,7 @@ struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_
 
 		}
 
-		wip_hash = swaphash;
-
-		swaphash = hash_resize(vip_hash, vip_hash->size * 2);
-
-		if (swaphash == NULL) {
-
-			debug_output( 0, "Couldn't resize hash table \n" );
-			restore_and_exit(0);
-
-		}
-
-		vip_hash = swaphash;
+		*vip_hash = swaphash;
 
 	}
 
@@ -652,7 +651,7 @@ void *gw_listen() {
 
 						} else if (buff[0] == TUNNEL_IP_REQUEST) {
 
-							gw_client = get_ip_addr(&addr, wip_hash, vip_hash, &free_ip_list, next_free_ip);
+							gw_client = get_ip_addr(&addr, &wip_hash, &vip_hash, &free_ip_list, next_free_ip);
 
 							memcpy( buff + 1, (char *)&gw_client->vip_addr, 4 );
 
