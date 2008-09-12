@@ -103,14 +103,14 @@ int init_module()
 	DBG( "Remove the device file and module when done." );
 
 	setup_procfs();
-	
+
 	/* TODO: error handling */
 	vip_hash = hash_new( 128, compare_vip, choose_vip );
 	wip_hash = hash_new( 128, compare_wip, choose_wip );
 
 	INIT_LIST_HEAD(&free_client_list);
 
-	
+
 	return(0);
 }
 
@@ -142,7 +142,7 @@ void cleanup_module()
 // 		dev_put(gate_device);
 		unregister_netdev(gate_device);
 	}
-	
+
 	list_for_each_entry_safe(entry, next, &free_client_list, list) {
 
 		if(entry->gw_client != NULL) {
@@ -178,7 +178,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 	struct batgat_ioc_args ioc;
 	struct free_client_data *entry, *next;
 	struct gw_client *gw_client;
-	
+
 	int ret_value = 0;
 
 	if( cmd == IOCSETDEV || cmd == IOCREMDEV ) {
@@ -195,7 +195,7 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 		}
 
 	}
-	
+
 	switch( cmd ) {
 
 		case IOCSETDEV:
@@ -222,13 +222,13 @@ static int batgat_ioctl( struct inode *inode, struct file *file, unsigned int cm
 				strlcpy( ioc.dev_name, gate_device->name, IFNAMSIZ - 1 );
 
 				DBG("name %s index %d", ioc.dev_name, ioc.ifindex);
-				
+
 				if( ret_value == -1 ) {
 
 					DBG("device already exists");
 					ioc.exists = 1;
 					ret_value = 0;
-					
+
 				}
 
 				if( copy_to_user( ( void __user* )arg, &ioc, sizeof( ioc ) ) )
@@ -310,11 +310,11 @@ static int packet_recv_thread(void *data)
 
 	struct socket *server_sock = NULL;
 	struct socket *inet_sock = NULL;
-	
+
 	int length,ret_value;
 	unsigned char buffer[1600];
 	unsigned long time = jiffies;
-	
+
 	struct hash_it_t *hashit;
 
 
@@ -361,7 +361,7 @@ static int packet_recv_thread(void *data)
 	inet_msg.msg_namelen = sizeof( inet_addr );
 	inet_msg.msg_control = NULL;
 	inet_msg.msg_controllen = 0;
-	
+
 	atomic_set(&data_ready_cond, 0);
 	atomic_set(&exit_cond, 0);
 
@@ -527,10 +527,13 @@ static void bat_netdev_setup( struct net_device *dev )
 #endif
 	dev->mtu = 1471;
 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+#ifdef HAVE_VALIDATE_ADDR
+	dev->validate_addr = NULL;
+#endif
 
 	priv = netdev_priv( dev );
 	memset( priv, 0, sizeof( struct gate_priv ) );
-	
+
 	return;
 }
 
@@ -541,7 +544,7 @@ static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 	struct iphdr *iph = ip_hdr( skb );
 	struct iovec iov[2];
 	struct msghdr msg;
-	
+
 	struct gw_client *client_data;
 	unsigned char msg_number[1];
 
@@ -591,7 +594,7 @@ static int bat_netdev_close( struct net_device *dev )
 
 	if(priv->tun_socket)
 		sock_release(priv->tun_socket);
-	
+
 	netif_stop_queue( dev );
 	return( 0 );
 }
@@ -681,7 +684,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr)
 
 	}
 
-	
+
 	hash_add(wip_hash, gw_client);
 	hash_add(vip_hash, gw_client);
 
@@ -789,7 +792,7 @@ static int setup_procfs(void)
 	proc_dir = proc_mkdir(PROC_ROOT_DIR, proc_net);
 #endif
 	clients_file = create_proc_read_entry(PROC_FILE_CLIENTS, S_IRUGO, proc_dir, proc_clients_read, NULL);
-	
+
 	return(0);
 }
 
