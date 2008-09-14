@@ -49,6 +49,8 @@ static float system_tick;
 
 uint8_t tunnel_running = 0;
 
+static pthread_mutex_t batman_clock_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 void update_internal_clock()
 {
@@ -61,14 +63,26 @@ void update_internal_clock()
 
 uint32_t get_time_msec()
 {
+	uint32_t time;
+
+	pthread_mutex_lock(&batman_clock_mutex);
 	update_internal_clock();
-	return (uint32_t)(((float)(batman_clock_ticks) * 1000) / system_tick);
+	time = (uint32_t)(((float)(batman_clock_ticks) * 1000) / system_tick);
+	pthread_mutex_unlock(&batman_clock_mutex);
+
+	return time;
 }
 
 uint64_t get_time_msec64()
 {
+	uint64_t time;
+
+	pthread_mutex_lock(&batman_clock_mutex);
 	update_internal_clock();
-	return (uint64_t)(((float)(batman_clock_ticks) * 1000) / system_tick);
+	time = (uint64_t)(((float)(batman_clock_ticks) * 1000) / system_tick);
+	pthread_mutex_unlock(&batman_clock_mutex);
+
+	return time;
 }
 
 /* batman animation */
