@@ -31,7 +31,7 @@ static struct prof_container prof_container[PROF_COUNT];
 
 
 
-void prof_init( int32_t index, char *name ) {
+void prof_init(int32_t index, char *name) {
 
 	prof_container[index].total_time = 0;
 	prof_container[index].calls = 0;
@@ -41,7 +41,7 @@ void prof_init( int32_t index, char *name ) {
 
 
 
-void prof_start( int32_t index ) {
+void prof_start(int32_t index) {
 
 	prof_container[index].start_time = clock();
 
@@ -49,7 +49,7 @@ void prof_start( int32_t index ) {
 
 
 
-void prof_stop( int32_t index ) {
+void prof_stop(int32_t index) {
 
 	prof_container[index].calls++;
 	prof_container[index].total_time += clock() - prof_container[index].start_time;
