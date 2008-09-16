@@ -550,8 +550,10 @@ void debug_orig() {
 
 			}
 
-			debug_output( 1, "%s \n", debug_out_str );
-			debug_output( 4, "%s \n", debug_out_str );
+			if (debug_out_size > 0) {
+				debug_output( 1, "%s \n", debug_out_str );
+				debug_output( 4, "%s \n", debug_out_str );
+			}
 
 		}
 
