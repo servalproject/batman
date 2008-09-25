@@ -91,11 +91,7 @@ int init_module()
 	if ( IS_ERR( batman_class ) )
 		DBG( "could not register class 'batgat'" );
 	else
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)
 		device_create_drvdata(batman_class, NULL, MKDEV(Major, 0), NULL, "batgat");
-#else
-		class_device_create(batman_class, NULL, MKDEV(Major, 0), NULL, "batgat");
-#endif
 
 
 	DBG( "batgat loaded %s", strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : "" );
@@ -120,11 +116,7 @@ void cleanup_module()
 	struct free_client_data *entry, *next;
 	struct gw_client *gw_client;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)
 	device_destroy( batman_class, MKDEV( Major, 0 ) );
-#else
-	class_device_destroy( batman_class, MKDEV( Major, 0 ) );
-#endif
 	class_destroy( batman_class );
 
 	/* Unregister the device */
