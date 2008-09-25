@@ -693,12 +693,12 @@ static int kernel_recvmsg(struct socket *sock, struct msghdr *msg, struct iovec 
 
 int compare_wip(void *data1, void *data2)
 {
-	return ( memcmp( data1, data2, 4 ) );
+	return ( !memcmp( data1, data2, 4 ) );
 }
 
 int compare_vip(void *data1, void *data2)
 {
-	return ( memcmp( data1 + 4, data2 + 4, 4 ) );
+	return ( !memcmp( data1 + 4, data2 + 4, 4 ) );
 }
 
 int choose_wip(void *data, int32_t size)
