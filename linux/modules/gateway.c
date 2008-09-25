@@ -19,6 +19,7 @@
 
 #include "gateway.h"
 #include "hash.h"
+#include "compat26.h"
 
 
 static struct class *batman_class;
