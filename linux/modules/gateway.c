@@ -405,7 +405,6 @@ static int packet_recv_thread(void *data)
 
 				if(client_data != NULL) {
 
-					buffer[0] = TUNNEL_DATA;
 					memcpy( &buffer[1], &client_data->vip_addr, sizeof( client_data->vip_addr ) );
 
 					iov.iov_base = buffer;
