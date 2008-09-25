@@ -291,7 +291,7 @@ static int packet_recv_thread(void *data)
 
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = INADDR_ANY;
-	server_addr.sin_port = htons( (unsigned short) BATMAN_PORT );
+	server_addr.sin_port = __constant_htons( (unsigned short) BATMAN_PORT );
 
 	if ( ( sock_create( PF_INET, SOCK_RAW, IPPROTO_RAW, &inet_sock ) ) < 0 ) {
 
@@ -509,7 +509,7 @@ static int bat_netdev_xmit( struct sk_buff *skb, struct net_device *dev )
 
 		sa.sin_family = AF_INET;
 		sa.sin_addr.s_addr = client_data->wip_addr;
-		sa.sin_port = htons( (unsigned short)BATMAN_PORT );
+		sa.sin_port = __constant_htons( (unsigned short)BATMAN_PORT );
 
 		msg.msg_flags = MSG_NOSIGNAL | MSG_DONTWAIT;
 		msg.msg_name = &sa;
