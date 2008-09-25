@@ -364,7 +364,7 @@ static int packet_recv_thread(void *data)
 					if( ( jiffies - client_data->last_keep_alive ) / HZ > LEASE_TIME ) {
 
 						hash_remove_bucket(wip_hash, hashit);
-						hash_remove_bucket(vip_hash, hashit);
+						hash_remove(vip_hash, client_data);
 
 						tmp_entry = kmalloc(sizeof(struct free_client_data), GFP_KERNEL);
 						if(tmp_entry != NULL) {
