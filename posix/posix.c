@@ -497,9 +497,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 
 	}
 
-	if (!is_sigsegv)
-		exit(EXIT_FAILURE);
-	else if (is_sigsegv)
+	if (is_sigsegv)
 		raise(SIGSEGV);
 
 	/* call exit always even if it will not be reached to make the compiler happy */
