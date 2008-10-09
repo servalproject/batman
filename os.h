@@ -39,7 +39,7 @@ void addr_to_string( uint32_t addr, char *str, int32_t len );
 void add_del_hna(struct orig_node *orig_node, int8_t del);
 int8_t is_aborted();
 void handler(int32_t sig);
-void segmentation_fault(int32_t sig);
+void segmentation_fault(int32_t sig) NO_RETURN;
 void restore_and_exit(uint8_t is_sigsegv) NO_RETURN;
 
 /* route.c */
