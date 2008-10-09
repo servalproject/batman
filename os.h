@@ -22,6 +22,12 @@
 
 #include "batman.h"
 
+#ifdef __GNUC_MINOR__
+#define NO_RETURN  __attribute__ ((__noreturn__))
+#else
+#define NO_RETURN
+#endif
+
 uint32_t get_time_msec(void);
 uint64_t get_time_msec64(void);
 int32_t rand_num( int32_t limit );
@@ -30,11 +36,11 @@ void addr_to_string( uint32_t addr, char *str, int32_t len );
 
 
 
-void add_del_hna( struct orig_node *orig_node, int8_t del );
+void add_del_hna(struct orig_node *orig_node, int8_t del);
 int8_t is_aborted();
-void handler( int32_t sig );
-void segmentation_fault( int32_t sig );
-void restore_and_exit( uint8_t is_sigsegv );
+void handler(int32_t sig);
+void segmentation_fault(int32_t sig);
+void restore_and_exit(uint8_t is_sigsegv) NO_RETURN;
 
 /* route.c */
 void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del );

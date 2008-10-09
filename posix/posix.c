@@ -499,14 +499,16 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 
 	if ( !is_sigsegv )
 		exit(EXIT_FAILURE);
+	else
+		raise(SIGSEGV);
 
 }
 
 
 
-void segmentation_fault( int32_t sig ) {
+void segmentation_fault(int32_t sig) {
 
-	signal( SIGSEGV, SIG_DFL );
+	signal(SIGSEGV, SIG_DFL);
 
 	debug_output( 0, "Error - SIGSEGV received, trying to clean up ... \n" );
 
@@ -514,9 +516,6 @@ void segmentation_fault( int32_t sig ) {
 	flush_routes_rules(1);
 
 	restore_and_exit(1);
-
-	raise( SIGSEGV );
-
 }
 
 
