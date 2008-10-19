@@ -380,10 +380,11 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 	prof_start( PROF_update_routes );
 
 
-	debug_output( 4, "update_routes() \n" );
+	debug_output(4, "update_routes() \n");
 
 
-	if ( ( orig_node != NULL ) && ( orig_node->router != neigh_node ) ) {
+	/* also handles orig_node->router == NULL and neigh_node == NULL */
+	if ((orig_node != NULL) && (orig_node->router != neigh_node)) {
 
 		if ( ( orig_node != NULL ) && ( neigh_node != NULL ) ) {
 			addr_to_string( orig_node->orig, orig_str, ADDR_STR_LEN );
@@ -391,69 +392,87 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			debug_output( 4, "Route to %s via %s\n", orig_str, next_str );
 		}
 
-		/* route altered or deleted */
-		if ( ( ( orig_node->router != NULL ) && ( neigh_node != NULL ) ) || ( neigh_node == NULL ) ) {
+		/* adds duplicated code but makes it more readable */
 
-			if ( neigh_node == NULL ) {
-				debug_output( 4, "Deleting previous route\n" );
-			} else {
-				debug_output( 4, "Route changed\n" );
-			}
+		/* new route added */
+		if ((orig_node->router == NULL) && (neigh_node != NULL)) {
 
-			/* remove old announced network(s) */
-			if ( orig_node->hna_buff_len > 0 )
-				add_del_hna( orig_node, 1 );
+			debug_output(4, "Adding new route\n");
 
-			add_del_route( orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
-
-		}
-
-		/* route altered or new route added */
-		if ( ( ( orig_node->router != NULL ) && ( neigh_node != NULL ) ) || ( orig_node->router == NULL ) ) {
-
-			if ( orig_node->router == NULL ) {
-				debug_output( 4, "Adding new route\n" );
-			} else {
-				debug_output( 4, "Route changed\n" );
-			}
-
-			add_del_route( orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0 );
+			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0);
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
 
 			/* add new announced network(s) */
-			if ( ( hna_buff_len > 0 ) && ( hna_recv_buff != NULL ) ) {
-
-				orig_node->hna_buff = debugMalloc( hna_buff_len, 101 );
+			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
+				orig_node->hna_buff = debugMalloc(hna_buff_len, 101);
 				orig_node->hna_buff_len = hna_buff_len;
 
-				memmove( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
+				memmove(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
 
-				add_del_hna( orig_node, 0 );
+				add_del_hna(orig_node, 0);
+			}
 
+		/* route deleted */
+		} else if ((orig_node->router != NULL) && (neigh_node == NULL)) {
+
+			debug_output(4, "Deleting previous route\n");
+
+			/* remove old announced network(s) */
+			if (orig_node->hna_buff_len > 0)
+				add_del_hna(orig_node, 1);
+
+			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1);
+
+		/* route changed */
+		} else {
+
+			debug_output(4, "Route changed\n");
+
+			/* add new route */
+			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0);
+
+			/* delete old route */
+			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1);
+
+			/* remove old announced network(s) */
+			if (orig_node->hna_buff_len > 0)
+				add_del_hna(orig_node, 1);
+
+			orig_node->batman_if = neigh_node->if_incoming;
+			orig_node->router = neigh_node;
+
+			/* add new announced network(s) */
+			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
+				orig_node->hna_buff = debugMalloc(hna_buff_len, 101);
+				orig_node->hna_buff_len = hna_buff_len;
+
+				memmove(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
+
+				add_del_hna(orig_node, 0);
 			}
 
 		}
 
 		orig_node->router = neigh_node;
 
-	} else if ( orig_node != NULL ) {
+	} else if (orig_node != NULL) {
 
 		/* may be just HNA changed */
-		if ( ( hna_buff_len != orig_node->hna_buff_len ) || ( ( hna_buff_len > 0 ) && ( orig_node->hna_buff_len > 0 ) && ( memcmp( orig_node->hna_buff, hna_recv_buff, hna_buff_len ) != 0 ) ) ) {
+		if ((hna_buff_len != orig_node->hna_buff_len) || ((hna_buff_len > 0) && (orig_node->hna_buff_len > 0) && (memcmp(orig_node->hna_buff, hna_recv_buff, hna_buff_len) != 0))) {
 
-			if ( orig_node->hna_buff_len > 0 )
-				add_del_hna( orig_node, 1 );
+			if (orig_node->hna_buff_len > 0)
+				add_del_hna(orig_node, 1);
 
-			if ( ( hna_buff_len > 0 ) && ( hna_recv_buff != NULL ) ) {
+			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
 
-				orig_node->hna_buff = debugMalloc( hna_buff_len, 102 );
+				orig_node->hna_buff = debugMalloc( hna_buff_len, 102);
 				orig_node->hna_buff_len = hna_buff_len;
 
-				memcpy( orig_node->hna_buff, hna_recv_buff, hna_buff_len );
+				memcpy(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
 
-				add_del_hna( orig_node, 0 );
+				add_del_hna(orig_node, 0);
 
 			}
 
