@@ -466,14 +466,12 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 				add_del_hna(orig_node, 1);
 
 			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
-
 				orig_node->hna_buff = debugMalloc( hna_buff_len, 102);
 				orig_node->hna_buff_len = hna_buff_len;
 
 				memcpy(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
 
 				add_del_hna(orig_node, 0);
-
 			}
 
 		}

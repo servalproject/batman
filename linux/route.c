@@ -124,7 +124,7 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, uint32_t sr
 
 	} else {
 
-		req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL;
+		req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_APPEND;
 		req.nlh.nlmsg_type = RTM_NEWROUTE;
 
 		if (route_type == 0 && my_router == 0 && src_ip != 0)
