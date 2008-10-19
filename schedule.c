@@ -184,7 +184,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		if (aggregation_enabled)
 			forw_node_new->send_time = curr_time + MAX_AGGREGATION_MS;
 		else
-			forw_node_new->send_time = curr_time;
+			forw_node_new->send_time = curr_time + rand_num(JITTER);
 
 	} else {
 
