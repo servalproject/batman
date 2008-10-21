@@ -216,6 +216,12 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct list_head_first neigh_list;
 };
 
+struct hna_element
+{
+	uint32_t hna;
+	uint8_t  netmask;
+} __attribute__((packed));
+
 struct neigh_node
 {
 	struct list_head list;

@@ -216,33 +216,114 @@ int is_batman_if(char *dev, struct batman_if **batman_if)
 	return 0;
 }
 
-
-
-void add_del_hna(struct orig_node *orig_node, int8_t del)
+/* hna_buff_delete searches in buf if element e is found. 
+ *
+ * if found, delete it from the buf and return 1.
+ * if not found, return 0.
+ */
+int hna_buff_delete(struct hna_element *buf, int *buf_len, struct hna_element *e)
 {
-	uint16_t hna_buff_count = 0;
-	uint32_t hna, netmask;
+	int i;
+	int num_elements;
 
-	while ( ( hna_buff_count + 1 ) * 5 <= orig_node->hna_buff_len ) {
+	if (buf == NULL)
+		return 0;
+	
+	/* align to multiple of sizeof(struct hna_element) */
+	num_elements = *buf_len / sizeof(struct hna_element);
 
-		memcpy( &hna, ( uint32_t *)&orig_node->hna_buff[ hna_buff_count * 5 ], 4 );
-		netmask = ( uint32_t )orig_node->hna_buff[ ( hna_buff_count * 5 ) + 4 ];
+	for (i = 0; i < num_elements; i++) {
 
-		if ( ( netmask > 0 ) && ( netmask < 33 ) )
-			add_del_route( hna, netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, del );
+		if (memcmp(&buf[i], e, sizeof(struct hna_element)) == 0) {
 
-		hna_buff_count++;
+			/* move last element forward */
+			memmove(&buf[i], &buf[num_elements - 1], sizeof(struct hna_element));
+			*buf_len -= sizeof(struct hna_element);
 
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* update_hna() replaces the old add_del_hna function. This function 
+ * updates the new hna buffer for the supplied orig node and 
+ * adds/deletes/updates the announced routes.
+ *
+ * Instead of first deleting and then adding, we keep try to keep 
+ * routes which did not change so that the kernel will not experience
+ * a situation where no route is present. 
+ */
+void update_hna(struct orig_node *orig_node, unsigned char *new_hna, int new_hna_len) 
+{
+	unsigned char *old_hna;
+	int old_hna_len;
+	struct hna_element *e, *buf;
+	int i, num_elements;
+
+	if ((new_hna == NULL) && (new_hna_len != 0)) {
+		/* TODO: throw error, broken! */
+		return;
 	}
 
-	if ( del ) {
+	old_hna = orig_node->hna_buff;
+	old_hna_len = orig_node->hna_buff_len;
 
-		debugFree( orig_node->hna_buff, 1101 );
+	/* check if the buffers even changed. if its still the same, there is no need to
+	 * update the routes. */
+
+	/* note: no NULL pointer checking here because memcmp() just returns if n == 0 */
+	if ((old_hna_len == new_hna_len) && (memcmp(old_hna, new_hna, new_hna_len) == 0))
+		return;	/* nothing to do */
+
+	if (new_hna_len != 0) {
+
+		orig_node->hna_buff = debugMalloc(new_hna_len, 101);
+		orig_node->hna_buff_len = new_hna_len;
+		memcpy( orig_node->hna_buff, new_hna, new_hna_len);
+
+	} else {
+
+		orig_node->hna_buff = NULL;
 		orig_node->hna_buff_len = 0;
 
 	}
-}
 
+	/* add new routes, or keep old routes */
+
+	num_elements = orig_node->hna_buff_len / sizeof(struct hna_element);
+	buf = (struct hna_element *) orig_node->hna_buff;
+
+	for (i = 0; i < num_elements; i++) {
+		e = &buf[i];
+
+		/* if it was already in the old buffer, keep the route. */
+		if (hna_buff_delete((struct hna_element *)old_hna, &old_hna_len, e) == 0) {
+			/* not found/deleted, need to add this new route */
+			if ((e->netmask > 0) && (e->netmask <= 32))
+				add_del_route( e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr, 
+						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 1, 0 );
+
+		}
+	}
+
+	/* old routes which are not to be kept are deleted now. */
+
+	num_elements = old_hna_len / sizeof(struct hna_element);
+	buf = (struct hna_element *) old_hna;
+
+	for (i = 0; i < num_elements; i++) {
+		e = &buf[i];
+
+		if ((e->netmask > 0) && (e->netmask <= 32))
+			add_del_route( e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr, 
+						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, 0 );
+	}
+
+	/* dispose old hna buffer now. */
+	debugFree( old_hna, 1101 );
+
+}
 
 
 void choose_gw(void)
@@ -405,14 +486,7 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			orig_node->router = neigh_node;
 
 			/* add new announced network(s) */
-			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
-				orig_node->hna_buff = debugMalloc(hna_buff_len, 101);
-				orig_node->hna_buff_len = hna_buff_len;
-
-				memmove(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
-
-				add_del_hna(orig_node, 0);
-			}
+			update_hna(orig_node, hna_recv_buff, hna_buff_len);
 
 		/* route deleted */
 		} else if ((orig_node->router != NULL) && (neigh_node == NULL)) {
@@ -420,8 +494,7 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			debug_output(4, "Deleting previous route\n");
 
 			/* remove old announced network(s) */
-			if (orig_node->hna_buff_len > 0)
-				add_del_hna(orig_node, 1);
+			update_hna(orig_node, NULL, 0);
 
 			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1);
 
@@ -436,45 +509,18 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			/* delete old route */
 			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1);
 
-			/* remove old announced network(s) */
-			if (orig_node->hna_buff_len > 0)
-				add_del_hna(orig_node, 1);
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
 
-			/* add new announced network(s) */
-			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
-				orig_node->hna_buff = debugMalloc(hna_buff_len, 101);
-				orig_node->hna_buff_len = hna_buff_len;
-
-				memmove(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
-
-				add_del_hna(orig_node, 0);
-			}
-
+			/* update announced network(s) */
+			update_hna(orig_node, hna_recv_buff, hna_buff_len);
 		}
 
 		orig_node->router = neigh_node;
 
 	} else if (orig_node != NULL) {
-
-		/* may be just HNA changed */
-		if ((hna_buff_len != orig_node->hna_buff_len) || ((hna_buff_len > 0) && (orig_node->hna_buff_len > 0) && (memcmp(orig_node->hna_buff, hna_recv_buff, hna_buff_len) != 0))) {
-
-			if (orig_node->hna_buff_len > 0)
-				add_del_hna(orig_node, 1);
-
-			if ((hna_buff_len > 0) && (hna_recv_buff != NULL)) {
-				orig_node->hna_buff = debugMalloc( hna_buff_len, 102);
-				orig_node->hna_buff_len = hna_buff_len;
-
-				memcpy(orig_node->hna_buff, hna_recv_buff, hna_buff_len);
-
-				add_del_hna(orig_node, 0);
-			}
-
-		}
+		update_hna(orig_node, hna_recv_buff, hna_buff_len);
 
 	}
 
