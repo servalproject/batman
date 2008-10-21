@@ -49,8 +49,6 @@
 
 #define UNIX_PATH "/var/run/batmand.socket"
 
-#define VIS_COMPAT_VERSION 23
-
 
 
 /***

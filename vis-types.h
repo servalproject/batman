@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 
+#define VIS_COMPAT_VERSION 23
 
 #define DATA_TYPE_NEIGH 1
 #define DATA_TYPE_SEC_IF 2
