@@ -262,8 +262,10 @@ void send_outstanding_packets(uint32_t curr_time)
 
 		forw_node = list_entry(forw_pos, struct forw_node, list);
 
-		if ((int)(curr_time - forw_node->send_time) < 0)
+		if ((int)(curr_time - forw_node->send_time) < 0) {
+			debug_output(4, "stop sending: own = %s, curr_time = %i, send_time = %i, if_outgoing = %s\n", (forw_node->own ? "yes" : "no"), curr_time, forw_node->send_time, forw_node->if_outgoing);
 			break;
+		}
 
 		bat_packet = (struct bat_packet *)forw_node->pack_buff;
 
