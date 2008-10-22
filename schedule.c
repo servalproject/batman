@@ -27,7 +27,9 @@
 
 
 
-void schedule_own_packet( struct batman_if *batman_if ) {
+void schedule_own_packet(struct batman_if *batman_if) {
+
+	debug_output(4, "schedule_own_packet(): %s \n", batman_if->dev);
 
 	struct forw_node *forw_node_new, *forw_packet_tmp = NULL;
 	struct list_head *list_pos, *prev_list_head;
@@ -231,7 +233,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		bat_packet->flags = 0x00;
 
 	if (aggregation_enabled) {
-		/* new packet was generated and has to be appended */
+		/* new packet was generated and has to be appended - other packets were aggregated */
 		if (forw_node_new->num_packets == 0)
 			list_add_before(prev_list_head, list_pos, &forw_node_new->list);
 	} else {
@@ -308,7 +310,7 @@ void send_outstanding_packets(uint32_t curr_time)
 				if (curr_packet_num > 0)
 					addr_to_string(bat_packet->orig, orig_str, ADDR_STR_LEN);
 
-				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d, IDF %s) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, batman_if->dev, (bat_packet->flags & DIRECTLINK ? "on" : "off"));
+				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d, IDF %s) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, (bat_packet->flags & DIRECTLINK ? "on" : "off"), batman_if->dev);
 
 				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
 				curr_packet_num++;
