@@ -247,19 +247,12 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 	if (forw_node_aggregate == NULL) {
 
 		/* if the packet should go somewhere in the queue */
-		if (forw_node_pos != NULL) {
-			forw_node_aggregate = container_of(prev_list_head, struct forw_node, list);
-			debug_output(4, "forward packet inserted: prev->send_time = %i, new->send_time = %i, next->send_time = %i \n", forw_node_aggregate->send_time, forw_node_new->send_time, forw_node_pos->send_time);
+		if (forw_node_pos != NULL)
 			list_add_before(prev_list_head, list_pos, &forw_node_new->list);
 		/* if the packet is the last packet in the queue */
-		} else {
-			forw_node_aggregate = container_of(prev_list_head, struct forw_node, list);
-			debug_output(4, "forward packet added: prev->send_time = %i, new->send_time = %i \n", forw_node_aggregate->send_time, forw_node_new->send_time);
+		else
 			list_add_tail(&forw_node_new->list, &forw_list);
-		}
 
-	} else {
-		debug_output(4, "forward packet aggregated: forw_node_aggregate->send_time = %i \n", forw_node_aggregate->send_time);
 	}
 
 	prof_stop(PROF_schedule_forward_packet);
