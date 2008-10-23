@@ -362,7 +362,7 @@ void purge_orig(uint32_t curr_time)
 						debug_output( 4, "Deleting previous route \n" );
 
 						/* remove old announced network(s) */
-						update_hna( orig_node, NULL, 0);
+						update_hna( orig_node, NULL, 0, orig_node->router);
 
 						add_del_route( orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1 );
 
