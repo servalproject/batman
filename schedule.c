@@ -48,7 +48,7 @@ void schedule_own_packet(struct batman_if *batman_if) {
 	forw_node_new->direct_link_flags = 0;
 
 	/* non-primary interfaces do not send hna information */
-	if ((num_hna > 0 ) && (batman_if->if_num == 0)) {
+	if ((num_hna > 0) && (batman_if->if_num == 0)) {
 
 		forw_node_new->pack_buff = debugMalloc(MAX_AGGREGATION_BYTES, 502);
 		memcpy(forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct bat_packet));
@@ -109,41 +109,50 @@ void schedule_own_packet(struct batman_if *batman_if) {
 
 void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t curr_time)
 {
-	struct forw_node *forw_node_new = NULL, *forw_node_tmp;
+	struct forw_node *forw_node_new = NULL, *forw_node_aggregate = NULL, *forw_node_pos = NULL;
 	struct list_head *list_pos = forw_list.next, *prev_list_head = (struct list_head *)&forw_list;
 	struct bat_packet *bat_packet;
 	uint8_t tq_avg = 0;
+	uint32_t send_time;
 	prof_start(PROF_schedule_forward_packet);
 
 	debug_output(4, "schedule_forward_packet():  \n");
 
 	if (in->ttl <= 1) {
-
 		debug_output(4, "ttl exceeded \n");
 		prof_stop(PROF_schedule_forward_packet);
 		return;
-
 	}
 
-	if (aggregation_enabled) {
+	if (aggregation_enabled)
+		send_time = curr_time + MAX_AGGREGATION_MS - JITTER/2 + rand_num(JITTER);
+	else
+		send_time = curr_time + rand_num(JITTER/2);
 
-		list_for_each(list_pos, &forw_list) {
 
-			forw_node_new = list_entry(list_pos, struct forw_node, list);
+	/* find position for the packet in the forward queue */
+	list_for_each(list_pos, &forw_list) {
+
+		forw_node_pos = list_entry(list_pos, struct forw_node, list);
+
+		if (aggregation_enabled) {
+
+			/* don't save aggregation position if aggregation is disabled */
+			forw_node_aggregate = forw_node_pos;
 
 			/* we can aggregate the current packet to this packet if:
-			   - the send time is within our MAX_AGGREGATION_MS time
-			   - the resulting packet wont be bigger than MAX_AGGREGATION_BYTES */
-			if (((int)(forw_node_new->send_time - (curr_time + MAX_AGGREGATION_MS)) < 0) &&
-				(forw_node_new->pack_buff_len + sizeof(struct bat_packet) + hna_buff_len <= MAX_AGGREGATION_BYTES)) {
+			- the send time is within our MAX_AGGREGATION_MS time
+			- the resulting packet wont be bigger than MAX_AGGREGATION_BYTES */
+			if (((int)(forw_node_pos->send_time - send_time) < 0) &&
+				(forw_node_pos->pack_buff_len + sizeof(struct bat_packet) + hna_buff_len <= MAX_AGGREGATION_BYTES)) {
 
-				bat_packet = (struct bat_packet *)forw_node_new->pack_buff;
+				bat_packet = (struct bat_packet *)forw_node_pos->pack_buff;
 
 				/* if the base packet is sent via one interface only */
 				if (((bat_packet->flags & DIRECTLINK) && (bat_packet->ttl == 1)) ||
-					((forw_node_new->own) && (forw_node_new->if_outgoing->if_num > 0))) {
+					((forw_node_pos->own) && (forw_node_pos->if_outgoing->if_num > 0))) {
 
-					if ((directlink) && (in->ttl == 2) && (forw_node_new->if_outgoing == if_outgoing))
+					if ((directlink) && (in->ttl == 2) && (forw_node_pos->if_outgoing == if_outgoing))
 						break;
 
 				} else {
@@ -154,19 +163,21 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 			}
 
-			forw_node_tmp = forw_node_new;
-			forw_node_new = NULL;
-
-			if ((int)(forw_node_tmp->send_time - (curr_time + MAX_AGGREGATION_MS)) > 0)
-				break;
-
-			prev_list_head = &forw_node_tmp->list;
+			/* could not find packet to aggregate with */
+			forw_node_aggregate = NULL;
 
 		}
 
+		if ((int)(forw_node_pos->send_time - send_time) > 0)
+			break;
+
+		prev_list_head = &forw_node_pos->list;
+		forw_node_pos = NULL;
+
 	}
 
-	if (forw_node_new == NULL) {
+	/* nothing to aggregate with - either aggregation disabled or no suitable aggregation packet found */
+	if (forw_node_aggregate == NULL) {
 
 		forw_node_new = debugMalloc(sizeof(struct forw_node), 504);
 		forw_node_new->pack_buff = debugMalloc(MAX_AGGREGATION_BYTES, 505);
@@ -183,18 +194,17 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		forw_node_new->num_packets = 0;
 		forw_node_new->direct_link_flags = 0;
 
-		if (aggregation_enabled)
-			forw_node_new->send_time = curr_time + MAX_AGGREGATION_MS;
-		else
-			forw_node_new->send_time = curr_time + rand_num(JITTER);
+		forw_node_new->send_time = send_time;
 
 	} else {
 
-		memcpy(forw_node_new->pack_buff + forw_node_new->pack_buff_len, in, sizeof(struct bat_packet) + hna_buff_len);
-		bat_packet = (struct bat_packet *)(forw_node_new->pack_buff + forw_node_new->pack_buff_len);
-		forw_node_new->pack_buff_len += sizeof(struct bat_packet) + hna_buff_len;
+		memcpy(forw_node_aggregate->pack_buff + forw_node_aggregate->pack_buff_len, in, sizeof(struct bat_packet) + hna_buff_len);
+		bat_packet = (struct bat_packet *)(forw_node_aggregate->pack_buff + forw_node_aggregate->pack_buff_len);
+		forw_node_aggregate->pack_buff_len += sizeof(struct bat_packet) + hna_buff_len;
 
-		forw_node_new->num_packets++;
+		forw_node_aggregate->num_packets++;
+
+		forw_node_new = forw_node_aggregate;
 
 	}
 
@@ -232,12 +242,24 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 	else
 		bat_packet->flags = 0x00;
 
-	if (aggregation_enabled) {
-		/* new packet was generated and has to be appended - other packets were aggregated */
-		if (forw_node_new->num_packets == 0)
+
+	/* if the packet was not aggregated */
+	if (forw_node_aggregate == NULL) {
+
+		/* if the packet should go somewhere in the queue */
+		if (forw_node_pos != NULL) {
+			forw_node_aggregate = container_of(prev_list_head, struct forw_node, list);
+			debug_output(4, "forward packet inserted: prev->send_time = %i, new->send_time = %i, next->send_time = %i \n", forw_node_aggregate->send_time, forw_node_new->send_time, forw_node_pos->send_time);
 			list_add_before(prev_list_head, list_pos, &forw_node_new->list);
+		/* if the packet is the last packet in the queue */
+		} else {
+			forw_node_aggregate = container_of(prev_list_head, struct forw_node, list);
+			debug_output(4, "forward packet added: prev->send_time = %i, new->send_time = %i \n", forw_node_aggregate->send_time, forw_node_new->send_time);
+			list_add_tail(&forw_node_new->list, &forw_list);
+		}
+
 	} else {
-		list_add(&forw_node_new->list, &forw_list);
+		debug_output(4, "forward packet aggregated: forw_node_aggregate->send_time = %i \n", forw_node_aggregate->send_time);
 	}
 
 	prof_stop(PROF_schedule_forward_packet);
@@ -263,9 +285,11 @@ void send_outstanding_packets(uint32_t curr_time)
 		forw_node = list_entry(forw_pos, struct forw_node, list);
 
 		if ((int)(curr_time - forw_node->send_time) < 0) {
-			debug_output(4, "stop sending: own = %s, curr_time = %i, send_time = %i, if_outgoing = %s\n", (forw_node->own ? "yes" : "no"), curr_time, forw_node->send_time, forw_node->if_outgoing);
+			debug_output(4, "stop sending: own = %s, curr_time = %i, send_time = %i, if_outgoing = %s\n", (forw_node->own ? "yes" : "no"), curr_time, forw_node->send_time, forw_node->if_outgoing->dev);
 			break;
 		}
+
+		debug_output(4, "sending packet: own = %s, curr_time = %i, send_time = %i, if_outgoing = %s\n", (forw_node->own ? "yes" : "no"), curr_time, forw_node->send_time, forw_node->if_outgoing->dev);
 
 		bat_packet = (struct bat_packet *)forw_node->pack_buff;
 
