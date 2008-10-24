@@ -329,7 +329,8 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 	}
 
 	/* dispose old hna buffer now. */
-	debugFree(old_hna, 1101);
+	if (old_hna != NULL)
+		debugFree(old_hna, 1101);
 
 }
 
