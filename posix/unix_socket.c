@@ -437,36 +437,36 @@ void *unix_listen( void *arg ) {
 
 								dprintf( unix_client->sock, "EOD\n" );
 
-							} else if ( buff[0] == 'y' ) {
+							} else if (buff[0] == 'y') {
 
-								dprintf( unix_client->sock, "%s", prog_name );
+								dprintf(unix_client->sock, "%s", prog_name);
 
-								if ( routing_class > 0 )
-									dprintf( unix_client->sock, " -r %i", routing_class );
+								if (routing_class > 0)
+									dprintf(unix_client->sock, " -r %i", routing_class);
 
-								if ( pref_gateway > 0 ) {
+								if (pref_gateway > 0) {
 
 									addr_to_string( pref_gateway, str, sizeof (str) );
 
-									dprintf( unix_client->sock, " -p %s", str );
+									dprintf(unix_client->sock, " -p %s", str);
 
 								}
 
-								if ( gateway_class > 0 ) {
+								if (gateway_class > 0) {
 
-									get_gw_speeds( gateway_class, &download_speed, &upload_speed );
+									get_gw_speeds(gateway_class, &download_speed, &upload_speed);
 
-									dprintf( unix_client->sock, " -g %i%s/%i%s", ( download_speed > 2048 ? download_speed / 1024 : download_speed ), ( download_speed > 2048 ? "MBit" : "KBit" ), ( upload_speed > 2048 ? upload_speed / 1024 : upload_speed ), ( upload_speed > 2048 ? "MBit" : "KBit" ) );
+									dprintf(unix_client->sock, " -g %i%s/%i%s", (download_speed > 2048 ? download_speed / 1024 : download_speed), (download_speed > 2048 ? "MBit" : "KBit"), (upload_speed > 2048 ? upload_speed / 1024 : upload_speed), (upload_speed > 2048 ? "MBit" : "KBit"));
 
 								}
 
-								list_for_each( debug_pos, &hna_list ) {
+								list_for_each(debug_pos, &hna_list) {
 
-									hna_node = list_entry( debug_pos, struct hna_node, list );
+									hna_node = list_entry(debug_pos, struct hna_node, list);
 
-									addr_to_string( hna_node->addr, str, sizeof (str) );
+									addr_to_string(hna_node->addr, str, sizeof (str));
 
-									dprintf( unix_client->sock, " -a %s/%i", str, hna_node->netmask );
+									dprintf(unix_client->sock, " -a %s/%i", str, hna_node->netmask);
 
 								}
 
@@ -484,18 +484,24 @@ void *unix_listen( void *arg ) {
 								if (policy_routing_script != NULL)
 									dprintf(unix_client->sock, " --policy-routing-script %s", policy_routing_script);
 
-								if (hop_penalty != 0)
+								if (hop_penalty != TQ_HOP_PENALTY)
 									dprintf(unix_client->sock, " --hop-penalty %i", hop_penalty);
 
-								list_for_each( debug_pos, &if_list ) {
+								if (aggregation_enabled)
+									dprintf(unix_client->sock, " --aggregation");
 
-									batman_if = list_entry( debug_pos, struct batman_if, list );
+								if (purge_timeout != PURGE_TIMEOUT)
+									dprintf(unix_client->sock, " --purge-timeout %i", purge_timeout);
 
-									dprintf( unix_client->sock, " %s", batman_if->dev );
+								list_for_each(debug_pos, &if_list) {
+
+									batman_if = list_entry(debug_pos, struct batman_if, list);
+
+									dprintf(unix_client->sock, " %s", batman_if->dev);
 
 								}
 
-								dprintf( unix_client->sock, "\nEOD\n" );
+								dprintf(unix_client->sock, "\nEOD\n");
 
 							}
 

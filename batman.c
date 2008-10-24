@@ -1045,7 +1045,7 @@ int8_t batman(void)
 
 	while ( !is_aborted() ) {
 
-		debug_output( 4, " \n " );
+		debug_output( 4, " \n" );
 
 		/* harden select_timeout against sudden time change (e.g. ntpdate) */
 		curr_time = get_time_msec();
