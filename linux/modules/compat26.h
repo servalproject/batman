@@ -34,6 +34,7 @@ static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
 
 #endif /* KERNEL_VERSION(2, 6, 22) */
 
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 19)
 
 static inline int kernel_bind(struct socket *sock, struct sockaddr *addr, int addrlen)
@@ -43,12 +44,21 @@ static inline int kernel_bind(struct socket *sock, struct sockaddr *addr, int ad
 
 #endif /* KERNEL_VERSION(2, 6, 19) */
 
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
 
-#define device_create_drvdata \
+#define device_create \
 	class_device_create
 
 #define device_destroy \
 	class_device_destroy
+#else
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
+
+#define device_create \
+	device_create_drvdata
+
+#endif /* KERNEL_VERSION(2,6,27) */
 
 #endif /* KERNEL_VERSION(2,6,26) */

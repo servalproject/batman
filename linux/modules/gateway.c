@@ -91,7 +91,7 @@ int init_module()
 	if ( IS_ERR( batman_class ) )
 		DBG( "could not register class 'batgat'" );
 	else
-		device_create_drvdata(batman_class, NULL, MKDEV(Major, 0), NULL, "batgat");
+		device_create(batman_class, NULL, MKDEV(Major, 0), NULL, "batgat");
 
 
 	DBG( "batgat loaded %s", strlen(REVISION_VERSION) > 3 ? REVISION_VERSION : "" );
