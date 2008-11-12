@@ -97,15 +97,15 @@ void sym_print( char x, char y, char *z ) {
 		switch ( z[(int)i] ) {
 
 			case 92:
-				Z = 47;   // "\" --> "/"
+				Z = 47;   /* "\" --> "/" */
 				break;
 
 			case 47:
-				Z = 92;   // "/" --> "\"
+				Z = 92;   /* "/" --> "\" */
 				break;
 
 			case 41:
-				Z = 40;   // ")" --> "("
+				Z = 40;   /* ")" --> "(" */
 				break;
 
 			default:
@@ -238,7 +238,7 @@ int8_t is_aborted() {
 
 
 
-void handler( int32_t sig ) {
+void handler( int32_t BATMANUNUSED(sig) ) {
 
 	stop = 1;
 
@@ -334,7 +334,7 @@ int8_t receive_packet(unsigned char *packet_buff, int32_t packet_buff_len, int16
 
 			}
 
-			if (*packet_len < sizeof(struct bat_packet))
+			if (((unsigned int)*packet_len) < sizeof(struct bat_packet))
 				return 0;
 
 			(*if_incoming) = batman_if;
@@ -506,7 +506,7 @@ void restore_and_exit( uint8_t is_sigsegv ) {
 
 
 
-void segmentation_fault(int32_t sig) {
+void segmentation_fault(int32_t BATMANUNUSED(sig)) {
 
 	signal(SIGSEGV, SIG_DFL);
 

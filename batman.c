@@ -698,7 +698,7 @@ int isBntog(uint32_t neigh, struct orig_node *orig_tog_node)
 
 
 
-int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming, uint8_t is_duplicate)
+int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming)
 {
 
 	struct list_head *list_pos;
@@ -1066,9 +1066,9 @@ int8_t batman(void)
 			addr_to_string(neigh, neigh_str, sizeof(neigh_str));
 			addr_to_string(if_incoming->addr.sin_addr.s_addr, ifaddr_str, sizeof(ifaddr_str));
 
-			while ((curr_packet_len + sizeof(struct bat_packet) <= packet_len) &&
-				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= packet_len) &&
-				(curr_packet_len + sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
+			while ((curr_packet_len + (int)sizeof(struct bat_packet) <= packet_len) &&
+				(curr_packet_len + (int)sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= packet_len) &&
+				(curr_packet_len + (int)sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
 
 				bat_packet = (struct bat_packet *)(in + curr_packet_len);
 				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
@@ -1154,17 +1154,17 @@ int8_t batman(void)
 
 					/* neighbour has to indicate direct link and it has to come via the corresponding interface */
 					/* if received seqno equals last send seqno save new seqno for bidirectional check */
-	// 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
-	//
-	// 					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
-	//
-	// 					debug_output( 4, "indicating bidirectional link - updating bidirect_link seqno \n" );
-	//
-	// 				} else {
-	//
-	// 					debug_output( 4, "NOT indicating bidirectional link - NOT updating bidirect_link seqno \n" );
-	//
-	// 				}
+	/* 				if ( ( ((struct bat_packet *)&in)->flags & DIRECTLINK ) && ( if_incoming->addr.sin_addr.s_addr == ((struct bat_packet *)&in)->orig ) && ( ((struct bat_packet *)&in)->seqno - if_incoming->out.seqno + 2 == 0 ) ) {
+	
+	 					orig_neigh_node->bidirect_link[if_incoming->if_num] = ((struct bat_packet *)&in)->seqno;
+	
+	 					debug_output( 4, "indicating bidirectional link - updating bidirect_link seqno \n" );
+	
+	 				} else {
+	
+ 					debug_output( 4, "NOT indicating bidirectional link - NOT updating bidirect_link seqno \n" );
+
+ 				}*/
 
 					if ((has_directlink_flag) && (if_incoming->addr.sin_addr.s_addr == bat_packet->orig) && (bat_packet->seqno - if_incoming->out.seqno + 2 == 0)) {
 
@@ -1205,7 +1205,7 @@ int8_t batman(void)
 
 					} else {
 
-						is_bidirectional = isBidirectionalNeigh(orig_node, orig_neigh_node, bat_packet, curr_time, if_incoming, is_duplicate);
+						is_bidirectional = isBidirectionalNeigh(orig_node, orig_neigh_node, bat_packet, curr_time, if_incoming);
 
 						/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
 						if ((is_bidirectional) && ((!is_duplicate) || ((orig_node->last_real_seqno == bat_packet->seqno) && (orig_node->last_ttl - 3 <= bat_packet->ttl))))
@@ -1220,7 +1220,7 @@ int8_t batman(void)
 							/*if ( is_bidirectional && is_bntog ) {*/
 
 								/* mark direct link on incoming interface */
-								schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_recv_buff, hna_buff_len, if_incoming, curr_time);
+								schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_buff_len, if_incoming, curr_time);
 
 								debug_output(4, "Forward packet: rebroadcast neighbour packet with direct link flag \n");
 
@@ -1228,7 +1228,7 @@ int8_t batman(void)
 							/* if a bidirectional neighbour sends us a packet - retransmit it with unidirectional flag if it is not our best link to it in order to prevent routing problems */
 								/*} else if ( ( is_bidirectional && !is_bntog ) || ( !is_bidirectional ) ) {
 
-								schedule_forward_packet( orig_node, (struct bat_packet *)in, 1, 1, hna_recv_buff, hna_buff_len, if_incoming );
+								schedule_forward_packet( orig_node, (struct bat_packet *)in, 1, 1, hna_buff_len, if_incoming );
 
 								debug_output( 4, "Forward packet: rebroadcast neighbour packet with direct link and unidirectional flag \n" );
 
@@ -1241,7 +1241,7 @@ int8_t batman(void)
 
 								if (!is_duplicate) {
 
-									schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_recv_buff, hna_buff_len, if_incoming, curr_time);
+									schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_buff_len, if_incoming, curr_time);
 
 									debug_output(4, "Forward packet: rebroadcast originator packet \n");
 

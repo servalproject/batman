@@ -34,7 +34,7 @@ void bit_init( TYPE_OF_WORD *seq_bits ) {
 	for (i = 0 ; i < (int)num_words; i++)
 		seq_bits[i]= 0;
 
-};
+}
 
 /* returns true if corresponding bit in given seq_bits indicates so and curr_seqno is within range of last_seqno */
 uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t curr_seqno ) {
@@ -59,37 +59,16 @@ uint8_t get_bit_status( TYPE_OF_WORD *seq_bits, uint16_t last_seqno, uint16_t cu
 
 }
 
-/* print the packet array, for debugging purposes */
-// static char bit_string[130];
-// char* bit_print( TYPE_OF_WORD *seq_bits ) {
-// 	int i,j,k=0,b=0;
-//
-// // 	printf("the last %d packets, we got %d:\n", TQ_LOCAL_WINDOW_SIZE, bit_packet_count(seq_bits));
-// 	for ( i=0; i<num_words; i++ ) {
-// 		for ( j=0; j<WORD_BIT_SIZE; j++) {
-// 			bit_string[k++] = ((seq_bits[i]>>j)%2 ? '1':'0'); /* print the j position */
-// 			if(++b == local_win_size) {
-// 				bit_string[k++]='|';
-// 			}
-// 		}
-// 		bit_string[k++]=' ';
-// 	}
-// 	bit_string[k++]='\0';
-// //	debug_output( 4, "%s\n", bit_string);
-// //	printf("\n\n");
-// 	return bit_string;
-// }
-
 /* turn corresponding bit on, so we can remember that we got the packet */
 void bit_mark( TYPE_OF_WORD *seq_bits, int32_t n ) {
 	int32_t word_offset,word_num;
 
 	if (n<0 || n >= local_win_size) {			/* if too old, just drop it */
-// 		printf("got old packet, dropping\n");
+/* 		printf("got old packet, dropping\n");*/
 		return;
 	}
 
-// 	printf("mark bit %d\n", n);
+/* 	printf("mark bit %d\n", n); */
 
 	word_offset= n%WORD_BIT_SIZE;	/* which position in the selected word */
 	word_num   = n/WORD_BIT_SIZE;	/* which word */
@@ -102,7 +81,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n ) {
 	int32_t word_offset, word_num;
 	int32_t i;
 
-//	bit_print( seq_bits );
+/*	bit_print( seq_bits );*/
 	if( n<=0 ) return;
 
 	word_offset= n%WORD_BIT_SIZE;	/* shift how much inside each word */
@@ -137,7 +116,7 @@ void bit_shift( TYPE_OF_WORD *seq_bits, int32_t n ) {
 	for (; i>=0; i--) {
 		seq_bits[i]= 0;
 	}
-//	bit_print( seq_bits );
+/*	bit_print( seq_bits ); */
 }
 
 

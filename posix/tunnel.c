@@ -62,7 +62,7 @@ void init_bh_ports()
 {
 	int i;
 
-	for (i = 0; i < sizeof(bh_udp_ports)/sizeof(short); i++)
+	for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++)
 		bh_udp_ports[i] = htons(bh_udp_ports[i]);
 }
 
@@ -312,7 +312,7 @@ void *client_to_gw_tun( void *arg )
 
 					if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_UDP) {
 
-						for (i = 0; i < sizeof(bh_udp_ports)/sizeof(short); i++) {
+						for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++) {
 
 							if (((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest == bh_udp_ports[i]) {
 
@@ -492,7 +492,7 @@ int compare_wip(void *data1, void *data2)
 
 int compare_vip(void *data1, void *data2)
 {
-	return ( memcmp( data1 + 4, data2 + 4, 4 ) );
+	return ( memcmp( ((char *)data1) + 4, ((char *)data2) + 4, 4 ) );
 }
 
 /* hashfunction to choose an entry in a hash table of given size */
@@ -537,7 +537,7 @@ int choose_vip(void *data, int32_t size)
 
 }
 
-void *gw_listen() {
+void *gw_listen(void *BATMANUNUSED(arg)) {
 
 	struct batman_if *batman_if = (struct batman_if *)if_list.next;
 	struct timeval tv;

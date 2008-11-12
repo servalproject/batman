@@ -206,8 +206,8 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 	ring_buffer_set(neigh_node->tq_recv, &neigh_node->tq_index, in->tq);
 	neigh_node->tq_avg = ring_buffer_avg(neigh_node->tq_recv);
 
-// 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
-// 	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno );
+/* 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
+ 	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno ); */
 
 
 	if ( !is_duplicate ) {
@@ -536,7 +536,7 @@ void debug_orig() {
 
 				debug_out_size = debug_out_size + snprintf( ( debug_out_str + debug_out_size ), ( sizeof(debug_out_str) - 1 - debug_out_size ), " %15s (%3i)", str, neigh_node->tq_avg);
 
-				if ( debug_out_size + 30 > sizeof(debug_out_str) - 1 ) {
+				if ( (unsigned int)(debug_out_size + 30) > sizeof(debug_out_str) - 1 ) {
 
 					debug_output( 1, "%s \n", debug_out_str );
 					debug_output( 4, "%s \n", debug_out_str );

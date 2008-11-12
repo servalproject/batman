@@ -154,7 +154,7 @@ void internal_output(uint32_t sock)
 
 
 
-void *unix_listen( void *arg ) {
+void *unix_listen( void * BATMANUNUSED(arg) ) {
 
 	struct unix_client *unix_client;
 	struct debug_level_info *debug_level_info;

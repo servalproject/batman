@@ -299,7 +299,7 @@ void hash_debug(struct hashtable_t *hash) {
 		bucket= hash->table[i];
 
 		while (bucket != NULL) {
-			printf("-> [%10p] ", bucket);
+			printf("-> [%10p] ", (void *)bucket);
 			bucket= bucket->next;
 		}
 

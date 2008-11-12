@@ -19,5 +19,5 @@
 
 
 void schedule_own_packet( struct batman_if *batman_if );
-void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t curr_time);
+void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t directlink, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t curr_time);
 void send_outstanding_packets(uint32_t curr_time);

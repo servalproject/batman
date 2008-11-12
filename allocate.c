@@ -205,7 +205,7 @@ void *debugMalloc(uint32_t length, int32_t tag)
 	struct chunkTrailer *chunkTrailer;
 	unsigned char *chunk;
 
-// 	printf("sizeof(struct chunkHeader) = %u, sizeof (struct chunkTrailer) = %u\n", sizeof (struct chunkHeader), sizeof (struct chunkTrailer));
+/* 	printf("sizeof(struct chunkHeader) = %u, sizeof (struct chunkTrailer) = %u\n", sizeof (struct chunkHeader), sizeof (struct chunkTrailer)); */
 
 	memory = malloc(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer));
 

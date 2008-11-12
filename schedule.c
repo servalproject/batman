@@ -27,15 +27,15 @@
 
 
 
-void schedule_own_packet(struct batman_if *batman_if) {
-
-	debug_output(4, "schedule_own_packet(): %s \n", batman_if->dev);
-
+void schedule_own_packet(struct batman_if *batman_if) 
+{
 	struct forw_node *forw_node_new, *forw_packet_tmp = NULL;
 	struct list_head *list_pos, *prev_list_head;
 	struct hash_it_t *hashit = NULL;
 	struct orig_node *orig_node;
 
+
+	debug_output(4, "schedule_own_packet(): %s \n", batman_if->dev);
 
 	forw_node_new = debugMalloc(sizeof(struct forw_node), 501);
 
@@ -107,7 +107,7 @@ void schedule_own_packet(struct batman_if *batman_if) {
 
 
 
-void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t directlink, unsigned char *hna_recv_buff, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t curr_time)
+void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, uint8_t directlink, int16_t hna_buff_len, struct batman_if *if_outgoing, uint32_t curr_time)
 {
 	struct forw_node *forw_node_new = NULL, *forw_node_aggregate = NULL, *forw_node_pos = NULL;
 	struct list_head *list_pos = forw_list.next, *prev_list_head = (struct list_head *)&forw_list;

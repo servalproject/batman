@@ -1075,7 +1075,7 @@ void activate_interface(struct batman_if *batman_if)
 
 	}
 
-	// make udp socket non blocking
+	/* make udp socket non blocking */
 	sock_opts = fcntl(batman_if->udp_send_sock, F_GETFL, 0);
 	fcntl(batman_if->udp_send_sock, F_SETFL, sock_opts | O_NONBLOCK);
 

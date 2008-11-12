@@ -42,12 +42,13 @@
 
 void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del ) {
 
-	int netlink_sock, len;
+	int netlink_sock;
+	size_t len;
 	uint32_t my_router;
 	char buf[4096], str1[16], str2[16], str3[16];
 	struct rtattr *rta;
 	struct sockaddr_nl nladdr;
-	struct iovec iov = { buf, sizeof(buf) };
+	struct iovec iov;
 	struct msghdr msg;
 	struct nlmsghdr *nh;
 	struct {
@@ -56,6 +57,8 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, uint32_t sr
 		char buff[4 * ( sizeof(struct rtattr) + 4 )];
 	} req;
 
+	iov.iov_base = buf;
+	iov.iov_len  = sizeof(buf);
 
 	inet_ntop( AF_INET, &dest, str1, sizeof (str1) );
 	inet_ntop( AF_INET, &router, str2, sizeof (str2) );
@@ -214,11 +217,12 @@ void add_del_route( uint32_t dest, uint8_t netmask, uint32_t router, uint32_t sr
 
 void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, char *iif, int8_t rule_type, int8_t del ) {
 
-	int netlink_sock, len;
+	int netlink_sock;
+	size_t len;
 	char buf[4096], str1[16];
 	struct rtattr *rta;
 	struct sockaddr_nl nladdr;
-	struct iovec iov = { buf, sizeof(buf) };
+	struct iovec iov;
 	struct msghdr msg;
 	struct nlmsghdr *nh;
 	struct {
@@ -226,6 +230,9 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 		struct rtmsg rtm;
 		char buff[2 * ( sizeof(struct rtattr) + 4 )];
 	} req;
+
+	iov.iov_base = buf;
+	iov.iov_len  = sizeof(buf);
 
 
 	inet_ntop(AF_INET, &network, str1, sizeof (str1));
@@ -374,7 +381,8 @@ void add_del_rule( uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t 
 int add_del_interface_rules( int8_t del ) {
 
 	int32_t tmp_fd;
-	uint32_t len, addr, netaddr;
+	uint32_t addr, netaddr;
+	int len;
 	uint8_t netmask, if_count = 1;
 	char *buf, *buf_ptr;
 	struct ifconf ifc;
@@ -489,13 +497,14 @@ int add_del_interface_rules( int8_t del ) {
 
 int flush_routes_rules( int8_t is_rule ) {
 
-	int netlink_sock, len, rtl;
+	int netlink_sock, rtl;
+	size_t len;
 	int32_t dest = 0, router = 0, ifi = 0;
 	uint32_t prio = 0;
 	int8_t rule_type = 0;
 	char buf[8192], *dev = NULL;
 	struct sockaddr_nl nladdr;
-	struct iovec iov = { buf, sizeof(buf) };
+	struct iovec iov;
 	struct msghdr msg;
 	struct nlmsghdr *nh;
 	struct rtmsg *rtm;
@@ -504,6 +513,9 @@ int flush_routes_rules( int8_t is_rule ) {
 		struct rtmsg rtm;
 	} req;
 	struct rtattr *rtap;
+
+	iov.iov_base = buf;
+	iov.iov_len  = sizeof(buf);
 
 
 	memset( &nladdr, 0, sizeof(struct sockaddr_nl) );
