@@ -257,7 +257,7 @@ void *client_to_gw_tun( void *arg )
 						} else if (buff[0] == TUNNEL_IP_INVALID) {
 
 							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
-							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is expired \n", gw_str, my_str );
+							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is invalid (maybe expired) \n", gw_str, my_str );
 
 							curr_gateway = NULL;
 							errno = EWOULDBLOCK;
