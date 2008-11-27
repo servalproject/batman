@@ -96,6 +96,11 @@
 #define ROUTE_ADD                   0
 #define ROUTE_DEL                   1
 
+#define RULE_TYPE_SRC              0
+#define RULE_TYPE_DST              1
+#define RULE_TYPE_IIF              2
+#define RULE_ADD                   0
+#define RULE_DEL                   1
 
 
 /***

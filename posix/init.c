@@ -665,18 +665,16 @@ void apply_init_args( int argc, char *argv[] ) {
 		pthread_create( &unix_if.listen_thread_id, NULL, &unix_listen, NULL );
 
 		/* add rule for hna networks */
-		add_del_rule( 0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_UNREACH - 1, 0, ROUTE_TYPE_THROW, ROUTE_ADD );
+		add_del_rule(0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_UNREACH - 1, 0, RULE_TYPE_DST, RULE_ADD);
 
 		/* add unreachable routing table entry */
 		add_del_route( 0, 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_UNREACHABLE, ROUTE_ADD );
 
 		if ( routing_class > 0 ) {
 
-			if ( add_del_interface_rules( ROUTE_ADD ) < 0 ) {
-
+			if (add_del_interface_rules(RULE_ADD) < 0) {
 				restore_defaults();
 				exit(EXIT_FAILURE);
-
 			}
 
 		}
@@ -942,8 +940,8 @@ void deactivate_interface(struct batman_if *batman_if)
 
 	if ((batman_if->netaddr > 0) && (batman_if->netmask > 0)) {
 
-		add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, ROUTE_TYPE_THROW, ROUTE_DEL);
-		add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, ROUTE_TYPE_THROW, ROUTE_DEL);
+		add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, RULE_TYPE_DST, RULE_DEL);
+		add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, RULE_TYPE_DST, RULE_DEL);
 
 	}
 
@@ -1044,8 +1042,8 @@ void activate_interface(struct batman_if *batman_if)
 	batman_if->netaddr = ( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr & batman_if->addr.sin_addr.s_addr );
 	batman_if->netmask = bit_count( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr );
 
-	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, ROUTE_TYPE_THROW, ROUTE_ADD	);
-	add_del_rule( batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, ROUTE_TYPE_THROW, ROUTE_ADD );
+	add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, RULE_TYPE_DST, RULE_ADD);
+	add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, RULE_TYPE_DST, RULE_ADD);
 
 	if ( ( batman_if->udp_send_sock = socket( PF_INET, SOCK_DGRAM, 0 ) ) < 0 ) {
 
