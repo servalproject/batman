@@ -209,7 +209,7 @@ void *client_to_gw_tun( void *arg )
 
 
 	if (add_dev_tun(curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0)
-		add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 0);
+		add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 	else
 		goto udp_out;
 
@@ -393,7 +393,7 @@ void *client_to_gw_tun( void *arg )
 	}
 
 	/* cleanup */
-	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, 0, 1);
+	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 	del_dev_tun(tun_fd);
 
 udp_out:
@@ -581,7 +581,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 		return NULL;
 	}
 
-	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, 0, 0 );
+	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, ROUTE_TYPE_UNICAST, ROUTE_ADD );
 
 
 	FD_ZERO(&wait_sockets);
@@ -759,7 +759,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 
 	/* delete tun device and routes on exit */
 	my_tun_ip[3] = 0;
-	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, 0, 1 );
+	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, ROUTE_TYPE_UNICAST, ROUTE_DEL );
 
 	del_dev_tun( tun_fd );
 

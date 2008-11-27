@@ -90,6 +90,11 @@
 #define MAX_AGGREGATION_BYTES 512   /* should not be bigger than 512 bytes or change the size of forw_node->direct_link_flags */
 #define MAX_AGGREGATION_MS 100
 
+#define ROUTE_TYPE_UNICAST          0
+#define ROUTE_TYPE_THROW            1
+#define ROUTE_TYPE_UNREACHABLE      2
+#define ROUTE_ADD                   0
+#define ROUTE_DEL                   1
 
 
 

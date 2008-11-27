@@ -472,15 +472,15 @@ int add_del_interface_rules( int8_t del ) {
 		netaddr = ( ((struct sockaddr_in *)&ifr_tmp.ifr_addr)->sin_addr.s_addr & addr );
 		netmask = bit_count( ((struct sockaddr_in *)&ifr_tmp.ifr_addr)->sin_addr.s_addr );
 
-		add_del_route( netaddr, netmask, 0, 0, 0, ifr->ifr_name, BATMAN_RT_TABLE_TUNNEL, 1, del );
+		add_del_route( netaddr, netmask, 0, 0, 0, ifr->ifr_name, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, del );
 
 		if ( is_batman_if( ifr->ifr_name, &batman_if ) )
 			continue;
 
-		add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, 0, del );
+		add_del_rule( netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, ( del ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count ), 0, ROUTE_TYPE_UNICAST, del );
 
 		if ( strncmp( ifr->ifr_name, "lo", IFNAMSIZ - 1 ) == 0 )
-			add_del_rule( 0, 0, BATMAN_RT_TABLE_TUNNEL, BATMAN_RT_PRIO_TUNNEL, "lo\0 ", 2, del );
+			add_del_rule( 0, 0, BATMAN_RT_TABLE_TUNNEL, BATMAN_RT_PRIO_TUNNEL, "lo\0 ", ROUTE_TYPE_UNREACHABLE, del );
 
 		if_count++;
 
@@ -626,10 +626,21 @@ int flush_routes_rules( int8_t is_rule ) {
 
 		}
 
-		if ( is_rule )
-			add_del_rule( ( rule_type == 2 ? 0 : dest ), ( rule_type == 2 ? 0 : ( rule_type == 1 ? rtm->rtm_dst_len : rtm->rtm_src_len ) ), rtm->rtm_table, prio, ( rule_type == 2 ? dev : 0 ) , rule_type, 1 );
-		else
-			add_del_route( dest, rtm->rtm_dst_len, router, 0, ifi, "unknown", rtm->rtm_table, rtm->rtm_type, 1 );
+		if ( is_rule ) {
+			switch (rule_type) {
+			case ROUTE_TYPE_UNICAST:
+				add_del_rule(dest, rtm->rtm_src_len, rtm->rtm_table, prio, 0 , rule_type, ROUTE_DEL );
+				break;
+			case ROUTE_TYPE_THROW:
+				add_del_rule(dest, rtm->rtm_dst_len, rtm->rtm_table, prio, 0 , rule_type, ROUTE_DEL );
+				break;
+			case ROUTE_TYPE_UNREACHABLE:
+				add_del_rule(0 , 0, rtm->rtm_table, prio, dev , rule_type, ROUTE_DEL );
+				break;
+
+			}
+		} else
+			add_del_route( dest, rtm->rtm_dst_len, router, 0, ifi, "unknown", rtm->rtm_table, rtm->rtm_type, ROUTE_DEL );
 
 	}
 

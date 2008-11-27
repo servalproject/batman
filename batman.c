@@ -311,7 +311,7 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 			/* not found/deleted, need to add this new route */
 			if ((e->netmask > 0) && (e->netmask <= 32))
 				add_del_route(e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr,
-						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, 0);
+						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 		}
 	}
@@ -325,7 +325,7 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 
 		if ((e->netmask > 0) && (e->netmask <= 32))
 			add_del_route(e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr,
-						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, 0, 1);
+						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 	}
 
 	/* dispose old hna buffer now. */
@@ -492,7 +492,8 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 
 			debug_output(4, "Adding new route\n");
 
-			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0);
+			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, 
+							neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
@@ -508,7 +509,8 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			/* remove old announced network(s) */
 			update_hna(orig_node, NULL, 0, old_router);
 
-			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1);
+			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, 
+							orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 
 		/* route changed */
 		} else {
@@ -516,10 +518,12 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			debug_output(4, "Route changed\n");
 
 			/* add new route */
-			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, 0, 0);
+			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr, 
+							neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 			/* delete old route */
-			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, 0, 1);
+			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, 
+							orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 
 
 			orig_node->batman_if = neigh_node->if_incoming;
@@ -1005,10 +1009,10 @@ int8_t batman(void)
 			num_hna++;
 
 			/* add throw routing entries for own hna */
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 0 );
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 0 );
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 0 );
-			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 0 );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, ROUTE_ADD );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, ROUTE_ADD );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, ROUTE_ADD );
+			add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, ROUTE_ADD );
 
 		}
 
@@ -1288,10 +1292,10 @@ int8_t batman(void)
 								if (hna_node->del) {
 									debug_output(3, "Deleting HNA from announce network list: %s/%i\n", oldorig_str, hna_node->netmask );
 
-									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 1 );
-									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 1 );
-									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 1 );
-									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 1 );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, ROUTE_DEL );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, ROUTE_DEL );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, ROUTE_DEL );
+									add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, ROUTE_DEL );
 
 									list_del(prev_list_head, hna_pos, &hna_list);
 
@@ -1317,10 +1321,10 @@ int8_t batman(void)
 								debug_output(3, "Adding HNA to announce network list: %s/%i\n", oldorig_str, hna_node->netmask );
 
 								/* add throw routing entries for own hna */
-								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 0 );
-								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 0 );
-								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 0 );
-								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 0 );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, ROUTE_ADD );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, ROUTE_ADD );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, ROUTE_ADD );
+								add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, ROUTE_ADD );
 
 								/* add node */
 								hna_node_exist = debugMalloc( sizeof(struct hna_node), 105 );
@@ -1387,11 +1391,11 @@ int8_t batman(void)
 
 		hna_node = list_entry( list_pos, struct hna_node, list );
 
-		/* add throw routing entries for own hna */
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, 1, 1 );
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, 1, 1 );
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, 1, 1 );
-		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, 1, 1 );
+		/* delete throw routing entries for own hna */
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, ROUTE_DEL );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, ROUTE_DEL );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, ROUTE_DEL );
+		add_del_route( hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, ROUTE_DEL );
 
 		debugFree( hna_node, 1103 );
 

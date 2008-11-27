@@ -347,7 +347,7 @@ void *unix_listen( void * BATMANUNUSED(arg) ) {
 											if ((routing_class != 0) && (curr_gateway != NULL))
 												del_default_route();
 
-											add_del_interface_rules(1);
+											add_del_interface_rules(ROUTE_DEL);
 											routing_class = 0;
 
 										}
@@ -402,9 +402,9 @@ void *unix_listen( void * BATMANUNUSED(arg) ) {
 											}
 
 											if ((tmp_unix_value > 0) && (routing_class == 0))
-												add_del_interface_rules(0);
+												add_del_interface_rules(ROUTE_ADD);
 											else if ((tmp_unix_value == 0) && (routing_class > 0))
-												add_del_interface_rules(1);
+												add_del_interface_rules(ROUTE_DEL);
 
 											routing_class = tmp_unix_value;
 
