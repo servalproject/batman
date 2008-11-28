@@ -323,8 +323,8 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 	for (i = 0; i < num_elements; i++) {
 		e = &buf[i];
 
-		if ((e->netmask > 0) && (e->netmask <= 32))
-			add_del_route(e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr,
+		if ((e->netmask > 0) && (e->netmask <= 32) && (old_router != NULL))
+			add_del_route(e->hna, e->netmask, old_router->addr, old_router->if_incoming->addr.sin_addr.s_addr,
 						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 	}
 
