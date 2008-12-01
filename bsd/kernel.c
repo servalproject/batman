@@ -143,7 +143,7 @@ int8_t use_kernel_module( char *dev )
 	return -1;
 }
 
-int8_t use_gateway_module(void)
+int32_t use_gateway_module(void)
 {
 	return -1;
 }
