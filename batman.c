@@ -311,7 +311,8 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 			/* not found/deleted, need to add this new route */
 			if ((e->netmask > 0) && (e->netmask <= 32))
 				add_del_route(e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr,
-						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
+						orig_node->router->if_incoming->if_index, orig_node->router->if_incoming->dev,
+						BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 		}
 	}
@@ -325,7 +326,7 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 
 		if ((e->netmask > 0) && (e->netmask <= 32) && (old_router != NULL))
 			add_del_route(e->hna, e->netmask, old_router->addr, old_router->if_incoming->addr.sin_addr.s_addr,
-						orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
+						old_router->if_incoming->if_index, old_router->if_incoming->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 	}
 
 	/* dispose old hna buffer now. */
