@@ -34,27 +34,27 @@
 
 
 static const char *route_type_to_string[] = {
-	[ROUTE_TYPE_UNICAST]		"route",
-	 [ROUTE_TYPE_UNREACHABLE]	"unreachable route",
-	 [ROUTE_TYPE_THROW]		"throw route",
+	[ROUTE_TYPE_UNICAST]      = "route",
+	 [ROUTE_TYPE_UNREACHABLE] = "unreachable route",
+	 [ROUTE_TYPE_THROW]       = "throw route",
 };
 
 static const char *route_type_to_string_script[] = {
-	[ROUTE_TYPE_UNICAST]		"UNICAST",
-	[ROUTE_TYPE_UNREACHABLE]	"UNREACH",
-	[ROUTE_TYPE_THROW]		"THROW",
+	[ROUTE_TYPE_UNICAST]     = "UNICAST",
+	[ROUTE_TYPE_UNREACHABLE] = "UNREACH",
+	[ROUTE_TYPE_THROW]       = "THROW",
 };
 
 static const char *rule_type_to_string[] = {
-	[RULE_TYPE_SRC]		"from",
-	[RULE_TYPE_DST]		"to",
-	[RULE_TYPE_IIF]		"iif",
+	[RULE_TYPE_SRC] = "from",
+	[RULE_TYPE_DST] = "to",
+	[RULE_TYPE_IIF] = "iif",
 };
 
 static const char *rule_type_to_string_script[] = {
-	[RULE_TYPE_SRC]		"SRC",
-	[RULE_TYPE_DST]		"DST",
-	[RULE_TYPE_IIF]		"IIF",
+	[RULE_TYPE_SRC] = "SRC",
+	[RULE_TYPE_DST] = "DST",
+	[RULE_TYPE_IIF] = "IIF",
 };
 
 
