@@ -42,8 +42,6 @@
 #define BAT_LOGO_END(x,y) printf("\x1B[8;0H");fflush(NULL);bat_wait( x, y );              /* end of current picture */
 #define IOCREMDEV 2
 
-extern struct vis_if vis_if;
-
 static clock_t last_clock_tick;
 static float system_tick;
 
