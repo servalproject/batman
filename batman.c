@@ -255,7 +255,7 @@ static int hna_buff_delete(struct hna_element *buf, int *buf_len, struct hna_ele
  * a situation where no route is present.
  */
 void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
-				int new_hna_len, struct neigh_node *old_router)
+				int16_t new_hna_len, struct neigh_node *old_router)
 {
 	unsigned char *old_hna;
 	int old_hna_len;

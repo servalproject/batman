@@ -774,7 +774,7 @@ more_hna:
 		} else if (purge_timeout_opt) {
 
 			batch_mode = 1;
-			snprintf(unix_buff, 20, "q:%i", purge_timeout);
+			snprintf(unix_buff, 20, "q:%u", purge_timeout);
 
 		} else if ( info_output ) {
 

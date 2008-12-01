@@ -270,7 +270,7 @@ void add_del_rule(uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t p
 	inet_ntop(AF_INET, &network, str1, sizeof (str1));
 
 	if (policy_routing_script != NULL) {
-		dprintf(policy_routing_pipe, "RULE %s %s %s %i %s %s %i %s %i\n", (rule_action == RULE_DEL ? "del" : "add"), rule_type_to_string[rule_type], str1, netmask, "unused", "unused", prio, iif, rt_table);
+		dprintf(policy_routing_pipe, "RULE %s %s %s %i %s %s %u %s %i\n", (rule_action == RULE_DEL ? "del" : "add"), rule_type_to_string[rule_type], str1, netmask, "unused", "unused", prio, iif, rt_table);
 		return;
 	}
 

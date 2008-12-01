@@ -135,7 +135,7 @@ void internal_output(uint32_t sock)
 	dprintf(sock, "unix_socket_path=%s\n", UNIX_PATH);
 	dprintf(sock, "own_ogm_jitter=%i\n", JITTER);
 	dprintf(sock, "default_ttl=%i\n", TTL);
-	dprintf(sock, "originator_timeout=%i (default: %i)\n", purge_timeout, PURGE_TIMEOUT);
+	dprintf(sock, "originator_timeout=%u (default: %u)\n", purge_timeout, PURGE_TIMEOUT);
 	dprintf(sock, "tq_local_window_size=%i\n", TQ_LOCAL_WINDOW_SIZE);
 	dprintf(sock, "tq_global_window_size=%i\n", TQ_GLOBAL_WINDOW_SIZE);
 	dprintf(sock, "tq_local_bidirect_send_minimum=%i\n", TQ_LOCAL_BIDRECT_SEND_MINIMUM);
@@ -491,7 +491,7 @@ void *unix_listen( void * BATMANUNUSED(arg) ) {
 									dprintf(unix_client->sock, " --aggregation");
 
 								if (purge_timeout != PURGE_TIMEOUT)
-									dprintf(unix_client->sock, " --purge-timeout %i", purge_timeout);
+									dprintf(unix_client->sock, " --purge-timeout %u", purge_timeout);
 
 								list_for_each(debug_pos, &if_list) {
 

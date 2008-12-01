@@ -38,7 +38,7 @@ void addr_to_string( uint32_t addr, char *str, int32_t len );
 
 int8_t is_aborted(void);
 void update_hna(struct orig_node *orig_node, unsigned char *new_hna, 
-				int new_hna_len, struct neigh_node *old_router);
+				int16_t new_hna_len, struct neigh_node *old_router);
 void handler(int32_t sig);
 void segmentation_fault(int32_t sig) NO_RETURN;
 void restore_and_exit(uint8_t is_sigsegv) NO_RETURN;
