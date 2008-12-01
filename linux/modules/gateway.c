@@ -76,7 +76,7 @@ static struct task_struct *kthread_task = NULL;
 
 static struct proc_dir_entry *proc_dir, *clients_file;
 
-int init_module()
+int init_module(void)
 {
 	/* register our device - kernel assigns a free major number */
 	if ( ( Major = register_chrdev( 0, DRIVER_DEVICE, &fops ) ) < 0 ) {
@@ -111,7 +111,7 @@ int init_module()
 	return(0);
 }
 
-void cleanup_module()
+void cleanup_module(void)
 {
 	struct free_client_data *entry, *next;
 	struct gw_client *gw_client;
@@ -591,7 +591,7 @@ static int bat_netdev_close( struct net_device *dev )
 	return( 0 );
 }
 
-static int create_bat_netdev()
+static int create_bat_netdev(void)
 {
 	struct gate_priv *priv;
 

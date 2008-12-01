@@ -29,5 +29,5 @@ int choose_orig( void *data, int32_t size );
 struct orig_node *get_orig_node( uint32_t addr );
 void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate, uint32_t curr_time );
 void purge_orig( uint32_t curr_time );
-void debug_orig();
+void debug_orig(void);
 

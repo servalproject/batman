@@ -48,4 +48,4 @@ struct prof_container {
 void prof_init(int32_t index, char *name);
 void prof_start(int32_t index);
 void prof_stop(int32_t index);
-void prof_print();
+void prof_print(void);

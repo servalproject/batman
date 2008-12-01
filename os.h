@@ -36,7 +36,7 @@ void addr_to_string( uint32_t addr, char *str, int32_t len );
 
 
 
-int8_t is_aborted();
+int8_t is_aborted(void);
 void update_hna(struct orig_node *orig_node, unsigned char *new_hna, 
 				int new_hna_len, struct neigh_node *old_router);
 void handler(int32_t sig);
@@ -59,8 +59,8 @@ int8_t set_tun_addr( int32_t fd, uint32_t tun_addr, char *tun_dev );
 void apply_init_args(int argc, char *argv[]);
 void init_interface(struct batman_if *batman_if);
 void deactivate_interface(struct batman_if *batman_if);
-void check_inactive_interfaces();
-void init_interface_gw();
+void check_inactive_interfaces(void);
+void init_interface_gw(void);
 
 /* kernel.c */
 void set_rp_filter( int32_t state, char* dev );
@@ -70,20 +70,20 @@ int32_t get_send_redirects( char *dev );
 void set_forwarding( int32_t state );
 int32_t get_forwarding( void );
 int8_t bind_to_iface( int32_t sock, char *dev );
-int8_t use_gateway_module();
+int8_t use_gateway_module(void);
 
 /* posix.c */
 void print_animation( void );
-void del_default_route();
-void add_default_route();
+void del_default_route(void);
+void add_default_route(void);
 int8_t receive_packet(unsigned char *packet_buff, int32_t packet_buff_len, int16_t *packet_len, uint32_t *neigh, uint32_t timeout, struct batman_if **if_incoming);
 int8_t send_udp_packet(unsigned char *packet_buff, int packet_buff_len, struct sockaddr_in *broad, int send_sock, struct batman_if *batman_if);
-void del_gw_interface();
-void restore_defaults();
-void cleanup();
+void del_gw_interface(void);
+void restore_defaults(void);
+void cleanup(void);
 
 /* tunnel.c */
-void init_bh_ports();
+void init_bh_ports(void);
 void *gw_listen(void *arg);
 void *client_to_gw_tun( void *arg );
 

@@ -57,7 +57,7 @@ void prof_stop(int32_t index) {
 }
 
 
-void prof_print() {
+void prof_print(void) {
 
 	int32_t index;
 
@@ -92,7 +92,7 @@ void prof_stop( int32_t index ) {
 }
 
 
-void prof_print() {
+void prof_print(void) {
 
 }
 

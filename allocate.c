@@ -65,7 +65,7 @@ struct memoryUsage
 };
 
 
-void addMemory( uint32_t length, int32_t tag ) {
+static void addMemory( uint32_t length, int32_t tag ) {
 
 	struct memoryUsage *walker;
 
@@ -98,7 +98,7 @@ void addMemory( uint32_t length, int32_t tag ) {
 }
 
 
-void removeMemory( int32_t tag, int32_t freetag ) {
+static void removeMemory( int32_t tag, int32_t freetag ) {
 
 	struct memoryUsage *walker;
 

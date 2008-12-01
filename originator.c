@@ -429,7 +429,7 @@ void purge_orig(uint32_t curr_time)
 
 
 
-void debug_orig() {
+void debug_orig(void) {
 
 	struct hash_it_t *hashit = NULL;
 	struct list_head *forw_pos, *orig_pos, *neigh_pos;

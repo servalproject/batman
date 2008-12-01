@@ -52,7 +52,7 @@ uint8_t tunnel_running = 0;
 static pthread_mutex_t batman_clock_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
-void update_internal_clock()
+static void update_internal_clock(void)
 {
 	struct tms tp;
 	clock_t current_clock_tick = times(&tp);
@@ -61,7 +61,7 @@ void update_internal_clock()
 	last_clock_tick = current_clock_tick;
 }
 
-uint32_t get_time_msec()
+uint32_t get_time_msec(void)
 {
 	uint32_t time;
 
@@ -73,7 +73,7 @@ uint32_t get_time_msec()
 	return time;
 }
 
-uint64_t get_time_msec64()
+uint64_t get_time_msec64(void)
 {
 	uint64_t time;
 
@@ -86,7 +86,7 @@ uint64_t get_time_msec64()
 }
 
 /* batman animation */
-void sym_print( char x, char y, char *z ) {
+static void sym_print( char x, char y, char *z ) {
 
 	char i = 0, Z;
 
@@ -125,7 +125,7 @@ void sym_print( char x, char y, char *z ) {
 
 
 
-void bat_wait( int32_t T, int32_t t ) {
+static void bat_wait( int32_t T, int32_t t ) {
 
 	struct timeval time;
 
@@ -230,7 +230,7 @@ int32_t rand_num( int32_t limit ) {
 
 
 
-int8_t is_aborted() {
+int8_t is_aborted(void) {
 
 	return stop != 0;
 
@@ -245,14 +245,14 @@ void handler( int32_t BATMANUNUSED(sig) ) {
 }
 
 
-void del_default_route()
+void del_default_route(void)
 {
 	curr_gateway = NULL;
 }
 
 
 
-void add_default_route()
+void add_default_route(void)
 {
 	struct curr_gw_data *curr_gw_data;
 
@@ -378,7 +378,7 @@ int8_t send_udp_packet(unsigned char *packet_buff, int32_t packet_buff_len, stru
 }
 
 
-void del_gw_interface()
+void del_gw_interface(void)
 {
 	struct batman_if *batman_if = (struct batman_if *)if_list.next;
 	struct batgat_ioc_args args;
@@ -410,7 +410,7 @@ void del_gw_interface()
 	}
 }
 
-void restore_defaults() {
+void restore_defaults(void) {
 
 	struct list_head *if_pos, *if_pos_tmp;
 	struct batman_if *batman_if;
@@ -520,10 +520,9 @@ void segmentation_fault(int32_t BATMANUNUSED(sig)) {
 
 
 
-void cleanup() {
+void cleanup(void) {
 
 	int8_t i;
-	struct debug_level_info *debug_level_info;
 	struct list_head *debug_pos, *debug_pos_tmp;
 
 
@@ -532,8 +531,6 @@ void cleanup() {
 		if ( debug_clients.clients_num[i] > 0 ) {
 
 			list_for_each_safe( debug_pos, debug_pos_tmp, (struct list_head *)debug_clients.fd_list[i] ) {
-
-				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
 				list_del( (struct list_head *)debug_clients.fd_list[i], debug_pos, (struct list_head_first *)debug_clients.fd_list[i] );
 				debugFree( debug_pos, 1218 );

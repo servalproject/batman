@@ -67,7 +67,7 @@ static struct hashtable_t *wip_hash;
 static struct hashtable_t *vip_hash;
 static struct list_head free_client_list;
 
-int init_module()
+int init_module(void)
 {
 
 	printk(KERN_DEBUG "B.A.T.M.A.N. gateway modul\n");
@@ -95,7 +95,7 @@ int init_module()
 	return(0);
 }
 
-void cleanup_module()
+void cleanup_module(void)
 {
 	struct gate_priv *priv;
 	struct free_client_data *entry, *next;
@@ -545,7 +545,7 @@ static int bat_netdev_close( struct net_device *dev )
 	return( 0 );
 }
 
-static int create_bat_netdev()
+static int create_bat_netdev(void)
 {
 
 	struct gate_priv *priv;

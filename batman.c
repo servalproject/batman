@@ -221,7 +221,7 @@ int is_batman_if(char *dev, struct batman_if **batman_if)
  * if found, delete it from the buf and return 1.
  * if not found, return 0.
  */
-int hna_buff_delete(struct hna_element *buf, int *buf_len, struct hna_element *e)
+static int hna_buff_delete(struct hna_element *buf, int *buf_len, struct hna_element *e)
 {
 	int i;
 	int num_elements;
@@ -703,7 +703,7 @@ int isBntog(uint32_t neigh, struct orig_node *orig_tog_node)
 
 
 
-int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming)
+static int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming)
 {
 
 	struct list_head *list_pos;
@@ -792,7 +792,7 @@ int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_nei
 
 
 
-void generate_vis_packet(void)
+static void generate_vis_packet(void)
 {
 	struct hash_it_t *hashit = NULL;
 	struct orig_node *orig_node;
@@ -901,7 +901,7 @@ void generate_vis_packet(void)
 
 
 
-void send_vis_packet(void)
+static void send_vis_packet(void)
 {
 	generate_vis_packet();
 
@@ -911,7 +911,7 @@ void send_vis_packet(void)
 
 
 
-uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming)
+static uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming)
 {
 	struct list_head *list_pos;
 	struct orig_node *orig_node;
@@ -961,7 +961,7 @@ uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct batman_
 	return is_duplicate;
 }
 
-void add_del_own_hna_throw(struct hna_node *hna_node, int8_t del)
+static void add_del_own_hna_throw(struct hna_node *hna_node, int8_t del)
 {
 	/* add/delete throw routing entries for own hna */
 	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, del);

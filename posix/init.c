@@ -44,7 +44,7 @@ int8_t stop;
 
 
 
-int my_daemon() {
+static int my_daemon(void) {
 
 	int fd;
 
@@ -85,7 +85,7 @@ int my_daemon() {
 
 }
 
-void create_routing_pipe()
+static void create_routing_pipe(void)
 {
 	int fd[2], pipe_opts;
 
@@ -879,7 +879,7 @@ close_con:
 
 }
 
-void interface_listen_sockets()
+static void interface_listen_sockets(void)
 {
 	struct list_head *list_pos;
 	struct batman_if *batman_if;
@@ -899,7 +899,7 @@ void interface_listen_sockets()
 	}
 }
 
-int is_interface_up(char *dev)
+static int is_interface_up(char *dev)
 {
 	struct ifreq int_req;
 	int sock;
@@ -961,7 +961,7 @@ void deactivate_interface(struct batman_if *batman_if)
 	debug_output(3, "Interface deactivated: %s\n", batman_if->dev);
 }
 
-void activate_interface(struct batman_if *batman_if)
+static void activate_interface(struct batman_if *batman_if)
 {
 	struct ifreq int_req;
 	int on = 1, sock_opts;
@@ -1124,7 +1124,7 @@ void init_interface(struct batman_if *batman_if)
 		activate_interface(batman_if);
 }
 
-void check_inactive_interfaces()
+void check_inactive_interfaces(void)
 {
 	struct list_head *list_pos;
 	struct batman_if *batman_if;
@@ -1143,7 +1143,7 @@ void check_inactive_interfaces()
 
 
 
-void init_interface_gw () {
+void init_interface_gw (void) {
 
 	int32_t sock_opts, err, skfd;
 	struct ifreq ifr;
@@ -1152,7 +1152,7 @@ void init_interface_gw () {
 	struct batman_if *batman_if = (struct batman_if *)if_list.next;
 
 
-	if ( ( batman_if->udp_tunnel_sock = use_gateway_module( batman_if->dev ) ) < 0 ) {
+	if ( ( batman_if->udp_tunnel_sock = use_gateway_module() ) < 0 ) {
 
 		batman_if->addr.sin_port = htons(GW_PORT);
 

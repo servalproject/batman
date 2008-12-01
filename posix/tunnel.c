@@ -58,7 +58,7 @@
 
 unsigned short bh_udp_ports[] = BH_UDP_PORTS;
 
-void init_bh_ports()
+void init_bh_ports(void)
 {
 	int i;
 
@@ -68,7 +68,7 @@ void init_bh_ports()
 
 
 
-int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr ) {
+static int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr ) {
 
 	struct sockaddr_in sender_addr;
 	struct timeval tv;
@@ -407,7 +407,7 @@ out:
 	return NULL;
 }
 
-struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_t **wip_hash, struct hashtable_t **vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
+static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_t **wip_hash, struct hashtable_t **vip_hash, struct list_head_first *free_ip_list, uint8_t next_free_ip[]) {
 
 	struct gw_client *gw_client;
 	struct free_ip *free_ip;
@@ -485,19 +485,19 @@ struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct hashtable_
 
 /* needed for hash, compares 2 struct gw_client, but only their ip-addresses. assumes that
  * the ip address is the first/second field in the struct */
-int compare_wip(void *data1, void *data2)
+static int compare_wip(void *data1, void *data2)
 {
 	return ( memcmp( data1, data2, 4 ) );
 }
 
-int compare_vip(void *data1, void *data2)
+static int compare_vip(void *data1, void *data2)
 {
 	return ( memcmp( ((char *)data1) + 4, ((char *)data2) + 4, 4 ) );
 }
 
 /* hashfunction to choose an entry in a hash table of given size */
 /* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
-int choose_wip(void *data, int32_t size)
+static int choose_wip(void *data, int32_t size)
 {
 	unsigned char *key= data;
 	uint32_t hash = 0;
@@ -517,7 +517,7 @@ int choose_wip(void *data, int32_t size)
 
 }
 
-int choose_vip(void *data, int32_t size)
+static int choose_vip(void *data, int32_t size)
 {
 	unsigned char *key= data;
 	uint32_t hash = 0;
