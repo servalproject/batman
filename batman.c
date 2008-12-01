@@ -666,43 +666,6 @@ unsigned char get_gw_class(int down, int up)
 
 
 
-int isDuplicate(struct orig_node *orig_node, uint16_t seqno)
-{
-	struct list_head *neigh_pos;
-	struct neigh_node *neigh_node;
-
-	prof_start( PROF_is_duplicate );
-
-	list_for_each( neigh_pos, &orig_node->neigh_list ) {
-
-		neigh_node = list_entry( neigh_pos, struct neigh_node, list );
-
-		if ( get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, seqno ) ) {
-
-			prof_stop( PROF_is_duplicate );
-			return 1;
-
-		}
-
-	}
-
-	prof_stop( PROF_is_duplicate );
-
-	return 0;
-}
-
-
-
-int isBntog(uint32_t neigh, struct orig_node *orig_tog_node)
-{
-	if ( ( orig_tog_node->router != NULL ) && ( orig_tog_node->router->addr == neigh ) )
-		return 1;
-
-	return 0;
-}
-
-
-
 static int isBidirectionalNeigh(struct orig_node *orig_node, struct orig_node *orig_neigh_node, struct bat_packet *in, uint32_t recv_time, struct batman_if *if_incoming)
 {
 
