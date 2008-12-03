@@ -68,7 +68,8 @@ void init_bh_ports(void)
 
 
 
-static int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr ) {
+static int8_t get_tun_ip(struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr)
+{
 
 	struct sockaddr_in sender_addr;
 	struct timeval tv;
@@ -80,71 +81,66 @@ static int8_t get_tun_ip( struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_
 
 
 	addr_len = sizeof(struct sockaddr_in);
-	memset( &buff, 0, sizeof(buff) );
+	memset(&buff, 0, sizeof(buff));
 
 
-	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( i > 0 ) ) {
+	while ((!is_aborted()) && (curr_gateway != NULL) && (i > 0)) {
 
 		buff[0] = TUNNEL_IP_REQUEST;
 
-		if ( sendto( udp_sock, buff, sizeof(buff), 0, (struct sockaddr *)gw_addr, sizeof(struct sockaddr_in) ) < 0 ) {
-
-			debug_output( 0, "Error - can't send ip request to gateway: %s \n", strerror(errno) );
-
-		} else {
-
-			tv.tv_sec = 0;
-			tv.tv_usec = 250000;
-
-			FD_ZERO(&wait_sockets);
-			FD_SET(udp_sock, &wait_sockets);
-
-			res = select( udp_sock + 1, &wait_sockets, NULL, NULL, &tv );
-
-			if ( res > 0 ) {
-
-				/* gateway message */
-				if ( FD_ISSET( udp_sock, &wait_sockets ) ) {
-
-					if ( ( buff_len = recvfrom( udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len ) ) < 0 ) {
-
-						debug_output( 0, "Error - can't receive ip request: %s \n", strerror(errno) );
-
-					} else {
-
-						if ( ( sender_addr.sin_addr.s_addr == gw_addr->sin_addr.s_addr ) && ( buff_len > 4 ) ) {
-
-							memcpy( tun_addr, buff + 1, 4 );
-							return 1;
-
-						} else {
-
-							debug_output( 0, "Error - can't receive ip request: sender IP or packet size (%i) do not match \n", buff_len );
-
-						}
-
-					}
-
-				}
-
-			} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
-
-				debug_output( 0, "Error - can't select: %s \n", strerror(errno) );
-				break;
-
-			}
-
+		if (sendto(udp_sock, buff, sizeof(buff), 0, (struct sockaddr *)gw_addr, sizeof(struct sockaddr_in)) < 0) {
+			debug_output(0, "Error - can't send ip request to gateway: %s \n", strerror(errno));
+			goto next_try;
 		}
 
+		tv.tv_sec = 0;
+		tv.tv_usec = 250000;
+
+		FD_ZERO(&wait_sockets);
+		FD_SET(udp_sock, &wait_sockets);
+
+		res = select(udp_sock + 1, &wait_sockets, NULL, NULL, &tv);
+
+		if ((res < 0) && (errno != EINTR)) {
+			debug_output(0, "Error - can't select: %s \n", strerror(errno));
+			break;
+		}
+
+		if (res <= 0)
+			goto next_try;
+
+		/* gateway message */
+		if (!FD_ISSET(udp_sock, &wait_sockets))
+			goto next_try;
+
+
+		if ((buff_len = recvfrom(udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len)) < 0) {
+			debug_output(0, "Error - can't receive ip request: %s \n", strerror(errno));
+			goto next_try;
+		}
+
+		if (buff_len < 4) {
+			debug_output(0, "Error - can't receive ip request: packet size is %i < 4 \n", buff_len);
+			goto next_try;
+		}
+
+		if (sender_addr.sin_addr.s_addr != gw_addr->sin_addr.s_addr) {
+			debug_output(0, "Error - can't receive ip request: sender IP is not gateway IP \n");
+			goto next_try;
+		}
+
+		memcpy(tun_addr, buff + 1, 4);
+		return 1;
+
+next_try:
 		i--;
 
 	}
 
-	if ( i == 0 )
-		debug_output( 0, "Error - can't receive ip from gateway: number of maximum retries reached \n" );
+	if (i == 0)
+		debug_output(0, "Error - can't receive ip from gateway: number of maximum retries reached \n");
 
 	return -1;
-
 }
 
 
@@ -218,141 +214,134 @@ void *client_to_gw_tun( void *arg )
 	FD_SET(udp_sock, &wait_sockets);
 	FD_SET(tun_fd, &wait_sockets);
 
-	max_sock = ( udp_sock > tun_fd ? udp_sock : tun_fd );
+	max_sock = (udp_sock > tun_fd ? udp_sock : tun_fd);
 
-	while ( ( !is_aborted() ) && ( curr_gateway != NULL ) && ( ! curr_gw_data->gw_node->deleted ) ) {
+	while ((!is_aborted()) && (curr_gateway != NULL) && (! curr_gw_data->gw_node->deleted)) {
 
 		tv.tv_sec = 0;
 		tv.tv_usec = 250;
 
-		memcpy( &tmp_wait_sockets, &wait_sockets, sizeof(fd_set) );
+		memcpy(&tmp_wait_sockets, &wait_sockets, sizeof(fd_set));
 
-		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
+		res = select(max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv);
 
 		current_time = get_time_msec();
 
-		if ( res > 0 ) {
+		if ((res < 0) && (errno != EINTR)) {
+			debug_output(0, "Error - can't select: %s \n", strerror(errno));
+			break;
+		}
 
-			/* udp message (tunnel data) */
-			if ( FD_ISSET( udp_sock, &tmp_wait_sockets ) ) {
+		if (res <= 0)
+			goto after_incoming_packet;
 
-				while ( ( buff_len = recvfrom( udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len ) ) > 0 ) {
+		/* traffic that comes from the gateway via the tunnel */
+		if (FD_ISSET(udp_sock, &tmp_wait_sockets)) {
 
-					if ( ( buff_len > 1 ) && ( sender_addr.sin_addr.s_addr == gw_addr.sin_addr.s_addr ) ) {
+			while ((buff_len = recvfrom(udp_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&sender_addr, &addr_len)) > 0) {
 
-						/* got data from gateway */
-						if (buff[0] == TUNNEL_DATA ) {
-
-							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
-								debug_output( 0, "Error - can't write packet: %s\n", strerror(errno) );
-
-							if (((struct iphdr *)(buff + 1))->protocol != IPPROTO_ICMP) {
-
-								gw_state = GW_STATE_VERIFIED;
-								gw_state_time = current_time;
-
-							}
-
-						/* gateway told us that we have no valid ip */
-						} else if (buff[0] == TUNNEL_IP_INVALID) {
-
-							addr_to_string( my_tun_addr, my_str, sizeof(my_str) );
-							debug_output( 3, "Gateway client - gateway (%s) says: IP (%s) is invalid (maybe expired) \n", gw_str, my_str );
-
-							curr_gateway = NULL;
-							errno = EWOULDBLOCK;
-
-							break;
-
-						} else if (buff[0] == TUNNEL_KEEPALIVE_REPLY) {
-
-							debug_output(3, "Gateway client - successfully refreshed IP lease: %s \n", gw_str);
-							ip_lease_time = current_time;
-							num_refresh_lease = 0;
-
-						}
-
-					} else {
-
-						addr_to_string( sender_addr.sin_addr.s_addr, my_str, sizeof(my_str) );
-						debug_output( 0, "Error - ignoring gateway packet from %s: packet too small (%i)\n", my_str, buff_len );
-
-					}
-
+				if (buff_len < 2) {
+					debug_output(0, "Error - ignoring gateway packet from %s: packet too small (%i)\n", my_str, buff_len);
+					continue;
 				}
 
-				if ( errno != EWOULDBLOCK ) {
-
-					debug_output( 0, "Error - gateway client can't receive packet: %s\n", strerror(errno) );
-					break;
-
+				if (sender_addr.sin_addr.s_addr != gw_addr.sin_addr.s_addr) {
+					debug_output(0, "Error - can't receive ip request: sender IP is not gateway IP \n");
+					continue;
 				}
 
-			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
+				switch(buff[0]) {
+				/* got data from gateway */
+				case TUNNEL_DATA:
+					if (write(tun_fd, buff + 1, buff_len - 1) < 0)
+						debug_output(0, "Error - can't write packet: %s\n", strerror(errno));
 
-				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
-
-					buff[0] = TUNNEL_DATA;
-
-					if ( sendto( udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof (struct sockaddr_in) ) < 0 )
-						debug_output( 0, "Error - can't send data to gateway: %s\n", strerror(errno) );
-
-				}
-
-				if ( errno != EWOULDBLOCK ) {
-
-					debug_output( 0, "Error - gateway client can't read tun data: %s\n", strerror(errno) );
-					break;
-
-				}
-
-				if ( ( gw_state == GW_STATE_UNKNOWN ) && ( gw_state_time == 0 ) ) {
-
-					ignore_packet = 0;
-
-					if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_UDP) {
-
-						for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++) {
-
-							if (((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest == bh_udp_ports[i]) {
-
-								ignore_packet = 1;
-								break;
-
-							}
-
-						}
-
-					} else if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_ICMP) {
-
-						ignore_packet = 1;
-
-					}
-
-					if (!ignore_packet)
+					if (((struct iphdr *)(buff + 1))->protocol != IPPROTO_ICMP) {
+						gw_state = GW_STATE_VERIFIED;
 						gw_state_time = current_time;
+					}
+					break;
+				/* gateway told us that we have no valid ip */
+				case TUNNEL_IP_INVALID:
+					addr_to_string(my_tun_addr, my_str, sizeof(my_str));
+					debug_output(3, "Gateway client - gateway (%s) says: IP (%s) is invalid (maybe expired) \n", gw_str, my_str);
 
+					curr_gateway = NULL;
+					goto cleanup;
+				/* keep alive packet was confirmed */
+				case TUNNEL_KEEPALIVE_REPLY:
+					debug_output(3, "Gateway client - successfully refreshed IP lease: %s \n", gw_str);
+					ip_lease_time = current_time;
+					num_refresh_lease = 0;
+					break;
 				}
 
 			}
 
-		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
+			if (errno != EWOULDBLOCK) {
+				debug_output(0, "Error - gateway client can't receive packet: %s\n", strerror(errno));
+				break;
+			}
 
-			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
-			break;
+		/* traffic that we should send to the gateway via the tunnel */
+		} else if (FD_ISSET(tun_fd, &tmp_wait_sockets)) {
+
+			while ((buff_len = read(tun_fd, buff + 1, sizeof(buff) - 2)) > 0) {
+
+				buff[0] = TUNNEL_DATA;
+
+				if (sendto(udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr_in)) < 0)
+					debug_output(0, "Error - can't send data to gateway: %s\n", strerror(errno));
+
+			}
+
+			if (errno != EWOULDBLOCK) {
+				debug_output(0, "Error - gateway client can't read tun data: %s\n", strerror(errno));
+				break;
+			}
+
+			if ((gw_state == GW_STATE_UNKNOWN) && (gw_state_time == 0)) {
+
+				ignore_packet = 0;
+
+				if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_UDP) {
+
+					for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++) {
+
+						if (((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest == bh_udp_ports[i]) {
+
+							ignore_packet = 1;
+							break;
+
+						}
+
+					}
+
+				} else if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_ICMP) {
+
+					ignore_packet = 1;
+
+				}
+
+				if (!ignore_packet)
+					gw_state_time = current_time;
+
+			}
 
 		}
 
+after_incoming_packet:
 
 		/* refresh leased IP */
-		if (((int)(current_time - (ip_lease_time + IP_LEASE_TIMEOUT)) > 0) && ((int)(current_time - (last_refresh_attempt + 1000)) > 0)) {
+		if (((int)(current_time - (ip_lease_time + IP_LEASE_TIMEOUT)) > 0) &&
+			((int)(current_time - (last_refresh_attempt + 1000)) > 0)) {
 
 			if (num_refresh_lease < 12) {
 
 				buff[0] = TUNNEL_KEEPALIVE_REQUEST;
 
-				if ( sendto( udp_sock, buff, 100, 0, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr_in) ) < 0 )
-					debug_output( 0, "Error - can't send keep alive request to gateway: %s \n", strerror(errno) );
+				if (sendto(udp_sock, buff, 100, 0, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr_in)) < 0)
+					debug_output(0, "Error - can't send keep alive request to gateway: %s \n", strerror(errno));
 
 				num_refresh_lease++;
 				last_refresh_attempt = current_time;
@@ -371,33 +360,32 @@ void *client_to_gw_tun( void *arg )
 		}
 
 		/* drop connection to gateway if the gateway does not respond */
-		if ((gw_state == GW_STATE_UNKNOWN) && (gw_state_time != 0) && ((int)(current_time - (gw_state_time + GW_STATE_UNKNOWN_TIMEOUT)) > 0)) {
+		if ((gw_state == GW_STATE_UNKNOWN) && (gw_state_time != 0) &&
+				   ((int)(current_time - (gw_state_time + GW_STATE_UNKNOWN_TIMEOUT)) > 0)) {
 
-			debug_output( 3, "Gateway client - disconnecting from unresponsive gateway (%s): gateway seems to be a blackhole \n", gw_str );
+			debug_output(3, "Gateway client - disconnecting from unresponsive gateway (%s): gateway seems to be a blackhole \n", gw_str);
 
 			curr_gw_data->gw_node->last_failure = current_time;
 			curr_gw_data->gw_node->gw_failure++;
 
 			break;
-
 		}
 
 		/* change back to unknown state if gateway did not respond in time */
-		if ((gw_state == GW_STATE_VERIFIED) && ((int)(current_time - (gw_state_time + GW_STATE_VERIFIED_TIMEOUT)) > 0)) {
-
+		if ((gw_state == GW_STATE_VERIFIED) &&
+				   ((int)(current_time - (gw_state_time + GW_STATE_VERIFIED_TIMEOUT)) > 0)) {
 			gw_state = GW_STATE_UNKNOWN;
 			gw_state_time = 0;
-
 		}
 
 	}
 
-	/* cleanup */
+cleanup:
 	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 	del_dev_tun(tun_fd);
 
 udp_out:
-	close( udp_sock );
+	close(udp_sock);
 
 out:
 	curr_gateway = NULL;
@@ -437,7 +425,6 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct has
 		debugFree(free_ip, 1216);
 
 		break;
-
 	}
 
 	if (gw_client->vip_addr == 0) {
@@ -448,7 +435,6 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct has
 
 		if (next_free_ip[3] == 0)
 			next_free_ip[2]++;
-
 	}
 
 	hash_add(*wip_hash, gw_client);
@@ -457,26 +443,21 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct has
 	if ((*wip_hash)->elements * 4 > (*wip_hash)->size) {
 
 		swaphash = hash_resize(*wip_hash, (*wip_hash)->size * 2);
-		if (swaphash == NULL) {
 
+		if (swaphash == NULL) {
 			debug_output( 0, "Couldn't resize hash table \n" );
 			restore_and_exit(0);
-
 		}
 
 		*wip_hash = swaphash;
-
 		swaphash = hash_resize(*vip_hash, (*vip_hash)->size * 2);
 
 		if (swaphash == NULL) {
-
 			debug_output( 0, "Couldn't resize hash table \n" );
 			restore_and_exit(0);
-
 		}
 
 		*vip_hash = swaphash;
-
 	}
 
 	return gw_client;
@@ -487,12 +468,12 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct has
  * the ip address is the first/second field in the struct */
 static int compare_wip(void *data1, void *data2)
 {
-	return ( memcmp( data1, data2, 4 ) );
+	return (memcmp(data1, data2, 4));
 }
 
 static int compare_vip(void *data1, void *data2)
 {
-	return ( memcmp( ((char *)data1) + 4, ((char *)data2) + 4, 4 ) );
+	return (memcmp(((char *)data1) + 4, ((char *)data2) + 4, 4));
 }
 
 /* hashfunction to choose an entry in a hash table of given size */
@@ -581,148 +562,145 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 		return NULL;
 	}
 
-	add_del_route( *(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, ROUTE_TYPE_UNICAST, ROUTE_ADD );
+	add_del_route(*(uint32_t *)my_tun_ip, 16, 0, 0, tun_ifi, tun_dev, 254, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 
 	FD_ZERO(&wait_sockets);
 	FD_SET(batman_if->udp_tunnel_sock, &wait_sockets);
 	FD_SET(tun_fd, &wait_sockets);
 
-	max_sock = ( batman_if->udp_tunnel_sock > tun_fd ? batman_if->udp_tunnel_sock : tun_fd );
+	max_sock = (batman_if->udp_tunnel_sock > tun_fd ? batman_if->udp_tunnel_sock : tun_fd);
 
-	while ( ( !is_aborted() ) && ( gateway_class > 0 ) ) {
+	while ((!is_aborted()) && (gateway_class > 0)) {
 
 		tv.tv_sec = 0;
 		tv.tv_usec = 250;
-		memcpy( &tmp_wait_sockets, &wait_sockets, sizeof(fd_set) );
+		memcpy(&tmp_wait_sockets, &wait_sockets, sizeof(fd_set));
 
-		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
+		res = select(max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv);
 
 		current_time = get_time_msec();
 
-		if ( res > 0 ) {
+		if ((res < 0) && (errno != EINTR)) {
+			debug_output(0, "Error - can't select: %s \n", strerror(errno));
+			break;
+		}
 
-			/* is udp packet */
-			if ( FD_ISSET( batman_if->udp_tunnel_sock, &tmp_wait_sockets ) ) {
+		if (res <= 0)
+			goto after_incoming_packet;
 
-				while ( ( buff_len = recvfrom( batman_if->udp_tunnel_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&addr, &addr_len ) ) > 0 ) {
+		/* traffic coming from the tunnel client via UDP */
+		if (FD_ISSET(batman_if->udp_tunnel_sock, &tmp_wait_sockets)) {
 
-					if ( buff_len > 1 ) {
+			while ((buff_len = recvfrom( batman_if->udp_tunnel_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&addr, &addr_len)) > 0) {
 
-						if (buff[0] == TUNNEL_DATA) {
+				if (buff_len < 2) {
+					addr_to_string(addr.sin_addr.s_addr, str, sizeof(str));
+					debug_output(0, "Error - ignoring client packet from %s: packet too small (%i)\n", str, buff_len);
+					continue;
+				}
 
-							gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9 ));
+				switch(buff[0]) {
+				/* client sends us data that should to to the internet */
+				case TUNNEL_DATA:
+					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9 ));
 
-							/* check whether client IP is known */
-							if ((gw_client == NULL) || (gw_client->wip_addr != addr.sin_addr.s_addr)) {
+					/* check whether client IP is known */
+					if ((gw_client == NULL) || (gw_client->wip_addr != addr.sin_addr.s_addr)) {
 
-								buff[0] = TUNNEL_IP_INVALID;
-								addr_to_string( addr.sin_addr.s_addr, str, sizeof(str) );
+						buff[0] = TUNNEL_IP_INVALID;
+						addr_to_string(addr.sin_addr.s_addr, str, sizeof(str));
 
-								debug_output( 0, "Error - got packet from unknown client: %s (virtual ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16] );
+						debug_output(0, "Error - got packet from unknown client: %s (virtual ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16]);
 
-								if ( sendto( batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in) ) < 0 )
-									debug_output( 0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno) );
-
-								continue;
-
-							}
-
-							if ( write( tun_fd, buff + 1, buff_len - 1 ) < 0 )
-								debug_output( 0, "Error - can't write packet into tun: %s\n", strerror(errno) );
-
-						} else if (buff[0] == TUNNEL_KEEPALIVE_REQUEST) {
-
-							gw_client = ((struct gw_client *)hash_find(wip_hash, &addr.sin_addr.s_addr ));
-
-							if (gw_client != NULL) {
-								gw_client->last_keep_alive = current_time;
-								buff[0] = TUNNEL_KEEPALIVE_REPLY;
-							} else {
-								buff[0] = TUNNEL_IP_INVALID;
-							}
-
-							addr_to_string( addr.sin_addr.s_addr, str, sizeof (str) );
-
-							if (sendto(batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
-								debug_output(0, "Error - can't send %s to client (%s): %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str, strerror(errno) );
-							else
-								debug_output(3, "Gateway - send %s to client: %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str);
-
-						} else if (buff[0] == TUNNEL_IP_REQUEST) {
-
-							gw_client = get_ip_addr(&addr, &wip_hash, &vip_hash, &free_ip_list, next_free_ip);
-
-							memcpy( buff + 1, (char *)&gw_client->vip_addr, 4 );
-
-							if (sendto(batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0) {
-
-								addr_to_string( addr.sin_addr.s_addr, str, sizeof (str) );
-								debug_output( 0, "Error - can't send requested ip to client (%s): %s \n", str, strerror(errno) );
-
-							} else {
-
-								addr_to_string( gw_client->vip_addr, str, sizeof(str) );
-								addr_to_string( addr.sin_addr.s_addr, gw_addr, sizeof(gw_addr) );
-								debug_output( 3, "Gateway - assigned %s to client: %s \n", str, gw_addr );
-
-							}
-
-						}
-
+						if (sendto(batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
+							debug_output(0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno));
+						continue;
 					}
 
-				}
+					if (write(tun_fd, buff + 1, buff_len - 1) < 0)
+						debug_output(0, "Error - can't write packet into tun: %s\n", strerror(errno));
 
-				if (errno != EWOULDBLOCK) {
-
-					debug_output( 0, "Error - gateway can't receive packet: %s\n", strerror(errno) );
 					break;
+				/* client asks us to refresh the IP lease */
+				case TUNNEL_KEEPALIVE_REQUEST:
+					gw_client = ((struct gw_client *)hash_find(wip_hash, &addr.sin_addr.s_addr));
 
-				}
-
-			/* gateX activity */
-			} else if ( FD_ISSET( tun_fd, &tmp_wait_sockets ) ) {
-
-				while ( ( buff_len = read( tun_fd, buff + 1, sizeof(buff) - 2 ) ) > 0 ) {
-
-					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 13 ));
+					buff[0] = TUNNEL_IP_INVALID;
 
 					if (gw_client != NULL) {
-
-						client_addr.sin_addr.s_addr = gw_client->wip_addr;
-						client_addr.sin_port = gw_client->client_port;
-
-						buff[0] = TUNNEL_DATA;
-
-						if ( sendto( batman_if->udp_tunnel_sock, buff, buff_len + 1, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr_in) ) < 0 )
-							debug_output( 0, "Error - can't send data to client (%s): %s \n", str, strerror(errno) );
-
-					} else {
-
-						addr_to_string( *(uint32_t *)(buff + 17), gw_addr, sizeof(gw_addr) );
-						debug_output( 3, "Gateway - could not resolve packet: %s \n", gw_addr );
-
+						gw_client->last_keep_alive = current_time;
+						buff[0] = TUNNEL_KEEPALIVE_REPLY;
 					}
 
+					addr_to_string(addr.sin_addr.s_addr, str, sizeof(str));
+
+					if (sendto(batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0) {
+						debug_output(0, "Error - can't send %s to client (%s): %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str, strerror(errno));
+						continue;
+					}
+
+					debug_output(3, "Gateway - send %s to client: %s \n", (buff[0] == TUNNEL_KEEPALIVE_REPLY ? "keep alive reply" : "invalid ip information"), str);
+					break;
+				/* client requests a fresh IP */
+				case TUNNEL_IP_REQUEST:
+					gw_client = get_ip_addr(&addr, &wip_hash, &vip_hash, &free_ip_list, next_free_ip);
+
+					memcpy(buff + 1, (char *)&gw_client->vip_addr, 4);
+
+					if (sendto(batman_if->udp_tunnel_sock, buff, 100, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0) {
+						addr_to_string(addr.sin_addr.s_addr, str, sizeof (str));
+						debug_output(0, "Error - can't send requested ip to client (%s): %s \n", str, strerror(errno));
+						continue;
+					}
+
+					addr_to_string(gw_client->vip_addr, str, sizeof(str));
+					addr_to_string(addr.sin_addr.s_addr, gw_addr, sizeof(gw_addr));
+					debug_output(3, "Gateway - assigned %s to client: %s \n", str, gw_addr);
+					break;
 				}
 
-				if ( errno != EWOULDBLOCK ) {
+			}
 
-					debug_output( 0, "Error - gateway can't read tun data: %s\n", strerror(errno) );
-					break;
+			if (errno != EWOULDBLOCK) {
+				debug_output(0, "Error - gateway can't receive packet: %s\n", strerror(errno));
+				break;
+			}
+
+		/* traffic coming from the internet that needs to be sent back to the client */
+		} else if (FD_ISSET(tun_fd, &tmp_wait_sockets)) {
+
+			while ((buff_len = read(tun_fd, buff + 1, sizeof(buff) - 2 )) > 0) {
+
+				gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 13));
+
+				if (gw_client != NULL) {
+
+					client_addr.sin_addr.s_addr = gw_client->wip_addr;
+					client_addr.sin_port = gw_client->client_port;
+
+					buff[0] = TUNNEL_DATA;
+
+					if (sendto(batman_if->udp_tunnel_sock, buff, buff_len + 1, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr_in)) < 0)
+						debug_output(0, "Error - can't send data to client (%s): %s \n", str, strerror(errno));
+
+				} else {
+
+					addr_to_string( *(uint32_t *)(buff + 17), gw_addr, sizeof(gw_addr));
+					debug_output(3, "Gateway - could not resolve packet: %s \n", gw_addr);
 
 				}
 
 			}
 
-		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
-
-			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
-			break;
+			if (errno != EWOULDBLOCK) {
+				debug_output(0, "Error - gateway can't read tun data: %s\n", strerror(errno));
+				break;
+			}
 
 		}
 
+after_incoming_packet:
 
 		/* close unresponsive client connections (free unused IPs) */
 		if ((int)(current_time - (client_timeout + 60000)) > 0) {

@@ -924,16 +924,14 @@ static uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct 
 	return is_duplicate;
 }
 
-static void add_del_own_hna_throw(struct hna_node *hna_node, int8_t del)
+static void add_del_own_hna_throw(struct hna_node *hna_node, int8_t route_action)
 {
 	/* add/delete throw routing entries for own hna */
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, del);
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, del);
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, del);
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, del);
+	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, route_action);
 }
-
-
 
 int8_t batman(void)
 {
@@ -1339,12 +1337,12 @@ int8_t batman(void)
 	}
 
 
-	if ( debug_level > 0 )
-		printf( "Deleting all BATMAN routes\n" );
+	if (debug_level > 0)
+		printf("Deleting all BATMAN routes\n");
 
 	purge_orig(get_time_msec() + (5 * purge_timeout) + originator_interval);
 
-	hash_destroy( orig_hash );
+	hash_destroy(orig_hash);
 
 
 	list_for_each_safe(list_pos, hna_pos_tmp, &hna_list) {
@@ -1356,8 +1354,8 @@ int8_t batman(void)
 
 	}
 
-	if ( hna_buff != NULL )
-		debugFree( hna_buff, 1104 );
+	if (hna_buff != NULL)
+		debugFree(hna_buff, 1104);
 
 
 	list_for_each_safe( list_pos, forw_pos_tmp, &forw_list ) {

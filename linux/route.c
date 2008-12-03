@@ -129,6 +129,7 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 
 	len = sizeof(struct rtmsg) + sizeof(struct rtattr) + 4;
 
+	/* additional information for the outgoing interface and the gateway */
 	if (route_type == ROUTE_TYPE_UNICAST)
 		len += 2 * (sizeof(struct rtattr) + 4);
 
@@ -493,7 +494,7 @@ int add_del_interface_rules(int8_t rule_action)
 		if (is_batman_if(ifr->ifr_name, &batman_if))
 			continue;
 
-		add_del_rule(netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, (rule_action == RULE_DEL? 0 : BATMAN_RT_PRIO_TUNNEL + if_count), 0, RULE_TYPE_SRC, rule_action);
+		add_del_rule(netaddr, netmask, BATMAN_RT_TABLE_TUNNEL, (rule_action == RULE_DEL ? 0 : BATMAN_RT_PRIO_TUNNEL + if_count), 0, RULE_TYPE_SRC, rule_action);
 
 		if (strncmp( ifr->ifr_name, "lo", IFNAMSIZ - 1) == 0)
 			add_del_rule(0, 0, BATMAN_RT_TABLE_TUNNEL, BATMAN_RT_PRIO_TUNNEL, "lo\0 ", RULE_TYPE_IIF, rule_action);
