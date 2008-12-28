@@ -249,7 +249,8 @@ void apply_init_args( int argc, char *argv[] ) {
 	stop = 0;
 	prog_name = argv[0];
 
-/*	printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );*/
+	if ( strstr( SOURCE_VERSION, "-" ) != NULL )
+		printf( "WARNING: You are using the unstable batman branch. If you are interested in *using* batman get the latest stable release !\n" );
 
 	while ( ( optchar = getopt_long( argc, argv, "a:A:bcd:hHio:g:p:r:s:vV", long_options, &option_index ) ) != -1 ) {
 
