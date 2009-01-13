@@ -3,11 +3,6 @@
 B.A.T.M.A.N. Installation and Usage
 ###################################
 
-
-  ( There is also a very nice HOWTO from Wesley available as a pdf at:
-  http://open-mesh.net/batman/documentation/batmand_howto.pdf )
-
-
 Compiling from source
 =====================
 
@@ -16,22 +11,22 @@ Pre-requirements
 
 You need the usual compile environment and the libpthread-library
 and the kernel module "tun". Both should already be installed on 
-your machine, if you use a PC using Linux. On embedded devices 
+your machine, if you use a PC with Linux. On embedded devices 
 both may not be installed in order to save space.
 
 Compiling
 ---------
 
-You don't necessarily need to compile. Our download.store at 
-downloads.open-mesh.net is likely to offer precompiled packages
+You don't necessarily need to compile. Our download store at 
+downloads.open-mesh.net likely offers precompiled packages
 for your system.
 
 Download and compile the latest stable sources from the download 
 section http://open-mesh.net/batman/downloads by executing eg.:
 
- $ wget http://downloads.open-mesh.net/batman/stable/sources/batman-0.3.tar.gz
- $ tar xzvf batman-0.3.tar.gz
- $ cd batmand_0.3
+ $ wget http://downloads.open-mesh.net/batman/stable/sources/batman-0.3.1.tar.gz
+ $ tar xzvf batman-0.3.1.tar.gz
+ $ cd batmand-0.3.1
  $ make
 
 After the compilation process is finished you'll find a executable 
@@ -41,11 +36,9 @@ in the daemon. Strip it by executing:
 
  $ strip batmand
 
-Note there is no installation script at the moment. If you want to 
-install it, copy the daemon (batmand) to a location somewhere in 
-your path, for example
+Install by executing (as root):
 
- $ cp batmand /usr/sbin/
+ $ make install
 
 Or start it right from the directory where you compiled it by 
 issuing:
