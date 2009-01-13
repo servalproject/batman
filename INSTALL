@@ -29,7 +29,7 @@ for your system.
 Download and compile the latest stable sources from the download 
 section http://open-mesh.net/batman/downloads by executing eg.:
 
- $ wget http://downloads.open-mesh.net/batman/stable/sources/batman-0.3.1.tar.gz
+ $ wget http://downloads.open-mesh.net/batman/releases/batman-0.3.1/batman-0.3.1.tar.gz
  $ tar xzvf batman-0.3.1.tar.gz
  $ cd batmand-0.3.1
  $ make
