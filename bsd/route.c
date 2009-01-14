@@ -139,8 +139,8 @@ static uint32_t get_dev_addr(char *dev)
 	return addr->sin_addr.s_addr;
 }
 
-void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip,
-		int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t del)
+void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t BATMANUNUSED(src_ip),
+		int32_t BATMANUNUSED(ifi), char *dev, uint8_t BATMANUNUSED(rt_table), int8_t BATMANUNUSED(route_type), int8_t del)
 {
 	char dest_str[16], router_str[16];
 	struct rt_msg msg;
@@ -203,20 +203,20 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 }
 
 
-void add_del_rule(uint32_t network, uint8_t netmask, int8_t rt_table,
-		uint32_t prio, char *iif, int8_t dst_rule, int8_t del )
+void add_del_rule(uint32_t BATMANUNUSED(network), uint8_t BATMANUNUSED(netmask), int8_t BATMANUNUSED(rt_table),
+		uint32_t BATMANUNUSED(prio), char *BATMANUNUSED(iif), int8_t BATMANUNUSED(dst_rule), int8_t BATMANUNUSED(del) )
 {
 	fprintf(stderr, "add_del_rule: not implemented\n");
 	return;
 }
 
-int add_del_interface_rules( int8_t del )
+int add_del_interface_rules( int8_t BATMANUNUSED(del) )
 {
 	fprintf(stderr, "add_del_interface_rules: not implemented\n");
 	return 0;
 }
 
-int flush_routes_rules( int8_t rt_table )
+int flush_routes_rules( int8_t BATMANUNUSED(rt_table) )
 {
 	fprintf(stderr, "flush_routes_rules: not implemented\n");
 	return 0;

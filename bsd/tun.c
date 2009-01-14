@@ -90,7 +90,7 @@ static int open_tun_any(char *dev_name, size_t dev_name_size)
 #endif
 
 /* Probe for tun interface availability */
-int8_t probe_tun(uint8_t print_to_stderr)
+int8_t probe_tun(uint8_t BATMANUNUSED(print_to_stderr))
 {
 	int fd;
 	fd = open_tun_any(NULL, 0);
@@ -105,7 +105,7 @@ int8_t del_dev_tun(int32_t fd)
 	return close(fd);
 }
 
-int8_t set_tun_addr(int32_t fd, uint32_t tun_addr, char *tun_ifname)
+int8_t set_tun_addr(int32_t BATMANUNUSED(fd), uint32_t tun_addr, char *tun_ifname)
 {
 	int so;
 	struct ifreq ifr_tun;
@@ -136,7 +136,7 @@ int8_t set_tun_addr(int32_t fd, uint32_t tun_addr, char *tun_ifname)
 }
 
 int8_t add_dev_tun(struct batman_if *batman_if, uint32_t tun_addr,
-		char *tun_dev, size_t tun_dev_size, int32_t *fd, int32_t *ifi)
+		char *tun_dev, size_t tun_dev_size, int32_t *fd, int32_t *BATMANUNUSED(ifi))
 {
 	int so;
 	struct ifreq ifr_tun, ifr_if;

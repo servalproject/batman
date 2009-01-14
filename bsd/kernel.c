@@ -76,7 +76,7 @@ int32_t get_forwarding(void)
 	return state;
 }
 
-void set_send_redirects(int32_t state, char* dev)
+void set_send_redirects(int32_t state, char* BATMANUNUSED(dev))
 {
 	int mib[4];
 
@@ -97,7 +97,7 @@ void set_send_redirects(int32_t state, char* dev)
 		err(1, "Cannot change net.inet.ip.redirect");
 }
 
-int32_t get_send_redirects(char *dev)
+int32_t get_send_redirects(char *BATMANUNUSED(dev))
 {
 	int state;
 	size_t len;
@@ -117,20 +117,20 @@ int32_t get_send_redirects(char *dev)
 	return state;
 }
 
-void set_rp_filter( int32_t state, char* dev )
+void set_rp_filter( int32_t BATMANUNUSED(state), char* BATMANUNUSED(dev) )
 {
 	/* On BSD, reverse path filtering should be disabled in the firewall. */
 	return;
 }
 
-int32_t get_rp_filter( char *dev )
+int32_t get_rp_filter( char *BATMANUNUSED(dev) )
 {
 	/* On BSD, reverse path filtering should be disabled in the firewall. */
 	return 0;
 }
 
 
-int8_t bind_to_iface( int32_t udp_recv_sock, char *dev )
+int8_t bind_to_iface( int32_t BATMANUNUSED(udp_recv_sock), char *BATMANUNUSED(dev) )
 {
 	/* XXX: Is binding a socket to a specific
 	 * interface possible in *BSD?
