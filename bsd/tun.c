@@ -51,7 +51,7 @@
  * this string is assumed to be dev_name_size bytes large.
  */
 #if defined(__OpenBSD__) || defined(__Darwin__)
-int open_tun_any(char *dev_name, size_t dev_name_size)
+static int open_tun_any(char *dev_name, size_t dev_name_size)
 {
 	int i;
 	int fd;
@@ -72,7 +72,7 @@ int open_tun_any(char *dev_name, size_t dev_name_size)
 	return -1;
 }
 #elif defined(__FreeBSD__)
-int open_tun_any(char *dev_name, size_t dev_name_size)
+static int open_tun_any(char *dev_name, size_t dev_name_size)
 {
 	int fd;
 	struct stat buf;
@@ -90,7 +90,7 @@ int open_tun_any(char *dev_name, size_t dev_name_size)
 #endif
 
 /* Probe for tun interface availability */
-int8_t probe_tun()
+int8_t probe_tun(uint8_t print_to_stderr)
 {
 	int fd;
 	fd = open_tun_any(NULL, 0);

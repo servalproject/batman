@@ -35,7 +35,7 @@
 #include "../os.h"
 #include "../batman.h"
 
-void set_forwarding(int state)
+void set_forwarding(int32_t state)
 {
 	int mib[4];
 
@@ -56,7 +56,7 @@ void set_forwarding(int state)
 		err(1, "Cannot change net.inet.ip.forwarding");
 }
 
-int get_forwarding(void)
+int32_t get_forwarding(void)
 {
 	int state;
 	size_t len;
@@ -136,11 +136,6 @@ int8_t bind_to_iface( int32_t udp_recv_sock, char *dev )
 	 * interface possible in *BSD?
 	 * Possibly via bpf... */
 	return 1;
-}
-
-int8_t use_kernel_module( char *dev )
-{
-	return -1;
 }
 
 int32_t use_gateway_module(void)
