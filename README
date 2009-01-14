@@ -1,376 +1,70 @@
-B.A.T.M.A.N.-III
-
-############################################
-############################################
-# BIG FAT NOTE:                            #
-# Time has passed and we are at Mark IV    #
-# of B.A.T.M.A.N. now, which is addressing #
-# asymetric links better that Mark III.    #
-# This document is not yet updated, and    #
-# does not yet reflect the changes in the  #
-# algorithm and the code.                  #
-############################################
-############################################
-
-
-
-BETTER APPROACH TO MOBILE AD-HOC NETWORKING
-
-####################
-# 1.) INTRODUCTION #
-####################
-
-B.A.T.M.A.N. is a new approach to Ad-Hoc-Routing, unlike other algorithms
-that we are aware of. Reactive MANET protocols search for routes when a node
-initiates communication to a remote node. Proactive protocols (all
-link-state algorithms and some distance-vector algorithms) calculate routes
-proactively from all nodes to all nodes in the mesh-cloud, whether they are
-necessary or not - while reactive protocols search for routes on demand.
-B.A.T.M.A.N. doesn't calculate or search for routes - it continuously detects
-the existence of routes by forwarding and receiving broadcast packets, and
-it proactively populates the routing-table with nodes in the mesh. The
-algorithm does not try to find out which path packets follow to a remote
-node. B.A.T.M.A.N. merely checks which single hop neighbor it has to send a
-package to in order to push it on the best way to a node in the mesh. If you
-want to find out how B.A.T.M.A.N. routes to a certain node, perform a
-
-ping -R <destination address> 
-
-Note that this command does not work with busy box (a multi-call binary,
-the 'swiss knife' for embedded Linux systems, used for example in
-OpenWRT and Freifunk firmware), since 'ping' doesn't have the -R
-option in busybox. You can do
-
-traceroute -n <destination address>
-
-instead.
-
-#################
-# 2.) EVOLUTION #
-#################
-
-B.A.T.M.A.N.-III is the third stage in the evolution of the
-B.A.T.M.A.N.  algorithm - hence the numbering scheme. B.A.T.M.A.N.-I
-didn't check for bidirectional link conditions when forwarding
-packets. This was an obvious design flaw. We didn't bother to add
-bidirectional link checks in the first experimental implementation
-that was meant to merely test the algorithm. The results of
-B.A.T.M.A.N.-I were however promising, so B.A.T.M.A.N.-II was
-implemented introducing a simple mechanism to check for bidirectional
-links to perform further tests in real-live scenarios.
-
-B.A.T.M.A.N.-II implemented the bare algorithm with bi-directional link
-checks for meshnodes with one interface only and was tested in the
-Freifunk meshclouds of Berlin and Weimar. Thank you very much, you are
-really brave guys! It was working quite nice on PCs, but the quick and
-dirty implementation was causing high CPU-Loads on embedded systems
-and even broadcast packet storms!
-
-We found out that the algorithm of B.A.T.M.A.N.-II still had its
-flaws. We identified conditions where B.A.T.M.A.N.-II would choose
-routes far from optimal and even could cause routing loops. Hence
-B.A.T.M.A.N.-III implements changes in the algorithm to cope with these
-scenarios.
-
-Some new features, namely Internet gateway detection and
-auto-negotiation of IP-Tunnels, have been added. Support for multiple
-interfaces per node has been implemented. And last but not least we
-have a mechanism to collect link state information in a centralized
-server so people can download data from this server to display those
-fancy three-dimensional meshclouds with s3d or two-dimensional with
-dot-draw.
-
-Now B.A.T.M.A.N.-III has - in theory - everything to replace other MANET
-routing daemons. As this is a young and experimental development it needs
-further testing to improve maturity, of course. 
-
-On December 13th 2006 we had a party at c-base in Berlin, to celebrate
-the release of this milestone as B.A.T.M.A.N.-III-0.1!
-
-B.A.T.M.A.N. will have a hard time to gain the same popularity like olsrd
-from olsr.org. OLSR is now the same for community mesh networks in Europe
-and elsewhere what 'Tempo' is for handkerchiefs in Germany. Tempo is a
-German brand that produces handkerchiefs. Germans with a cold rather ask for
-a 'Tempo' than for a 'Taschentuch' (= handkerchief).
-
-The formula: 
-
-OLSR = Community Mesh Network 
-
-is now established in the minds of community networkers today. 
-
-It is overwhelming to see what olsr.org has been growing into. Let's wait and see
-the way that B.A.T.M.A.N. goes :)
-
-
-#####################################
-# 3.) MANET THEORY AND B.A.T.M.A.N.  #
-#####################################
-
-A node in a B.A.T.M.A.N.-MANET is only interested to learn about the
-existence of all nodes that it can communicate with, either in single or
-multi-hop range, and which single hop neighbor it has to choose as a router
-to a certain destination. To communicate with a node in multi-hop range a
-B.A.T.M.A.N. node only needs to know which single hop neighbor is the best
-to send its packets to, so that the packets takes the best way to the node
-in the distance. To explain the advantage of this approach it may be best to
-compare it with other ideas about mesh routing - namely source routing and
-link state routing.
-
-Reactive (Source Routing) Algorithms
-
-Source routing means a node Y in the mesh 'thinks', that the best way to
-send data to node D is a path where the packet travels from node Q to node
-S, from node S to node H, from H to W - and so on - until the data
-terminates at the destination node. Y gives Q the directive to send the data
-to S. S receives the directive from Y to send the data to H - the whole
-chain is planned by the originator of the traffic. So Y computes the path to
-D and tells intermediate nodes what to do.
-
-One known design for MANET Routing is DSR - Dynamic Source Routing. DSR
-contains an algorithm that aims to find source routes and to maintain them,
-in case they break down. The fly in the ointment is, that MANETs are subject
-to highly dynamic changes. A MANET does not only lose payload data, but
-loses topology information also. If the originator is several hops away from
-the destination it is very likely that the information about the topology on
-the other end is very hazy, incomplete and outdated. The originator is the
-node most incompetent to decide the path of the data on the other end of the
-path. The chain could be already broken down before Y sends its first
-packet. Y then receives a message that the destination host is unreachable
-and starts looking for a new path again.
-
-Proactive (Link State Routing) Algorithms
-
-In a mesh with proactive link state routing (LSR) every node tries to
-calculate routes valid for the whole mesh from every single node to every
-other. Fortunately this does not mean source routing, because the view about
-the topology in the distance is hazy, too. In fact every node maintains a
-individual huge database and computes paths that packets should follow and
-hands payload packets confidingly to the next neighbor on the path that it
-has calculated. While one node may believe that it knows the path that the
-packages are actually going to travel, each node maintains its own database
-and calculates its own paths. So every node autonomously computes its own
-decisions when initiating or forwarding traffic.
+Usage
+=====
 
-There are two flies in the ointment that come with this approach. First
-tradeoff is the calculation of huge databases, while all a node can decide
-is select the next single hop neighbor that it hands a packet to. Second
-the databases in nodes in a mesh with a considerable number of nodes are
-never really consistent - so routing loops can occur if the route
-calculations of two nodes involved in forwarding traffic are not in sync and
-collide with each other. Link state routing therefore bears a lot of
-overhead and problems. The advantage compared to source routing is that a
-node closer to the destination has better information about the status of
-the topology and can compute better decisions about the path.
+Make sure you have no firewall running that is blocking UDP
+port 4305 (originator messages), port 4306 (gateway traffic).
+Port 4307 has to be open for incoming UDP traffic if you run the
+B.A.T.M.A.N. visualization server.
 
-If routing loops occur you get the message 'Time to live exceeded' when
-performing a 'ping'.
+First the network interfaces supposed to participate
+in the batman mesh must be configured properly. Assuming you
+are already running olsr on interface eth1 with the IP address
+104.1.12.123/8 and now want to run batman in parallel to olsr
+on the same physical interface but with a 105.1.12.123/8 IP/netmask.
 
-The link state routing protocol (LSR) that is most popular today in the open
-source world is OLSR from olsr.org. OLSR with LinkQualityExtension and
-Fisheye-Algorithm works quite well, apart from a few bugs and the annoying
-effect, that it too often switches between internet gateways which causes
-problems (connections break down, timeouts). OLSR lacks an IP-Tunnel-Plugin
-that would users allow to select their gateways.
-
-In conclusion the algorithm of OLSR is too complicated for its own good and
-draws too much CPU-Power. So it is time for something more simple and more
-effective.
-
-There is a well known quotation from Antoine Saint Exupery, Author of the 'The
-little prince':
-
-All human doing goes the way from the primitive along the complicated to the
-simple. 
-
-B.A.T.M.A.N. could be a milestone in the development of a simple yet well
-performing routing algorithm for MANETs.
-
-B.A.T.M.A.N. is a simple set of rules a node has to comply with.
+$ ifconfig eth1:bat 105.1.12.123 netmask 255.0.0.0 broadcast 105.255.255.255
+$ batmand -d 3 eth1:bat
 
+This will configure an alias interface on top of eth1 named eth1:bat and start
+the batman daemon with debug level 3 on that alias interface. As soon as
+another running batmand (with the same netmask and broadcast address) is
+connected to that link (or within the range of the wireless link)
+both batman daemons should see each other and indicate this in the debug output.
 
+The daemon started with debug level 3 can be terminated with ctrl-c.
+If no debuglevel is given at startup, using
 
-##########################
-# B.A.T.M.A.N. ALGORITHM #
-##########################
+$ batmand eth1:bat
 
+the daemon will immediateley fork to the background (as is the usual behavior
+of a daemon). However you can always connect to the main daemon (running
+in background) by launching a client-batmand process with the
+-c and -d <number> option, where the number represents the desired
+debug-level. The following command will connect to a running batmand
+process providing debug-level 1 informations.
 
-NOTE:
-A firewall must not block B.A.T.M.A.N. traffic. B.A.T.M.A.N. sends its
-packets on Port 4305 UDP. This port must be open for incoming and outgoing
-UDP traffic.
+$ batmand -c -d 1 # shows a list of other nodes in the mesh
 
+$ batmand -c -d 2 # shows a list of nodes offering internet GW access
 
-B.A.T.M.A.N. detects neighbors and distant nodes by transmitting, receiving
-and repeating broadcasts according to the rules of the B.A.T.M.A.N.
-algorithm. These broadcasts travel through the mesh-cloud until they are
-lost or nobody has to rebroadcast them any more. Once a node receives a
-broadcast message initiated from a distant node it is aware of the existence
-of the node.
+$ route -n # shows your current routing table as modified by batmand
 
+For a full list of supported debug-levels and other startup options see
 
-ORIGINATOR MESSAGES
+$ batmand -h # providing a brief summary of options and
 
-A broadcast (we will call it originator message from now on) contains
-at least the originator address, a sequence number and a TTL. TTL or
-Time-To-Live is a counter that is decremented by 1 every time before
-the packet is rebroadcasted. If the TTL value reaches 0 the packet is
-dropped. The TTL is used in IP packets to avoid packets endlessly
-travelling around. This is a common mechanism. If the initial
-TTL-Value is known, the TTL does also tell the receiver how often a originator
-message has been rebroadcasted.
+$ batmand -H # for a more detailed list of options
 
-Particular important for B.A.T.M.A.N. is the sequence number. Originators
-number their broadcasts so other nodes can decide whether they receive a
-originator message the first time or repeatedly.
+Use ctrl-c to terminate a process running in foreground and
 
-Originator messages are initiated from every node at a given interval and
-forwarded by all other nodes according to the rules of the algorithm. If a
-broadcast gets lost it is not resend.
+$ killall batmand
 
-Imagine we have a chain of mesh nodes (A,B,C,D):
+to terminate the main batmand daemon running in background.
 
-   A <--> B <--> C <--> D
+If you want to use one of the batman-internet gateways showed with
+debug-level 2 launch the main batmand using:
 
-Imagine further that every node can only see its direct neighbors. Now node A
-broadcasts a originator-message. Node B receives the message and rebroadcasts it. 
+$ batmand -r 3 eth1:bat # to automatically select a reasonable GW
 
-Thereby node C receives the information: Message from node A, forwarded from
-node B, sequence number 0, TTL 49
+$ batmand -r 3 -p <ip-of-batmand-gw-node> eth1:bat # to set a preferred GW
 
-Node C forwards the message again. Thus node D receives the information:
-message from node A, forwarded by node C, sequence number 0, TTL 48
+In case of success this will setup a tunnel to a (preferred) batman-gw-node
+and configure the routing table that all packets matching the default route
+are forwarded (tunneled) respectively.
+More information is available using the -h and -H options.
 
-Now node D knows:
 
-There is a node A that is three hops away. In order to communicate with node
-A I have to send packets to node C. Node D does not need to know more than
-that.
+Happy routing!
 
-The first example was of course very simple. So what happens if the network
-looks like this:
+The B.A.T.M.A.N. contributors
 
-
-       *------- B --------- C ------*
-       |                            |
-   A --+-------------- D -----------+-- F
-       |                            |
-       *-------------- E -----------*
-
-What does B.A.T.M.A.N. do now?
-
-Node A broadcasts an originator-message with sequence number 0. B, C, D and E
-all forward this message.
-
-Node F receives the originator-message sequence number 0 from node A
-forwarded by node D first and memorizes that it has seen A over D. Node F
-ignores the originator-message with sequence number 0 from A, that it
-receives from node C because it receives the same message again. The message
-forwarded by node E may get lost or come too late to be the first, too.
-
-Using the best path between node A and F the packets travel more
-reliable and/or quicker. B.A.T.M.A.N.. nodes consider the best path to
-a destination only as far as to the best next hop (or neighbor)
-towards the destination. The best next hop is simply identified by
-gathering statistics about how often and via which neighbor a certain
-originator and sequence number has been received first.
-
-For the above given scenario, all node F has to do is memorize where it
-gets most originator messages from. Speed is decisive, because node F
-is only memorizing who is forwarding the packet first. If node F wants
-to communicate with node A it simply sends its packets to the node
-with the best statistic.
-
-If the statistic is equal amongst two or more neighbors the biggest
-TTL is decisive. If also the TTL is equal the last received originator
-packet is decisive.
-
-
-
-TABLES MAINTAINED BY B.A.T.M.A.N.
-
-1.) Table of symmetric single hop neighbors
-
-Each node maintains a list of direct neighbors that contains all nodes that
-it has a direct bidirectional (symmetric) communication link to.
-Bidirectional links are detected when a originator receives its
-self-initiated originator messages getting directly repeated by its
-neighbors.
-
-2.) Table of Originators and Ranking
-
-This table contains all nodes that are detected by receiving their
-originator messages and the number of originator-sequence-number
-packets received first via the particular neighbor. The best neighbor
-for each originator is added to the kernel routing table of the
-underlying operating system as router to the originator.
-
-Example: Ranking table in Node Q
-
-List of		Originator packets received from
-Originators	Neighbor A    Neighbor B   Neighbor C    Neighbor D
-
-A 		    12		    9		 7		3
-
-B		    3		    7		 17	  	4
-
-C		    0		    3		 27		1
-
-D		    0		    2	 	 17	        8
-
-X		    3		    3	   	 9		4
-
-Y	 	    9		    1		 12		2
-			    	    
-
-According to the ranking table Q would route payload traffic to:
-
-A via A
-B via C
-C via C
-D via C
-X via C
-Y via C
-
-
-ORIGINATOR MESSAGE RANKING POLICY
-
-If a originator message with a unknown sequence number is received first via
-a bidirectional neighbor the packet count is increased for this neighbor.
-
-
-ORIGINATOR MESSAGE FORWARDING POLICY
-
-(Sorry if this sounds like program code :)
-
-Only originator packets that are received via the best ranking
-neighbor are rebroadcasted. This must also be
-done if the originator-sequence-number tuple has already been seen via
-another (non-best) neighbor as long as the TTL does not differ to the
-last originator-sequence-number tuple that has been seen from the best
-neighbor first.
-
-
-BIDIRECTIONAL NEIGHBOR DETECTION AND UNIDIRECTIONAL FLAG
-
-Originator messages initiated from single hop neighbors are always
-re-broadcasted.  If we don't receive our own self-initiated originator
-messages getting rebroadcasted by a neighbor we add a unidirectional
-flag before rebroadcasting the originator message of this neighbor.
-
-There is one exception where the unidirectional flag is used in
-response to originator packets from bidirectional single-hop
-neighbors:
-
-If a bidirectional neighbor is not the best ranking neighbor to itself
-(ah, you're getting confused now, eh?!) we rebroadcast the originator
-packet containing the unidirectional flag.
-
-Originator messages with unidirectional flag that were not initiated by us
-are always ignored. If we see a neighbor directly repeat our self-initiated
-originator messages there is obviously a bidirectional link between
-us.
-
-Happy testing!
-
-Elektra
