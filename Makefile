@@ -26,9 +26,9 @@ endif
 endif
 
 CC =		gcc
-CFLAGS =	-pedantic -Wall -W -O1 -g3 -std=gnu99
+CFLAGS +=	-pedantic -Wall -W -O1 -g3 -std=gnu99
 EXTRA_CFLAGS =	-DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -DREVISION_VERSION=$(REVISION_VERSION)
-LDFLAGS =	-lpthread
+LDFLAGS +=	-lpthread
 
 SBINDIR =	$(INSTALL_PREFIX)/usr/sbin
 
