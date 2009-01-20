@@ -11,7 +11,7 @@ First the network interfaces supposed to participate
 in the batman mesh must be configured properly. You either run it on top
 of any "normal" network interface (WiFi, Ethernet, etc) or on an alias
 interface. In normal scenarios the alias interface is not needed unless
-you wont to test / verify / benchmark B.A.T.M.A.N.
+you want to test / verify / benchmark B.A.T.M.A.N.
 
 Alias interface example: Assuming you have an already configured
 interface eth1 with the IP address of 104.1.12.123/8 and want to run
