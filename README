@@ -1,5 +1,6 @@
-Usage
-=====
+
+Getting started with the batman daemon
+======================================
 
 Make sure you have no firewall running that is blocking UDP
 port 4305 (originator messages), port 4306 (gateway traffic).
@@ -7,10 +8,15 @@ Port 4307 has to be open for incoming UDP traffic if you run the
 B.A.T.M.A.N. visualization server.
 
 First the network interfaces supposed to participate
-in the batman mesh must be configured properly. Assuming you
-are already running olsr on interface eth1 with the IP address
-104.1.12.123/8 and now want to run batman in parallel to olsr
-on the same physical interface but with a 105.1.12.123/8 IP/netmask.
+in the batman mesh must be configured properly. You either run it on top
+of any "normal" network interface (WiFi, Ethernet, etc) or on an alias
+interface. In normal scenarios the alias interface is not needed unless
+you wont to test / verify / benchmark B.A.T.M.A.N.
+
+Alias interface example: Assuming you have an already configured
+interface eth1 with the IP address of 104.1.12.123/8 and want to run
+batman in parallel on the same physical interface but with a
+105.1.12.123/8 IP/netmask.
 
 $ ifconfig eth1:bat 105.1.12.123 netmask 255.0.0.0 broadcast 105.255.255.255
 $ batmand -d 3 eth1:bat
@@ -61,7 +67,7 @@ $ batmand -r 3 -p <ip-of-batmand-gw-node> eth1:bat # to set a preferred GW
 In case of success this will setup a tunnel to a (preferred) batman-gw-node
 and configure the routing table that all packets matching the default route
 are forwarded (tunneled) respectively.
-More information is available using the -h and -H options.
+More information is available using the -h and -H options and in the manpage.
 
 
 Happy routing!
