@@ -985,13 +985,13 @@ int8_t batman(void)
 
 	}
 
-	list_for_each( list_pos, &if_list ) {
-		batman_if = list_entry( list_pos, struct batman_if, list );
+	list_for_each(list_pos, &if_list) {
+		batman_if = list_entry(list_pos, struct batman_if, list);
 
 		batman_if->out.version = COMPAT_VERSION;
 		batman_if->out.flags = 0x00;
-		batman_if->out.ttl = ( batman_if->if_num > 0 ? 2 : TTL );
-		batman_if->out.gwflags = ( batman_if->if_num > 0 ? 0 : gateway_class );
+		batman_if->out.ttl = (batman_if->if_num > 0 ? 2 : TTL);
+		batman_if->out.gwflags = (batman_if->if_num > 0 ? 0 : gateway_class);
 		batman_if->out.seqno = 1;
 		batman_if->out.gwport = htons(GW_PORT);
 		batman_if->out.tq = TQ_MAX_VALUE;
@@ -999,17 +999,17 @@ int8_t batman(void)
 		schedule_own_packet(batman_if);
 	}
 
-	if_rp_filter_all_old = get_rp_filter( "all" );
-	if_rp_filter_default_old = get_rp_filter( "default" );
+	if_rp_filter_all_old = get_rp_filter("all");
+	if_rp_filter_default_old = get_rp_filter("default");
 
-	if_send_redirects_all_old = get_send_redirects( "all" );
-	if_send_redirects_default_old = get_send_redirects( "default" );
+	if_send_redirects_all_old = get_send_redirects("all");
+	if_send_redirects_default_old = get_send_redirects("default");
 
-	set_rp_filter( 0, "all" );
-	set_rp_filter( 0, "default" );
+	set_rp_filter(0, "all");
+	set_rp_filter(0, "default");
 
-	set_send_redirects( 0, "all" );
-	set_send_redirects( 0, "default" );
+	set_send_redirects(0, "all");
+	set_send_redirects(0, "default");
 
 	forward_old = get_forwarding();
 	set_forwarding(1);
@@ -1106,19 +1106,21 @@ int8_t batman(void)
 
 
 				if (bat_packet->version != COMPAT_VERSION) {
-
 					debug_output(4, "Drop packet: incompatible batman version (%i) \n", bat_packet->version);
+					goto send_packets;
+				}
 
-				} else if (is_my_addr) {
-
+				if (is_my_addr) {
 					debug_output(4, "Drop packet: received my own broadcast (sender: %s) \n", neigh_str);
+					goto send_packets;
+				}
 
-				} else if (is_broadcast) {
-
+				if (is_broadcast) {
 					debug_output(4, "Drop packet: ignoring all packets with broadcast source IP (sender: %s) \n", neigh_str);
+					goto send_packets;
+				}
 
-				} else if (is_my_orig) {
-
+				if (is_my_orig) {
 					orig_neigh_node = get_orig_node(neigh);
 
 					if ((has_directlink_flag) && (if_incoming->addr.sin_addr.s_addr == bat_packet->orig) && (bat_packet->seqno - if_incoming->out.seqno + 2 == 0)) {
@@ -1133,81 +1135,73 @@ int8_t batman(void)
 					}
 
 					debug_output(4, "Drop packet: originator packet from myself (via neighbour) \n");
+					goto send_packets;
+				}
 
-				} else if (bat_packet->tq == 0) {
-
+				if (bat_packet->tq == 0) {
 					count_real_packets(bat_packet, neigh, if_incoming);
 
 					debug_output(4, "Drop packet: originator packet with tq is 0 \n");
-
-				} else if (is_my_oldorig) {
-
-					debug_output(4, "Drop packet: ignoring all rebroadcast echos (sender: %s) \n", neigh_str);
-
-				} else {
-
-					is_duplicate = count_real_packets(bat_packet, neigh, if_incoming);
-
-					orig_node = get_orig_node(bat_packet->orig);
-
-					/* if sender is a direct neighbor the sender ip equals originator ip */
-					orig_neigh_node = (bat_packet->orig == neigh ? orig_node : get_orig_node(neigh));
-
-					/* drop packet if sender is not a direct neighbor and if we no route towards it */
-					if ((bat_packet->orig != neigh) && (orig_neigh_node->router == NULL)) {
-
-						debug_output(4, "Drop packet: OGM via unknown neighbor! \n");
-
-					} else {
-
-						is_bidirectional = isBidirectionalNeigh(orig_node, orig_neigh_node, bat_packet, curr_time, if_incoming);
-
-						/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
-						if ((is_bidirectional) && ((!is_duplicate) || ((orig_node->last_real_seqno == bat_packet->seqno) && (orig_node->last_ttl - 3 <= bat_packet->ttl))))
-							update_orig(orig_node, bat_packet, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time);
-
-						/* is single hop (direct) neighbour */
-						if (bat_packet->orig == neigh) {
-
-							/* mark direct link on incoming interface */
-							schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_buff_len, if_incoming, curr_time);
-
-							debug_output(4, "Forward packet: rebroadcast neighbour packet with direct link flag \n");
-
-						/* multihop originator */
-						} else {
-
-							if (is_bidirectional) {
-
-								if (!is_duplicate) {
-
-									schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_buff_len, if_incoming, curr_time);
-
-									debug_output(4, "Forward packet: rebroadcast originator packet \n");
-
-								} else {
-
-									debug_output(4, "Drop packet: duplicate packet received\n");
-
-								}
-
-							} else {
-
-								debug_output(4, "Drop packet: not received via bidirectional link\n");
-
-							}
-
-						}
-
-					}
-
+					goto send_packets;
 				}
+
+				if (is_my_oldorig) {
+					debug_output(4, "Drop packet: ignoring all rebroadcast echos (sender: %s) \n", neigh_str);
+					goto send_packets;
+				}
+
+				is_duplicate = count_real_packets(bat_packet, neigh, if_incoming);
+
+				orig_node = get_orig_node(bat_packet->orig);
+
+				/* if sender is a direct neighbor the sender ip equals originator ip */
+				orig_neigh_node = (bat_packet->orig == neigh ? orig_node : get_orig_node(neigh));
+
+				/* drop packet if sender is not a direct neighbor and if we no route towards it */
+				if ((bat_packet->orig != neigh) && (orig_neigh_node->router == NULL)) {
+					debug_output(4, "Drop packet: OGM via unknown neighbor! \n");
+					goto send_packets;
+				}
+
+				is_bidirectional = isBidirectionalNeigh(orig_node, orig_neigh_node, bat_packet, curr_time, if_incoming);
+
+				/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
+				if ((is_bidirectional) && ((!is_duplicate) ||
+					((orig_node->last_real_seqno == bat_packet->seqno) &&
+						(orig_node->last_ttl - 3 <= bat_packet->ttl))))
+					update_orig(orig_node, bat_packet, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time);
+
+				/* is single hop (direct) neighbour */
+				if (bat_packet->orig == neigh) {
+
+					/* mark direct link on incoming interface */
+					schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_buff_len, if_incoming, curr_time);
+
+					debug_output(4, "Forward packet: rebroadcast neighbour packet with direct link flag \n");
+					goto send_packets;
+				}
+
+				/* multihop originator */
+				if (!is_bidirectional) {
+					debug_output(4, "Drop packet: not received via bidirectional link\n");
+					goto send_packets;
+				}
+
+				if (is_duplicate) {
+					debug_output(4, "Drop packet: duplicate packet received\n");
+					goto send_packets;
+				}
+
+				debug_output(4, "Forward packet: rebroadcast originator packet \n");
+
+				schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_buff_len, if_incoming, curr_time);
 
 			}
 
 		}
 
 
+send_packets:
 		send_outstanding_packets(curr_time);
 
 
@@ -1240,94 +1234,93 @@ int8_t batman(void)
 
 			if (pthread_mutex_trylock(&hna_chg_list_mutex) == 0) {
 
-				if (!(list_empty(&hna_chg_list))) {
+				if (list_empty(&hna_chg_list))
+					goto unlock_chg_list;
 
-					list_for_each_safe(list_pos, list_pos_tmp, &hna_chg_list) {
+				list_for_each_safe(list_pos, list_pos_tmp, &hna_chg_list) {
 
-						hna_node = list_entry(list_pos, struct hna_node, list);
-						addr_to_string( hna_node->addr, oldorig_str, sizeof(oldorig_str) );
+					hna_node = list_entry(list_pos, struct hna_node, list);
+					addr_to_string( hna_node->addr, oldorig_str, sizeof(oldorig_str) );
 
-						hna_node_exist = NULL;
-						prev_list_head = (struct list_head *)&hna_list;
+					hna_node_exist = NULL;
+					prev_list_head = (struct list_head *)&hna_list;
 
-						list_for_each_safe(hna_pos, hna_pos_tmp, &hna_list) {
+					list_for_each_safe(hna_pos, hna_pos_tmp, &hna_list) {
 
-							hna_node_exist = list_entry(hna_pos, struct hna_node, list);
+						hna_node_exist = list_entry(hna_pos, struct hna_node, list);
 
-							if ((hna_node->addr == hna_node_exist->addr) && (hna_node->netmask == hna_node_exist->netmask)) {
-
-								if (hna_node->del) {
-									debug_output(3, "Deleting HNA from announce network list: %s/%i\n", oldorig_str, hna_node->netmask);
-
-									add_del_own_hna_throw(hna_node, ROUTE_DEL);
-									list_del(prev_list_head, hna_pos, &hna_list);
-
-									debugFree(hna_node_exist, 1109);
-								} else {
-									debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", oldorig_str, hna_node->netmask);
-								}
-
-								break;
-
-							}
-
-							prev_list_head = &hna_node_exist->list;
-							hna_node_exist = NULL;
-
-						}
-
-						if (hna_node_exist == NULL) {
+						if ((hna_node->addr == hna_node_exist->addr) && (hna_node->netmask == hna_node_exist->netmask)) {
 
 							if (hna_node->del) {
-								debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", oldorig_str, hna_node->netmask);
+								debug_output(3, "Deleting HNA from announce network list: %s/%i\n", oldorig_str, hna_node->netmask);
+
+								add_del_own_hna_throw(hna_node, ROUTE_DEL);
+								list_del(prev_list_head, hna_pos, &hna_list);
+
+								debugFree(hna_node_exist, 1109);
 							} else {
-								debug_output(3, "Adding HNA to announce network list: %s/%i\n", oldorig_str, hna_node->netmask);
-
-								add_del_own_hna_throw(hna_node, ROUTE_ADD);
-
-								/* add node */
-								hna_node_exist = debugMalloc(sizeof(struct hna_node), 105);
-								memset(hna_node_exist, 0, sizeof(struct hna_node));
-								INIT_LIST_HEAD(&hna_node_exist->list);
-
-								hna_node_exist->addr = hna_node->addr;
-								hna_node_exist->netmask = hna_node->netmask;
-
-								list_add_tail(&hna_node_exist->list, &hna_list);
+								debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", oldorig_str, hna_node->netmask);
 							}
 
-						}
-
-						list_del((struct list_head *)&hna_chg_list, list_pos, &hna_chg_list);
-						debugFree(hna_node, 1110);
-
-					}
-
-					if (hna_buff != NULL)
-						debugFree(hna_buff, 1111);
-
-					num_hna = 0;
-					hna_buff = NULL;
-
-					if (!(list_empty(&hna_list))) {
-
-						list_for_each(list_pos, &hna_list) {
-
-							hna_node = list_entry(list_pos, struct hna_node, list);
-
-							hna_buff = debugRealloc(hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 16);
-
-							memmove(&hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4);
-							hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char )hna_node->netmask;
-
-							num_hna++;
+							break;
 
 						}
 
+						prev_list_head = &hna_node_exist->list;
+						hna_node_exist = NULL;
+
 					}
+
+					if (hna_node_exist == NULL) {
+
+						if (hna_node->del) {
+							debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", oldorig_str, hna_node->netmask);
+						} else {
+							debug_output(3, "Adding HNA to announce network list: %s/%i\n", oldorig_str, hna_node->netmask);
+
+							add_del_own_hna_throw(hna_node, ROUTE_ADD);
+
+							/* add node */
+							hna_node_exist = debugMalloc(sizeof(struct hna_node), 105);
+							memset(hna_node_exist, 0, sizeof(struct hna_node));
+							INIT_LIST_HEAD(&hna_node_exist->list);
+
+							hna_node_exist->addr = hna_node->addr;
+							hna_node_exist->netmask = hna_node->netmask;
+
+							list_add_tail(&hna_node_exist->list, &hna_list);
+						}
+
+					}
+
+					list_del((struct list_head *)&hna_chg_list, list_pos, &hna_chg_list);
+					debugFree(hna_node, 1110);
 
 				}
 
+				if (hna_buff != NULL)
+					debugFree(hna_buff, 1111);
+
+				num_hna = 0;
+				hna_buff = NULL;
+
+				if (list_empty(&hna_list))
+					goto unlock_chg_list;
+
+				list_for_each(list_pos, &hna_list) {
+
+					hna_node = list_entry(list_pos, struct hna_node, list);
+
+					hna_buff = debugRealloc(hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 16);
+
+					memmove(&hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4);
+					hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char )hna_node->netmask;
+
+					num_hna++;
+
+				}
+
+unlock_chg_list:
 				if (pthread_mutex_unlock(&hna_chg_list_mutex) != 0)
 					debug_output(0, "Error - could not unlock mutex (hna_chg_list_mutex => 3): %s \n", strerror(errno));
 
