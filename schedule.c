@@ -29,7 +29,7 @@
 
 
 
-void schedule_own_packet(struct batman_if *batman_if) 
+void schedule_own_packet(struct batman_if *batman_if)
 {
 	struct forw_node *forw_node_new, *forw_packet_tmp = NULL;
 	struct list_head *list_pos, *prev_list_head;
@@ -127,7 +127,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 	}
 
 	if (aggregation_enabled)
-		send_time = curr_time + MAX_AGGREGATION_MS - JITTER/2 + rand_num(JITTER);
+		send_time = curr_time + MAX_AGGREGATION_MS - (JITTER/2) + rand_num(JITTER);
 	else
 		send_time = curr_time + rand_num(JITTER/2);
 

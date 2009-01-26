@@ -72,7 +72,6 @@ void init_bh_ports(void)
 
 static int8_t get_tun_ip(struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr)
 {
-
 	struct sockaddr_in sender_addr;
 	struct timeval tv;
 	unsigned char buff[100];
@@ -146,7 +145,7 @@ next_try:
 }
 
 
-void *client_to_gw_tun( void *arg )
+void *client_to_gw_tun(void *arg)
 {
 	struct curr_gw_data *curr_gw_data = (struct curr_gw_data *)arg;
 	struct sockaddr_in gw_addr, my_addr, sender_addr;
@@ -206,11 +205,11 @@ void *client_to_gw_tun( void *arg )
 	debug_output(3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str);
 
 
-	if (add_dev_tun(curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) > 0)
-		add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_ADD);
-	else
+	if (add_dev_tun(curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) <= 0)
 		goto udp_out;
 
+	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_ADD);
+	add_nat_rule(tun_if);
 
 	FD_ZERO(&wait_sockets);
 	FD_SET(udp_sock, &wait_sockets);
@@ -218,7 +217,7 @@ void *client_to_gw_tun( void *arg )
 
 	max_sock = (udp_sock > tun_fd ? udp_sock : tun_fd);
 
-	while ((!is_aborted()) && (curr_gateway != NULL) && (! curr_gw_data->gw_node->deleted)) {
+	while ((!is_aborted()) && (curr_gateway != NULL) && (!curr_gw_data->gw_node->deleted)) {
 
 		tv.tv_sec = 0;
 		tv.tv_usec = 250;
@@ -384,6 +383,7 @@ after_incoming_packet:
 
 cleanup:
 	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_DEL);
+	del_nat_rule(tun_if);
 	del_dev_tun(tun_fd);
 
 udp_out:
@@ -603,7 +603,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 				}
 
 				switch(buff[0]) {
-				/* client sends us data that should to to the internet */
+				/* client sends us data that should to the internet */
 				case TUNNEL_DATA:
 					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9 ));
 

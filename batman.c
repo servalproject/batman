@@ -125,6 +125,8 @@ uint8_t local_win_size = TQ_LOCAL_WINDOW_SIZE;
 uint8_t num_words = (TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE);
 uint8_t aggregation_enabled = 0;
 
+int nat_tool_avail = -1;
+
 
 
 void usage(void)

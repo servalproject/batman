@@ -509,6 +509,8 @@ void apply_init_args( int argc, char *argv[] ) {
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun(1) ) )
 		exit(EXIT_FAILURE);
 
+	nat_tool_avail = probe_nat_tool();
+
 	if ( !unix_client ) {
 
 		if ( argc <= found_args ) {
@@ -639,17 +641,17 @@ void apply_init_args( int argc, char *argv[] ) {
 		}
 
 		/* daemonize */
-		if ( debug_level == 0 ) {
+		if (debug_level == 0) {
 
-			if ( my_daemon() < 0 ) {
+			if (my_daemon() < 0) {
 
-				printf( "Error - can't fork to background: %s\n", strerror(errno) );
+				printf("Error - can't fork to background: %s\n", strerror(errno));
 				restore_defaults();
 				exit(EXIT_FAILURE);
 
 			}
 
-			openlog( "batmand", LOG_PID, LOG_DAEMON );
+			openlog("batmand", LOG_PID, LOG_DAEMON);
 
 		} else {
 

@@ -158,6 +158,7 @@ extern int policy_routing_pipe;
 extern pid_t policy_routing_script_pid;
 
 extern int8_t stop;
+extern int nat_tool_avail;
 
 extern unsigned char *hna_buff;
 

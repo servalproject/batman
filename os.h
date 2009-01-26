@@ -39,7 +39,7 @@ void addr_to_string( uint32_t addr, char *str, int32_t len );
 
 
 int8_t is_aborted(void);
-void update_hna(struct orig_node *orig_node, unsigned char *new_hna, 
+void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 				int16_t new_hna_len, struct neigh_node *old_router);
 void handler(int32_t sig);
 void segmentation_fault(int32_t sig) NO_RETURN;
@@ -52,6 +52,9 @@ int add_del_interface_rules( int8_t del );
 int flush_routes_rules( int8_t rt_table );
 
 /* tun.c */
+int probe_nat_tool(void);
+void add_nat_rule(char *dev);
+void del_nat_rule(char *dev);
 int8_t probe_tun(uint8_t print_to_stderr);
 int8_t del_dev_tun( int32_t fd );
 int8_t add_dev_tun( struct batman_if *batman_if, uint32_t dest_addr, char *tun_dev, size_t tun_dev_size, int32_t *fd, int32_t *ifi );

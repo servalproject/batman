@@ -30,10 +30,87 @@
 #include <linux/if.h>     /* ifr_if, ifr_tun */
 #include <sys/socket.h>
 #include <stdio.h>
+#include <stdlib.h>       /* system() */
+#include <sys/wait.h>     /* WEXITSTATUS */
 
 #include "../os.h"
 #include "../batman.h"
 
+#define IPTABLES_ADD "iptables -t nat -A POSTROUTING -o %s -j MASQUERADE"
+#define IPTABLES_DEL "iptables -t nat -D POSTROUTING -o %s -j MASQUERADE"
+
+
+int run_cmd(char *cmd) {
+	int error, pipes[2], stderr = 0, ret = 0;
+	char error_log[256];
+
+	if (pipe(pipes) < 0) {
+		debug_output(3, "Warning - could not create a pipe to '%s': %s\n", cmd, strerror(errno));
+		return -1;
+	}
+
+	memset(error_log, 0, 256);
+
+	/* we did not fork into the background - save stderr */
+	if (debug_level != 0)
+		dup2(STDERR_FILENO, stderr);
+
+	/* connect the commands output with the pipe for later logging */
+	dup2(pipes[1], STDERR_FILENO);
+	close(pipes[1]);
+
+	error = system(cmd);
+
+	close(STDERR_FILENO);
+
+	/* copy stderr back if we did not fork into the background */
+	if (debug_level != 0) {
+		dup2(stderr, STDERR_FILENO);
+		close(stderr);
+	}
+
+	if ((error < 0) || (WEXITSTATUS(error) != 0)) {
+		ret = read(pipes[0], error_log, sizeof(error_log));
+		debug_output(3, "Warning - command '%s' returned an error\n", cmd);
+
+		if (ret > 0)
+			debug_output(3, "          %s\n", error_log);
+
+		ret = -1;
+	}
+
+	close(pipes[0]);
+	return ret;
+}
+
+/* Probe for iptables binary availability */
+int probe_nat_tool(void) {
+	return run_cmd("which iptables > /dev/null");
+}
+
+void exec_iptables_rule(char *cmd, int activate) {
+	if (nat_tool_avail == -1) {
+		debug_output(3, "Warning - could not %sactivate NAT: iptables binary not found!\n", (activate ? "" : "de"));
+		debug_output(3, "          You may need to run this command: %s\n", cmd);
+		return;
+	}
+
+	run_cmd(cmd);
+}
+
+void add_nat_rule(char *dev) {
+	char cmd[100];
+
+	sprintf(cmd, IPTABLES_ADD, dev);
+	exec_iptables_rule(cmd, 1);
+}
+
+void del_nat_rule(char *dev) {
+	char cmd[100];
+
+	sprintf(cmd, IPTABLES_DEL, dev);
+	exec_iptables_rule(cmd, 0);
+}
 
 
 /* Probe for tun interface availability */
