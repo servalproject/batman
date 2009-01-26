@@ -40,7 +40,7 @@
 
 
 
-void debug_output( int8_t debug_prio, char *format, ... ) {
+void debug_output(int8_t debug_prio, char *format, ...) {
 
 	struct list_head *debug_pos;
 	struct debug_level_info *debug_level_info;
@@ -49,28 +49,28 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 
 
 	if (!log_facility_active) {
-		va_start( args, format );
-		vprintf( format, args );
-		va_end( args );
+		va_start(args, format);
+		vprintf(format, args);
+		va_end(args);
 		return;
 	}
 
-	if ( debug_prio == 0 ) {
+	if (debug_prio == 0) {
 
-		if ( debug_level == 0 ) {
+		if (debug_level == 0) {
 
-			va_start( args, format );
-			vsyslog( LOG_ERR, format, args );
-			va_end( args );
+			va_start(args, format);
+			vsyslog(LOG_ERR, format, args);
+			va_end(args);
 
-		} else if ( ( debug_level == 3 ) || ( debug_level == 4 ) ) {
+		} else if ((debug_level == 3) || (debug_level == 4)) {
 
-			if ( debug_level == 4 )
+			if (debug_level == 4)
 				printf("[%10u] ", get_time_msec());
 
-			va_start( args, format );
-			vprintf( format, args );
-			va_end( args );
+			va_start(args, format);
+			vprintf(format, args);
+			va_end(args);
 
 		}
 
@@ -82,46 +82,36 @@ void debug_output( int8_t debug_prio, char *format, ... ) {
 
 	}
 
+	if (debug_clients.clients_num[debug_prio_intern] < 1)
+		return;
 
-	if ( debug_clients.clients_num[debug_prio_intern] > 0 ) {
+	if (pthread_mutex_trylock((pthread_mutex_t *)debug_clients.mutex[debug_prio_intern] ) != 0) {
+		debug_output(0, "Warning - could not trylock mutex (debug_output): %s \n", strerror(EBUSY));
+		return;
+	}
 
-		if ( pthread_mutex_trylock( (pthread_mutex_t *)debug_clients.mutex[debug_prio_intern] ) == 0 ) {
+	va_start(args, format);
 
-			va_start( args, format );
+	list_for_each(debug_pos, (struct list_head *)debug_clients.fd_list[debug_prio_intern]) {
 
-			list_for_each( debug_pos, (struct list_head *)debug_clients.fd_list[debug_prio_intern] ) {
+		debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
 
-				debug_level_info = list_entry(debug_pos, struct debug_level_info, list);
+		/* batman debug gets milliseconds prepended for better debugging */
+		if (debug_prio_intern == 3)
+			dprintf(debug_level_info->fd, "[%10u] ", get_time_msec());
 
-				if ( debug_prio_intern == 3 )
-					dprintf(debug_level_info->fd, "[%10u] ", get_time_msec());
+		if (((debug_level == 1) || (debug_level == 2)) && (debug_level_info->fd == 1) && (strncmp(format, "BOD", 3) == 0))
+			system("clear");
 
-				if ( ( ( debug_level == 1 ) || ( debug_level == 2 ) ) && ( debug_level_info->fd == 1 ) && ( strncmp( format, "BOD", 3 ) == 0 ) ) {
-
-					system( "clear" );
-
-				} else {
-
-					if ( ( ( debug_level != 1 ) && ( debug_level != 2 ) ) || ( debug_level_info->fd != 1 ) || ( strncmp( format, "EOD", 3 ) != 0 ) )
-						vdprintf( debug_level_info->fd, format, args );
-
-				}
-
-			}
-
-			va_end( args );
-
-			if ( pthread_mutex_unlock( (pthread_mutex_t *)debug_clients.mutex[debug_prio_intern] ) < 0 )
-				debug_output( 0, "Error - could not unlock mutex (debug_output): %s \n", strerror( errno ) );
-
-		} else {
-
-			debug_output( 0, "Warning - could not trylock mutex (debug_output): %s \n", strerror( EBUSY ) );
-
-		}
+		if (((debug_level != 1) && (debug_level != 2)) || (debug_level_info->fd != 1) || (strncmp(format, "EOD", 3) != 0))
+			vdprintf(debug_level_info->fd, format, args);
 
 	}
 
+	va_end(args);
+
+	if (pthread_mutex_unlock((pthread_mutex_t *)debug_clients.mutex[debug_prio_intern]) < 0)
+		debug_output(0, "Error - could not unlock mutex (debug_output): %s \n", strerror(errno));
 }
 
 
