@@ -123,7 +123,7 @@ uint8_t minimum_recv = TQ_LOCAL_BIDRECT_RECV_MINIMUM;
 uint8_t global_win_size = TQ_GLOBAL_WINDOW_SIZE;
 uint8_t local_win_size = TQ_LOCAL_WINDOW_SIZE;
 uint8_t num_words = (TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE);
-uint8_t aggregation_enabled = 0;
+uint8_t aggregation_enabled = 1;
 
 int nat_tool_avail = -1;
 

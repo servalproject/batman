@@ -243,7 +243,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		{"policy-routing-script",     required_argument,       0, 'n'},
 		{"hop-penalty",     required_argument,       0, 'm'},
 		{"purge-timeout",     required_argument,       0, 'q'},
-		{"aggregation",     no_argument,       0, 'x'},
+		{"disable-aggregation",     no_argument,       0, 'x'},
 		{0, 0, 0, 0}
 	};
 
@@ -459,7 +459,7 @@ void apply_init_args( int argc, char *argv[] ) {
 				exit(EXIT_SUCCESS);
 
 			case 'x':
-				aggregation_enabled++;
+				aggregation_enabled = 0;
 				found_args++;
 				break;
 

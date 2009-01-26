@@ -479,8 +479,8 @@ void *unix_listen( void * BATMANUNUSED(arg) ) {
 								if (hop_penalty != TQ_HOP_PENALTY)
 									dprintf(unix_client->sock, " --hop-penalty %i", hop_penalty);
 
-								if (aggregation_enabled)
-									dprintf(unix_client->sock, " --aggregation");
+								if (!aggregation_enabled)
+									dprintf(unix_client->sock, " --disable-aggregation");
 
 								if (purge_timeout != PURGE_TIMEOUT)
 									dprintf(unix_client->sock, " --purge-timeout %u", purge_timeout);
