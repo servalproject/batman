@@ -1016,7 +1016,7 @@ int8_t batman(void)
 	forward_old = get_forwarding();
 	set_forwarding(1);
 
-	while ( !is_aborted() ) {
+	while (!is_aborted()) {
 
 		debug_output( 4, " \n" );
 
@@ -1027,178 +1027,175 @@ int8_t batman(void)
 
 		res = receive_packet(in, sizeof(in), &packet_len, &neigh, select_timeout, &if_incoming);
 
-		if (res < 0)
-			return -1;
+		/* on receive error the interface is deactivated in receive_packet() */
+		if (res < 1)
+			goto send_packets;
 
-		if (res > 0) {
+		curr_time = get_time_msec();
+		curr_packet_len = 0;
+		bat_packet = (struct bat_packet *)in;
 
-			curr_time = get_time_msec();
-			curr_packet_len = 0;
-			bat_packet = (struct bat_packet *)in;
+		addr_to_string(neigh, neigh_str, sizeof(neigh_str));
+		addr_to_string(if_incoming->addr.sin_addr.s_addr, ifaddr_str, sizeof(ifaddr_str));
 
-			addr_to_string(neigh, neigh_str, sizeof(neigh_str));
-			addr_to_string(if_incoming->addr.sin_addr.s_addr, ifaddr_str, sizeof(ifaddr_str));
+		while ((curr_packet_len + (int)sizeof(struct bat_packet) <= packet_len) &&
+			(curr_packet_len + (int)sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= packet_len) &&
+			(curr_packet_len + (int)sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
 
-			while ((curr_packet_len + (int)sizeof(struct bat_packet) <= packet_len) &&
-				(curr_packet_len + (int)sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= packet_len) &&
-				(curr_packet_len + (int)sizeof(struct bat_packet) + bat_packet->hna_len * 5 <= MAX_AGGREGATION_BYTES)) {
+			bat_packet = (struct bat_packet *)(in + curr_packet_len);
+			curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
 
-				bat_packet = (struct bat_packet *)(in + curr_packet_len);
-				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
+			/* network to host order for our 16bit seqno */
+			bat_packet->seqno = ntohs(bat_packet->seqno);
 
-				/* network to host order for our 16bit seqno */
-				bat_packet->seqno = ntohs(bat_packet->seqno);
+			addr_to_string(bat_packet->orig, orig_str, sizeof(orig_str));
+			addr_to_string(bat_packet->old_orig, oldorig_str, sizeof(oldorig_str));
 
-				addr_to_string(bat_packet->orig, orig_str, sizeof(orig_str));
-				addr_to_string(bat_packet->old_orig, oldorig_str, sizeof(oldorig_str));
+			is_my_addr = is_my_orig = is_my_oldorig = is_broadcast = 0;
 
-				is_my_addr = is_my_orig = is_my_oldorig = is_broadcast = 0;
+			has_directlink_flag = (bat_packet->flags & DIRECTLINK ? 1 : 0);
 
-				has_directlink_flag = (bat_packet->flags & DIRECTLINK ? 1 : 0);
+			debug_output(4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, bat_packet->seqno, bat_packet->tq, bat_packet->ttl, bat_packet->version, has_directlink_flag);
 
-				debug_output(4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, bat_packet->seqno, bat_packet->tq, bat_packet->ttl, bat_packet->version, has_directlink_flag);
+			hna_buff_len = bat_packet->hna_len * 5;
+			hna_recv_buff = (hna_buff_len > 4 ? (unsigned char *)(bat_packet + 1) : NULL);
 
-				hna_buff_len = bat_packet->hna_len * 5;
-				hna_recv_buff = (hna_buff_len > 4 ? (unsigned char *)(bat_packet + 1) : NULL);
+			list_for_each(list_pos, &if_list) {
 
-				list_for_each(list_pos, &if_list) {
+				batman_if = list_entry(list_pos, struct batman_if, list);
 
-					batman_if = list_entry(list_pos, struct batman_if, list);
+				if (neigh == batman_if->addr.sin_addr.s_addr)
+					is_my_addr = 1;
 
-					if (neigh == batman_if->addr.sin_addr.s_addr)
-						is_my_addr = 1;
+				if (bat_packet->orig == batman_if->addr.sin_addr.s_addr)
+					is_my_orig = 1;
 
-					if (bat_packet->orig == batman_if->addr.sin_addr.s_addr)
-						is_my_orig = 1;
+				if (neigh == batman_if->broad.sin_addr.s_addr)
+					is_broadcast = 1;
 
-					if (neigh == batman_if->broad.sin_addr.s_addr)
-						is_broadcast = 1;
-
-					if (bat_packet->old_orig == batman_if->addr.sin_addr.s_addr)
-						is_my_oldorig = 1;
-
-				}
-
-
-				if (bat_packet->gwflags != 0)
-					debug_output(4, "Is an internet gateway (class %i) \n", bat_packet->gwflags);
-
-				if (hna_recv_buff != NULL) {
-
-					debug_output(4, "HNA information received (%i HNA network%s): \n", hna_buff_len / 5, (hna_buff_len / 5 > 1 ? "s": ""));
-					hna_buff_count = 0;
-
-					while ((hna_buff_count + 1) * 5 <= hna_buff_len) {
-
-						memmove(&hna, (uint32_t *)&hna_recv_buff[hna_buff_count * 5], 4);
-						netmask = (uint32_t)hna_recv_buff[(hna_buff_count * 5) + 4];
-
-						addr_to_string(hna, orig_str, sizeof(orig_str));
-
-						if ((netmask > 0 ) && (netmask < 33))
-							debug_output(4, "hna: %s/%i\n", orig_str, netmask);
-						else
-							debug_output(4, "hna: %s/%i -> ignoring (invalid netmask) \n", orig_str, netmask);
-
-						hna_buff_count++;
-
-					}
-
-				}
-
-
-				if (bat_packet->version != COMPAT_VERSION) {
-					debug_output(4, "Drop packet: incompatible batman version (%i) \n", bat_packet->version);
-					goto send_packets;
-				}
-
-				if (is_my_addr) {
-					debug_output(4, "Drop packet: received my own broadcast (sender: %s) \n", neigh_str);
-					goto send_packets;
-				}
-
-				if (is_broadcast) {
-					debug_output(4, "Drop packet: ignoring all packets with broadcast source IP (sender: %s) \n", neigh_str);
-					goto send_packets;
-				}
-
-				if (is_my_orig) {
-					orig_neigh_node = get_orig_node(neigh);
-
-					if ((has_directlink_flag) && (if_incoming->addr.sin_addr.s_addr == bat_packet->orig) && (bat_packet->seqno - if_incoming->out.seqno + 2 == 0)) {
-
-						debug_output(4, "count own bcast (is_my_orig): old = %i, ", orig_neigh_node->bcast_own_sum[if_incoming->if_num]);
-
-						bit_mark((TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * num_words]), 0);
-						orig_neigh_node->bcast_own_sum[if_incoming->if_num] = bit_packet_count((TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * num_words]));
-
-						debug_output(4, "new = %i \n", orig_neigh_node->bcast_own_sum[if_incoming->if_num]);
-
-					}
-
-					debug_output(4, "Drop packet: originator packet from myself (via neighbour) \n");
-					goto send_packets;
-				}
-
-				if (bat_packet->tq == 0) {
-					count_real_packets(bat_packet, neigh, if_incoming);
-
-					debug_output(4, "Drop packet: originator packet with tq is 0 \n");
-					goto send_packets;
-				}
-
-				if (is_my_oldorig) {
-					debug_output(4, "Drop packet: ignoring all rebroadcast echos (sender: %s) \n", neigh_str);
-					goto send_packets;
-				}
-
-				is_duplicate = count_real_packets(bat_packet, neigh, if_incoming);
-
-				orig_node = get_orig_node(bat_packet->orig);
-
-				/* if sender is a direct neighbor the sender ip equals originator ip */
-				orig_neigh_node = (bat_packet->orig == neigh ? orig_node : get_orig_node(neigh));
-
-				/* drop packet if sender is not a direct neighbor and if we no route towards it */
-				if ((bat_packet->orig != neigh) && (orig_neigh_node->router == NULL)) {
-					debug_output(4, "Drop packet: OGM via unknown neighbor! \n");
-					goto send_packets;
-				}
-
-				is_bidirectional = isBidirectionalNeigh(orig_node, orig_neigh_node, bat_packet, curr_time, if_incoming);
-
-				/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
-				if ((is_bidirectional) && ((!is_duplicate) ||
-					((orig_node->last_real_seqno == bat_packet->seqno) &&
-						(orig_node->last_ttl - 3 <= bat_packet->ttl))))
-					update_orig(orig_node, bat_packet, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time);
-
-				/* is single hop (direct) neighbour */
-				if (bat_packet->orig == neigh) {
-
-					/* mark direct link on incoming interface */
-					schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_buff_len, if_incoming, curr_time);
-
-					debug_output(4, "Forward packet: rebroadcast neighbour packet with direct link flag \n");
-					goto send_packets;
-				}
-
-				/* multihop originator */
-				if (!is_bidirectional) {
-					debug_output(4, "Drop packet: not received via bidirectional link\n");
-					goto send_packets;
-				}
-
-				if (is_duplicate) {
-					debug_output(4, "Drop packet: duplicate packet received\n");
-					goto send_packets;
-				}
-
-				debug_output(4, "Forward packet: rebroadcast originator packet \n");
-
-				schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_buff_len, if_incoming, curr_time);
+				if (bat_packet->old_orig == batman_if->addr.sin_addr.s_addr)
+					is_my_oldorig = 1;
 
 			}
+
+
+			if (bat_packet->gwflags != 0)
+				debug_output(4, "Is an internet gateway (class %i) \n", bat_packet->gwflags);
+
+			if (hna_recv_buff != NULL) {
+
+				debug_output(4, "HNA information received (%i HNA network%s): \n", hna_buff_len / 5, (hna_buff_len / 5 > 1 ? "s": ""));
+				hna_buff_count = 0;
+
+				while ((hna_buff_count + 1) * 5 <= hna_buff_len) {
+
+					memmove(&hna, (uint32_t *)&hna_recv_buff[hna_buff_count * 5], 4);
+					netmask = (uint32_t)hna_recv_buff[(hna_buff_count * 5) + 4];
+
+					addr_to_string(hna, orig_str, sizeof(orig_str));
+
+					if ((netmask > 0 ) && (netmask < 33))
+						debug_output(4, "hna: %s/%i\n", orig_str, netmask);
+					else
+						debug_output(4, "hna: %s/%i -> ignoring (invalid netmask) \n", orig_str, netmask);
+
+					hna_buff_count++;
+
+				}
+
+			}
+
+
+			if (bat_packet->version != COMPAT_VERSION) {
+				debug_output(4, "Drop packet: incompatible batman version (%i) \n", bat_packet->version);
+				goto send_packets;
+			}
+
+			if (is_my_addr) {
+				debug_output(4, "Drop packet: received my own broadcast (sender: %s) \n", neigh_str);
+				goto send_packets;
+			}
+
+			if (is_broadcast) {
+				debug_output(4, "Drop packet: ignoring all packets with broadcast source IP (sender: %s) \n", neigh_str);
+				goto send_packets;
+			}
+
+			if (is_my_orig) {
+				orig_neigh_node = get_orig_node(neigh);
+
+				if ((has_directlink_flag) && (if_incoming->addr.sin_addr.s_addr == bat_packet->orig) && (bat_packet->seqno - if_incoming->out.seqno + 2 == 0)) {
+
+					debug_output(4, "count own bcast (is_my_orig): old = %i, ", orig_neigh_node->bcast_own_sum[if_incoming->if_num]);
+
+					bit_mark((TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * num_words]), 0);
+					orig_neigh_node->bcast_own_sum[if_incoming->if_num] = bit_packet_count((TYPE_OF_WORD *)&(orig_neigh_node->bcast_own[if_incoming->if_num * num_words]));
+
+					debug_output(4, "new = %i \n", orig_neigh_node->bcast_own_sum[if_incoming->if_num]);
+
+				}
+
+				debug_output(4, "Drop packet: originator packet from myself (via neighbour) \n");
+				goto send_packets;
+			}
+
+			if (bat_packet->tq == 0) {
+				count_real_packets(bat_packet, neigh, if_incoming);
+
+				debug_output(4, "Drop packet: originator packet with tq is 0 \n");
+				goto send_packets;
+			}
+
+			if (is_my_oldorig) {
+				debug_output(4, "Drop packet: ignoring all rebroadcast echos (sender: %s) \n", neigh_str);
+				goto send_packets;
+			}
+
+			is_duplicate = count_real_packets(bat_packet, neigh, if_incoming);
+
+			orig_node = get_orig_node(bat_packet->orig);
+
+			/* if sender is a direct neighbor the sender ip equals originator ip */
+			orig_neigh_node = (bat_packet->orig == neigh ? orig_node : get_orig_node(neigh));
+
+			/* drop packet if sender is not a direct neighbor and if we no route towards it */
+			if ((bat_packet->orig != neigh) && (orig_neigh_node->router == NULL)) {
+				debug_output(4, "Drop packet: OGM via unknown neighbor! \n");
+				goto send_packets;
+			}
+
+			is_bidirectional = isBidirectionalNeigh(orig_node, orig_neigh_node, bat_packet, curr_time, if_incoming);
+
+			/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
+			if ((is_bidirectional) && ((!is_duplicate) ||
+				((orig_node->last_real_seqno == bat_packet->seqno) &&
+					(orig_node->last_ttl - 3 <= bat_packet->ttl))))
+				update_orig(orig_node, bat_packet, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time);
+
+			/* is single hop (direct) neighbour */
+			if (bat_packet->orig == neigh) {
+
+				/* mark direct link on incoming interface */
+				schedule_forward_packet(orig_node, bat_packet, neigh, 1, hna_buff_len, if_incoming, curr_time);
+
+				debug_output(4, "Forward packet: rebroadcast neighbour packet with direct link flag \n");
+				goto send_packets;
+			}
+
+			/* multihop originator */
+			if (!is_bidirectional) {
+				debug_output(4, "Drop packet: not received via bidirectional link\n");
+				goto send_packets;
+			}
+
+			if (is_duplicate) {
+				debug_output(4, "Drop packet: duplicate packet received\n");
+				goto send_packets;
+			}
+
+			debug_output(4, "Forward packet: rebroadcast originator packet \n");
+
+			schedule_forward_packet(orig_node, bat_packet, neigh, 0, hna_buff_len, if_incoming, curr_time);
 
 		}
 
@@ -1331,7 +1328,6 @@ unlock_chg_list:
 		}
 
 	}
-
 
 	if (debug_level > 0)
 		printf("Deleting all BATMAN routes\n");

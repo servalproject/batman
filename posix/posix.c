@@ -330,6 +330,7 @@ int8_t receive_packet(unsigned char *packet_buff, int32_t packet_buff_len, int16
 			if ((*packet_len = recvfrom(batman_if->udp_recv_sock, packet_buff, packet_buff_len - 1, 0, (struct sockaddr *)&addr, &addr_len)) < 0) {
 
 				debug_output(0, "Error - can't receive packet: %s\n", strerror(errno));
+				deactivate_interface(batman_if);
 				return -1;
 
 			}
@@ -552,17 +553,15 @@ void cleanup(void) {
 
 
 
-int main( int argc, char *argv[] ) {
-
+int main(int argc, char *argv[])
+{
 	int8_t res;
 	struct tms tp;
 
 	/* check if user is root */
-	if ( ( getuid() ) || ( getgid() ) ) {
-
-		fprintf( stderr, "Error - you must be root to run %s !\n", argv[0] );
+	if ((getuid()) || (getgid())) {
+		fprintf(stderr, "Error - you must be root to run %s !\n", argv[0]);
 		exit(EXIT_FAILURE);
-
 	}
 
 
@@ -580,11 +579,11 @@ int main( int argc, char *argv[] ) {
 	last_clock_tick = times(&tp);
 	update_internal_clock();
 
-	apply_init_args( argc, argv );
+	apply_init_args(argc, argv);
 
 	init_bh_ports();
 
-	srand( getpid() );
+	srand(getpid());
 
 	res = batman();
 
@@ -592,7 +591,6 @@ int main( int argc, char *argv[] ) {
 	cleanup();
 	checkLeak();
 	return res;
-
 }
 
 
