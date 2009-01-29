@@ -302,16 +302,21 @@ int8_t receive_packet(unsigned char *packet_buff, int32_t packet_buff_len, int16
 	while (1) {
 
 		tv.tv_sec = timeout / 1000;
-		tv.tv_usec = ( timeout % 1000 ) * 1000;
+		tv.tv_usec = (timeout % 1000) * 1000;
 
-		res = select( receive_max_sock + 1, &tmp_wait_set, NULL, NULL, &tv );
+		res = select(receive_max_sock + 1, &tmp_wait_set, NULL, NULL, &tv);
 
-		if ( res >= 0 )
+		if (res >= 0)
 			break;
 
-		if ( errno != EINTR ) {
+		if (errno != EINTR) {
 
-			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
+			debug_output(0, "Error - can't select: %s\n", strerror(errno));
+
+			/* we might have a deactivated interface - check all active interfaces for problems */
+			check_active_interfaces();
+			/* on error the wait_sets are reset - we have to re-create them */
+			interface_listen_sockets();
 			return -1;
 
 		}

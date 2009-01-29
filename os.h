@@ -65,7 +65,9 @@ void apply_init_args(int argc, char *argv[]);
 void init_interface(struct batman_if *batman_if);
 void deactivate_interface(struct batman_if *batman_if);
 void check_inactive_interfaces(void);
+void check_active_interfaces(void);
 void init_interface_gw(void);
+void interface_listen_sockets(void);
 
 /* kernel.c */
 void set_rp_filter( int32_t state, char* dev );

@@ -884,7 +884,7 @@ close_con:
 
 }
 
-static void interface_listen_sockets(void)
+void interface_listen_sockets(void)
 {
 	struct list_head *list_pos;
 	struct batman_if *batman_if;
@@ -1134,6 +1134,7 @@ void check_inactive_interfaces(void)
 	struct list_head *list_pos;
 	struct batman_if *batman_if;
 
+	/* all available interfaces active */
 	if (found_ifs == active_ifs)
 		return;
 
@@ -1142,6 +1143,23 @@ void check_inactive_interfaces(void)
 
 		if ((!batman_if->if_active) && (is_interface_up(batman_if->dev)))
 			activate_interface(batman_if);
+	}
+}
+
+void check_active_interfaces(void)
+{
+	struct list_head *list_pos;
+	struct batman_if *batman_if;
+
+	/* all available interfaces deactive */
+	if (active_ifs == 0)
+		return;
+
+	list_for_each(list_pos, &if_list) {
+		batman_if = list_entry(list_pos, struct batman_if, list);
+
+		if ((batman_if->if_active) && (!is_interface_up(batman_if->dev)))
+			deactivate_interface(batman_if);
 	}
 }
 
