@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
@@ -66,6 +67,28 @@ void init_bh_ports(void)
 
 	for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++)
 		bh_udp_ports[i] = htons(bh_udp_ports[i]);
+}
+
+
+
+static uint8_t get_tunneled_protocol(const unsigned char *buff)
+{
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
+       return ((struct ip *)(buff + 1))->ip_p;
+#else
+       return ((struct iphdr *)(buff + 1))->protocol;
+#endif
+}
+
+
+
+static uint16_t get_tunneled_udpdest(const unsigned char *buff)
+{
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
+       return ((struct udphdr *)(buff + 1 + ((struct ip *)(buff + 1))->ip_hl*4))->uh_dport;
+#else
+       return ((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest;
+#endif
 }
 
 
@@ -257,7 +280,7 @@ void *client_to_gw_tun(void *arg)
 					if (write(tun_fd, buff + 1, buff_len - 1) < 0)
 						debug_output(0, "Error - can't write packet: %s\n", strerror(errno));
 
-					if (((struct iphdr *)(buff + 1))->protocol != IPPROTO_ICMP) {
+					if (get_tunneled_protocol(buff) != IPPROTO_ICMP) {
 						gw_state = GW_STATE_VERIFIED;
 						gw_state_time = current_time;
 					}
@@ -305,11 +328,11 @@ void *client_to_gw_tun(void *arg)
 
 				ignore_packet = 0;
 
-				if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_UDP) {
+				if (get_tunneled_protocol(buff) == IPPROTO_UDP) {
 
 					for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++) {
 
-						if (((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest == bh_udp_ports[i]) {
+						if (get_tunneled_udpdest(buff) == bh_udp_ports[i]) {
 
 							ignore_packet = 1;
 							break;
