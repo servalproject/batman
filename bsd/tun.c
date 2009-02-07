@@ -89,6 +89,20 @@ static int open_tun_any(char *dev_name, size_t dev_name_size)
 }
 #endif
 
+/* Probe for nat tool availability */
+int probe_nat_tool(void) {
+	fprintf(stderr, "probe_nat_tool: not implemented\n");
+	return -1;
+}
+
+void add_nat_rule(char *BATMANUNUSED(dev)) {
+	fprintf(stderr, "add_nat_rule: not implemented\n");
+}
+
+void del_nat_rule(char *BATMANUNUSED(dev)) {
+	fprintf(stderr, "del_nat_rule: not implemented\n");
+}
+
 /* Probe for tun interface availability */
 int8_t probe_tun(uint8_t BATMANUNUSED(print_to_stderr))
 {
@@ -123,9 +137,9 @@ int8_t set_tun_addr(int32_t BATMANUNUSED(fd), uint32_t tun_addr, char *tun_ifnam
 	}
 
 	/* Set address */
-	addr = (struct sockaddr_in*)&ifr_tun.ifr_addr; 
+	addr = (struct sockaddr_in*)&ifr_tun.ifr_addr;
 	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = tun_addr; 
+	addr->sin_addr.s_addr = tun_addr;
 	if (ioctl(so, SIOCAIFADDR, &ifr_tun) < 0) {
 		perror("SIOCAIFADDR");
 		return -1;
