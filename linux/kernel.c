@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <inttypes.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -36,9 +37,41 @@
 
 
 
-void set_rp_filter(int32_t state, char* dev)
+static int get_integer_file(const char* filename)
 {
 	FILE *f;
+	int32_t integer = 0;
+	int n;
+
+	if((f = fopen(filename, "r")) == NULL)
+		return 0;
+
+	n = fscanf(f, "%"SCNd32, &integer);
+	fclose(f);
+
+	if (n == 0 || n == EOF)
+		integer = 0;
+
+	return integer;
+}
+
+
+
+static void set_integer_file(const char* filename, int32_t integer)
+{
+	FILE *f;
+
+	if ((f = fopen(filename, "w")) == NULL)
+		return;
+
+	fprintf(f, "%"PRId32, integer);
+	fclose(f);
+}
+
+
+
+void set_rp_filter(int32_t state, char* dev)
+{
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
@@ -46,14 +79,8 @@ void set_rp_filter(int32_t state, char* dev)
 		*colon_ptr = '\0';
 
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+	set_integer_file(filename, state);
 
-	if((f = fopen(filename, "w")) == NULL)
-		goto end;
-
-	fprintf(f, "%d", state);
-	fclose(f);
-
-end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 }
@@ -62,7 +89,6 @@ end:
 
 int32_t get_rp_filter(char *dev)
 {
-	FILE *f;
 	int32_t state = 0;
 	char filename[100], *colon_ptr;
 
@@ -71,14 +97,8 @@ int32_t get_rp_filter(char *dev)
 		*colon_ptr = '\0';
 
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+	state = get_integer_file(filename);
 
-	if((f = fopen(filename, "r")) == NULL)
-		goto end;
-
-	fscanf(f, "%d", &state);
-	fclose(f);
-
-end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 
@@ -89,7 +109,6 @@ end:
 
 void set_send_redirects( int32_t state, char* dev ) {
 
-	FILE *f;
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
@@ -97,14 +116,8 @@ void set_send_redirects( int32_t state, char* dev ) {
 		*colon_ptr = '\0';
 
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
+	set_integer_file(filename, state);
 
-	if((f = fopen(filename, "w")) == NULL)
-		goto end;
-
-	fprintf(f, "%d", state);
-	fclose(f);
-
-end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 
@@ -114,7 +127,6 @@ end:
 
 int32_t get_send_redirects( char *dev ) {
 
-	FILE *f;
 	int32_t state = 0;
 	char filename[100], *colon_ptr;
 
@@ -123,14 +135,8 @@ int32_t get_send_redirects( char *dev ) {
 		*colon_ptr = '\0';
 
 	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
+	state = get_integer_file(filename);
 
-	if((f = fopen(filename, "r")) == NULL)
-		goto end;
-
-	fscanf(f, "%d", &state);
-	fclose(f);
-
-end:
 	if ( colon_ptr != NULL )
 		*colon_ptr = ':';
 
@@ -142,29 +148,14 @@ end:
 
 void set_forwarding(int32_t state)
 {
-	FILE *f;
-
-	if((f = fopen("/proc/sys/net/ipv4/ip_forward", "w")) == NULL)
-		return;
-
-	fprintf(f, "%d", state);
-	fclose(f);
+	set_integer_file("/proc/sys/net/ipv4/ip_forward", state);
 }
 
 
 
 int32_t get_forwarding(void)
 {
-	FILE *f;
-	int32_t state = 0;
-
-	if((f = fopen("/proc/sys/net/ipv4/ip_forward", "r")) == NULL)
-		return 0;
-
-	fscanf(f, "%d", &state);
-	fclose(f);
-
-	return state;
+	return get_integer_file("/proc/sys/net/ipv4/ip_forward");
 }
 
 
