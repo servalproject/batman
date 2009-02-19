@@ -308,6 +308,7 @@ struct gw_client
 	uint32_t vip_addr;
 	uint16_t client_port;
 	uint32_t last_keep_alive;
+	uint8_t nat_warn;
 };
 
 struct free_ip

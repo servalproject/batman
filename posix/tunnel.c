@@ -181,12 +181,12 @@ void *client_to_gw_tun(void *arg)
 	fd_set wait_sockets, tmp_wait_sockets;
 
 
-	addr_len = sizeof (struct sockaddr_in);
+	addr_len = sizeof(struct sockaddr_in);
 
 	INIT_LIST_HEAD_FIRST(packet_list);
 
-	memset( &gw_addr, 0, sizeof(struct sockaddr_in) );
-	memset( &my_addr, 0, sizeof(struct sockaddr_in) );
+	memset(&gw_addr, 0, sizeof(struct sockaddr_in));
+	memset(&my_addr, 0, sizeof(struct sockaddr_in));
 
 	gw_addr.sin_family = AF_INET;
 	gw_addr.sin_port = curr_gw_data->gw_node->gw_port;
@@ -439,6 +439,7 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct has
 	gw_client->client_port = client_addr->sin_port;
 	gw_client->last_keep_alive = get_time_msec();
 	gw_client->vip_addr = 0;
+	gw_client->nat_warn = 0;
 
 	list_for_each_safe(list_pos, list_pos_tmp, free_ip_list) {
 
@@ -628,19 +629,23 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 				switch(buff[0]) {
 				/* client sends us data that should to the internet */
 				case TUNNEL_DATA:
-					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9 ));
+					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9));
 
 					/* check whether client IP is known */
-					if ((gw_client == NULL) || (gw_client->wip_addr != addr.sin_addr.s_addr)) {
+					if ((gw_client == NULL) || ((gw_client->wip_addr != addr.sin_addr.s_addr) && (gw_client->nat_warn == 0))) {
 
 						buff[0] = TUNNEL_IP_INVALID;
 						addr_to_string(addr.sin_addr.s_addr, str, sizeof(str));
 
-						debug_output(0, "Error - got packet from unknown client: %s (virtual ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16]);
+						debug_output(0, "Error - got packet from unknown client: %s (tunnelled sender ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16]);
 
-						if (sendto(batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
-							debug_output(0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno));
-						continue;
+						if (gw_client == NULL) {
+							if (sendto(batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
+								debug_output(0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno));
+						} else {
+							debug_output(0, "Either enable NAT on the client or make sure this host has a route back to the sender address.\n");
+							gw_client->nat_warn++;
+						}
 					}
 
 					if (write(tun_fd, buff + 1, buff_len - 1) < 0)

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2006-2009 B.A.T.M.A.N. contributors:
  *
  * Simon Wunderlich, Marek Lindner
