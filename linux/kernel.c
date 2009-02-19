@@ -55,8 +55,6 @@ static int get_integer_file(const char* filename)
 	return integer;
 }
 
-
-
 static void set_integer_file(const char* filename, int32_t integer)
 {
 	FILE *f;
@@ -68,24 +66,20 @@ static void set_integer_file(const char* filename, int32_t integer)
 	fclose(f);
 }
 
-
-
 void set_rp_filter(int32_t state, char* dev)
 {
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
-	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+	if ((colon_ptr = strchr(dev, ':')) != NULL)
 		*colon_ptr = '\0';
 
-	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+	sprintf(filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
 	set_integer_file(filename, state);
 
-	if ( colon_ptr != NULL )
+	if (colon_ptr != NULL)
 		*colon_ptr = ':';
 }
-
-
 
 int32_t get_rp_filter(char *dev)
 {
@@ -93,114 +87,93 @@ int32_t get_rp_filter(char *dev)
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
-	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+	if ((colon_ptr = strchr(dev, ':')) != NULL)
 		*colon_ptr = '\0';
 
-	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
+	sprintf(filename, "/proc/sys/net/ipv4/conf/%s/rp_filter", dev);
 	state = get_integer_file(filename);
 
-	if ( colon_ptr != NULL )
+	if (colon_ptr != NULL)
 		*colon_ptr = ':';
 
 	return state;
 }
 
-
-
-void set_send_redirects( int32_t state, char* dev ) {
-
+void set_send_redirects(int32_t state, char* dev)
+{
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
-	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+	if ((colon_ptr = strchr(dev, ':')) != NULL)
 		*colon_ptr = '\0';
 
-	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
+	sprintf(filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
 	set_integer_file(filename, state);
 
-	if ( colon_ptr != NULL )
+	if (colon_ptr != NULL)
 		*colon_ptr = ':';
-
 }
 
-
-
-int32_t get_send_redirects( char *dev ) {
-
+int32_t get_send_redirects(char *dev)
+{
 	int32_t state = 0;
 	char filename[100], *colon_ptr;
 
 	/* if given interface is an alias use parent interface */
-	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+	if ((colon_ptr = strchr(dev, ':')) != NULL)
 		*colon_ptr = '\0';
 
-	sprintf( filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
+	sprintf(filename, "/proc/sys/net/ipv4/conf/%s/send_redirects", dev);
 	state = get_integer_file(filename);
 
-	if ( colon_ptr != NULL )
+	if (colon_ptr != NULL)
 		*colon_ptr = ':';
 
 	return state;
-
 }
-
-
 
 void set_forwarding(int32_t state)
 {
 	set_integer_file("/proc/sys/net/ipv4/ip_forward", state);
 }
 
-
-
 int32_t get_forwarding(void)
 {
 	return get_integer_file("/proc/sys/net/ipv4/ip_forward");
 }
 
-
-
-int8_t bind_to_iface( int32_t sock, char *dev ) {
-
+int8_t bind_to_iface(int32_t sock, char *dev)
+{
 	char *colon_ptr;
 
 	/* if given interface is an alias bind to parent interface */
-	if ( ( colon_ptr = strchr( dev, ':' ) ) != NULL )
+	if ((colon_ptr = strchr(dev, ':')) != NULL)
 		*colon_ptr = '\0';
 
-	if ( setsockopt( sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen( dev ) + 1 ) < 0 ) {
+	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, dev, strlen(dev) + 1) < 0) {
 
-		if ( colon_ptr != NULL )
+		if (colon_ptr != NULL)
 			*colon_ptr = ':';
 
 		return -1;
 
 	}
 
-	if ( colon_ptr != NULL )
+	if (colon_ptr != NULL)
 		*colon_ptr = ':';
 
 	return 1;
-
 }
 
-
-
-int32_t use_gateway_module(void) {
-
+int32_t use_gateway_module(void)
+{
 	int32_t fd;
 
-
-	if ( ( fd = open( "/dev/batgat", O_WRONLY ) ) < 0 ) {
-
-		debug_output( 0, "Warning - batgat kernel modul interface (/dev/batgat) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno) );
+	if ((fd = open("/dev/batgat", O_WRONLY)) < 0) {
+		debug_output(0, "Warning - batgat kernel modul interface (/dev/batgat) not usable: %s\nThis may decrease the performance of batman!\n", strerror(errno));
 
 		return -1;
-
 	}
 
 	return fd;
-
 }
-
-
