@@ -37,14 +37,16 @@
 
 static const char *route_type_to_string[] = {
 	[ROUTE_TYPE_UNICAST]      = "route",
-	 [ROUTE_TYPE_UNREACHABLE] = "unreachable route",
-	 [ROUTE_TYPE_THROW]       = "throw route",
+	[ROUTE_TYPE_UNREACHABLE] = "unreachable route",
+	[ROUTE_TYPE_THROW]       = "throw route",
+	[ROUTE_TYPE_UNKNOWN]      = "unknown route type",
 };
 
 static const char *route_type_to_string_script[] = {
 	[ROUTE_TYPE_UNICAST]     = "UNICAST",
 	[ROUTE_TYPE_UNREACHABLE] = "UNREACH",
 	[ROUTE_TYPE_THROW]       = "THROW",
+	[ROUTE_TYPE_UNKNOWN]      = "UNKNOWN",
 };
 
 static const char *rule_type_to_string[] = {
@@ -602,12 +604,12 @@ int flush_routes_rules(int8_t is_rule)
 
 				case RTA_DST:
 					dest = *((int32_t *)RTA_DATA(rtap));
-					rule_type = 1;
+					rule_type = ROUTE_TYPE_UNREACHABLE;
 					break;
 
 				case RTA_SRC:
 					dest = *((int32_t *)RTA_DATA(rtap));
-					rule_type = 0;
+					rule_type = ROUTE_TYPE_UNICAST;
 					break;
 
 				case RTA_GATEWAY:
@@ -624,7 +626,7 @@ int flush_routes_rules(int8_t is_rule)
 
 				case RTA_IIF:
 					dev = ((char *)RTA_DATA(rtap));
-					rule_type = 2;
+					rule_type = ROUTE_TYPE_THROW;
 					break;
 
 				case 15:  /* FIXME: RTA_TABLE is not always available - not needed but avoid warning */
@@ -655,8 +657,24 @@ int flush_routes_rules(int8_t is_rule)
 				add_del_rule(0 , 0, rtm->rtm_table, prio, dev , rule_type, RULE_DEL);
 				break;
 			}
-		} else
-			add_del_route(dest, rtm->rtm_dst_len, router, 0, ifi, "unknown", rtm->rtm_table, rtm->rtm_type, ROUTE_DEL);
+		} else {
+			switch (rtm->rtm_type) {
+			case RTN_UNICAST:
+				rule_type = ROUTE_TYPE_UNICAST;
+				break;
+			case RTN_THROW:
+				rule_type = ROUTE_TYPE_THROW;
+				break;
+			case RTN_UNREACHABLE:
+				rule_type = ROUTE_TYPE_UNREACHABLE;
+				break;
+			default:
+				rule_type = ROUTE_TYPE_UNKNOWN;
+				break;
+			}
+
+			add_del_route(dest, rtm->rtm_dst_len, router, 0, ifi, "unknown", rtm->rtm_table, rule_type, ROUTE_DEL);
+		}
 
 	}
 
