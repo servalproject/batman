@@ -41,7 +41,7 @@
 
 
 int run_cmd(char *cmd) {
-	int error, pipes[2], stderr = 0, ret = 0;
+	int error, pipes[2], stderr = -1, ret = 0;
 	char error_log[256];
 
 	if (pipe(pipes) < 0) {
@@ -53,7 +53,7 @@ int run_cmd(char *cmd) {
 
 	/* we did not fork into the background - save stderr */
 	if (debug_level != 0)
-		dup2(STDERR_FILENO, stderr);
+		stderr = dup(STDERR_FILENO);
 
 	/* connect the commands output with the pipe for later logging */
 	dup2(pipes[1], STDERR_FILENO);
@@ -61,12 +61,13 @@ int run_cmd(char *cmd) {
 
 	error = system(cmd);
 
-	close(STDERR_FILENO);
-
 	/* copy stderr back if we did not fork into the background */
 	if (debug_level != 0) {
+		/* dup2() closes STDERR_FILENO before copying stderr */
 		dup2(stderr, STDERR_FILENO);
 		close(stderr);
+	} else {
+		close(STDERR_FILENO);
 	}
 
 	if ((error < 0) || (WEXITSTATUS(error) != 0)) {
