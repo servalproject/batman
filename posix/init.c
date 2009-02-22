@@ -144,60 +144,58 @@ void add_hna_to_list(char *hna_string, int8_t del, uint8_t change)
 	uint16_t netmask;
 	char *slash_ptr;
 
-	if ( ( slash_ptr = strchr( hna_string, '/' ) ) == NULL ) {
+	if ((slash_ptr = strchr(hna_string, '/')) == NULL) {
 
 		if (change) {
-			debug_output(3, "Invalid announced network (netmask is missing): %s\n", hna_string );
+			debug_output(3, "Invalid announced network (netmask is missing): %s\n", hna_string);
 			return;
-		} else {
-			printf( "Invalid announced network (netmask is missing): %s\n", hna_string );
-			exit(EXIT_FAILURE);
 		}
 
+		printf("Invalid announced network (netmask is missing): %s\n", hna_string);
+		exit(EXIT_FAILURE);
 	}
 
 	*slash_ptr = '\0';
 
-	if ( inet_pton( AF_INET, hna_string, &tmp_ip_holder ) < 1 ) {
+	if (inet_pton(AF_INET, hna_string, &tmp_ip_holder) < 1) {
 
 		*slash_ptr = '/';
 
 		if (change) {
-			debug_output(3, "Invalid announced network (IP is invalid): %s\n", hna_string );
+			debug_output(3, "Invalid announced network (IP is invalid): %s\n", hna_string);
 			return;
-		} else {
-			printf( "Invalid announced network (IP is invalid): %s\n", hna_string );
-			exit(EXIT_FAILURE);
 		}
+
+		printf("Invalid announced network (IP is invalid): %s\n", hna_string);
+		exit(EXIT_FAILURE);
 
 	}
 
 	errno = 0;
 
-	netmask = strtol( slash_ptr + 1, NULL, 10 );
+	netmask = strtol(slash_ptr + 1, NULL, 10);
 
-	if ( ( errno == ERANGE ) || ( errno != 0 && netmask == 0 ) ) {
+	if ((errno == ERANGE) || (errno != 0 && netmask == 0)) {
 
-		if (change) {
+		if (change)
 			return;
-		} else {
-			perror("strtol");
-			exit(EXIT_FAILURE);
-		}
+
+		perror("strtol");
+		exit(EXIT_FAILURE);
 
 	}
 
-	if ( netmask < 1 || netmask > 32 ) {
+	if (netmask < 1 || netmask > 32) {
 
 		*slash_ptr = '/';
 
 		if (change) {
 			debug_output(3, "Invalid announced network (netmask is invalid): %s\n", hna_string );
 			return;
-		} else {
-			printf( "Invalid announced network (netmask is invalid): %s\n", hna_string );
-			exit(EXIT_FAILURE);
 		}
+
+		printf( "Invalid announced network (netmask is invalid): %s\n", hna_string );
+		exit(EXIT_FAILURE);
 
 	}
 
@@ -212,12 +210,12 @@ void add_hna_to_list(char *hna_string, int8_t del, uint8_t change)
 
 	if (change) {
 		hna_node->del = del;
-		list_add_tail( &hna_node->list, &hna_chg_list );
+		list_add_tail(&hna_node->list, &hna_chg_list);
 	} else {
 		if (del)
-			list_add_tail( &hna_node->list, &hna_del_list );
+			list_add_tail(&hna_node->list, &hna_del_list);
 		else
-			list_add_tail( &hna_node->list, &hna_list );
+			list_add_tail(&hna_node->list, &hna_list);
 	}
 
 	*slash_ptr = '/';
@@ -264,7 +262,7 @@ void apply_init_args( int argc, char *argv[] ) {
 
 				/* increment found_args only by one if optarg and optchar are directly following each other
 				   increment found_args by two if there is some space between the arguments */
-				found_args += ( ( *((char*)( optarg - 1)) == optchar ) ? 1 : 2 );
+				found_args += ((*((char*)(optarg - 1)) == optchar ) ? 1 : 2);
 				break;
 
 			case 'A':
@@ -563,7 +561,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		if ( flush_routes_rules(1) < 0 )
 			exit(EXIT_FAILURE);
 
-		while ( argc > found_args ) {
+		while (argc > found_args) {
 
 			if (argv[found_args][0] == '-') {
 				fprintf(stderr, "%s: invalid option -- %s\n", argv[0], argv[found_args]);
@@ -581,15 +579,15 @@ void apply_init_args( int argc, char *argv[] ) {
 			batman_if->if_rp_filter_old = -1;
 			batman_if->if_send_redirects_old = -1;
 
-			list_add_tail( &batman_if->list, &if_list );
+			list_add_tail(&batman_if->list, &if_list);
 
 			init_interface(batman_if);
 
 			if (batman_if->if_num > 0) {
 
-				hna_node = debugMalloc( sizeof(struct hna_node), 207 );
-				memset( hna_node, 0, sizeof(struct hna_node) );
-				INIT_LIST_HEAD( &hna_node->list );
+				hna_node = debugMalloc(sizeof(struct hna_node), 207);
+				memset(hna_node, 0, sizeof(struct hna_node));
+				INIT_LIST_HEAD(&hna_node->list);
 
 				hna_node->addr = batman_if->addr.sin_addr.s_addr;
 				hna_node->netmask = 32;
@@ -1134,7 +1132,7 @@ void check_inactive_interfaces(void)
 	struct list_head *list_pos;
 	struct batman_if *batman_if;
 
-	/* all available interfaces active */
+	/* all available interfaces are active */
 	if (found_ifs == active_ifs)
 		return;
 
@@ -1151,7 +1149,7 @@ void check_active_interfaces(void)
 	struct list_head *list_pos;
 	struct batman_if *batman_if;
 
-	/* all available interfaces deactive */
+	/* all available interfaces are deactive */
 	if (active_ifs == 0)
 		return;
 
