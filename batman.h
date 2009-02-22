@@ -95,6 +95,7 @@
 #define ROUTE_TYPE_UNICAST          0
 #define ROUTE_TYPE_THROW            1
 #define ROUTE_TYPE_UNREACHABLE      2
+#define ROUTE_TYPE_UNKNOWN          3
 #define ROUTE_ADD                   0
 #define ROUTE_DEL                   1
 
