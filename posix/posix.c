@@ -311,7 +311,7 @@ int8_t receive_packet(unsigned char *packet_buff, int32_t packet_buff_len, int16
 
 		if (errno != EINTR) {
 
-			debug_output(0, "Error - can't select: %s\n", strerror(errno));
+			debug_output(0, "Error - can't select (receive_packet): %s\n", strerror(errno));
 
 			/* we might have a deactivated interface - check all active interfaces for problems */
 			check_active_interfaces();

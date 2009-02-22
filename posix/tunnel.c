@@ -126,7 +126,7 @@ static int8_t get_tun_ip(struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t
 		res = select(udp_sock + 1, &wait_sockets, NULL, NULL, &tv);
 
 		if ((res < 0) && (errno != EINTR)) {
-			debug_output(0, "Error - can't select: %s \n", strerror(errno));
+			debug_output(0, "Error - can't select (get_tun_ip): %s \n", strerror(errno));
 			break;
 		}
 
@@ -252,7 +252,7 @@ void *client_to_gw_tun(void *arg)
 		current_time = get_time_msec();
 
 		if ((res < 0) && (errno != EINTR)) {
-			debug_output(0, "Error - can't select: %s \n", strerror(errno));
+			debug_output(0, "Error - can't select (client_to_gw_tun): %s \n", strerror(errno));
 			break;
 		}
 
@@ -608,7 +608,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 		current_time = get_time_msec();
 
 		if ((res < 0) && (errno != EINTR)) {
-			debug_output(0, "Error - can't select: %s \n", strerror(errno));
+			debug_output(0, "Error - can't select (gw_listen): %s \n", strerror(errno));
 			break;
 		}
 

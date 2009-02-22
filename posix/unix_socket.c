@@ -146,7 +146,7 @@ void internal_output(uint32_t sock)
 
 
 
-void *unix_listen( void * BATMANUNUSED(arg) ) {
+void *unix_listen(void * BATMANUNUSED(arg)) {
 
 	struct unix_client *unix_client;
 	struct debug_level_info *debug_level_info;
@@ -170,13 +170,13 @@ void *unix_listen( void * BATMANUNUSED(arg) ) {
 
 	max_sock = unix_if.unix_sock;
 
-	while ( !is_aborted() ) {
+	while (!is_aborted()) {
 
 		tv.tv_sec = 1;
 		tv.tv_usec = 0;
-		memcpy( &tmp_wait_sockets, &wait_sockets, sizeof(fd_set) );
+		memcpy(&tmp_wait_sockets, &wait_sockets, sizeof(fd_set));
 
-		res = select( max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv );
+		res = select(max_sock + 1, &tmp_wait_sockets, NULL, NULL, &tv);
 
 		if ( res > 0 ) {
 
@@ -556,9 +556,9 @@ void *unix_listen( void * BATMANUNUSED(arg) ) {
 
 			}
 
-		} else if ( ( res < 0 ) && ( errno != EINTR ) ) {
+		} else if ((res < 0) && (errno != EINTR)) {
 
-			debug_output( 0, "Error - can't select: %s\n", strerror(errno) );
+			debug_output(0, "Error - can't select (unix_listen): %s\n", strerror(errno));
 			break;
 
 		}
