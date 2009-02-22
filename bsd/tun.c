@@ -103,6 +103,10 @@ void del_nat_rule(char *BATMANUNUSED(dev)) {
 	fprintf(stderr, "del_nat_rule: not implemented\n");
 }
 
+void own_hna_rules(uint32_t hna_ip, uint8_t netmask, int8_t route_action) {
+	fprintf(stderr, "own_hna_rules: not implemented\n");
+}
+
 /* Probe for tun interface availability */
 int8_t probe_tun(uint8_t BATMANUNUSED(print_to_stderr))
 {

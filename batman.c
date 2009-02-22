@@ -308,10 +308,9 @@ void update_hna(struct orig_node *orig_node, unsigned char *new_hna,
 		 * NOTE: if the router changed, hna_buff_delete() is not called. */
 
 		if ((old_router != orig_node->router)
-			|| (hna_buff_delete((struct hna_element *)old_hna, &old_hna_len, e) == 0))
-		{
+			|| (hna_buff_delete((struct hna_element *)old_hna, &old_hna_len, e) == 0)) {
 
-			/* not found/deleted, need to add this new route */
+			/* not found / deleted, need to add this new route */
 			if ((e->netmask > 0) && (e->netmask <= 32))
 				add_del_route(e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr,
 						orig_node->router->if_incoming->if_index, orig_node->router->if_incoming->dev,
@@ -929,11 +928,14 @@ static uint8_t count_real_packets(struct bat_packet *in, uint32_t neigh, struct 
 
 static void add_del_own_hna_throw(struct hna_node *hna_node, int8_t route_action)
 {
-	/* add/delete throw routing entries for own hna */
+	/* add / delete throw routing entries for own hna */
 	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, route_action);
 	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, route_action);
 	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, route_action);
 	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, route_action);
+
+	/* do not NAT HNA networks automatically */
+	own_hna_rules(hna_node->addr, hna_node->netmask, route_action);
 }
 
 int8_t batman(void)
@@ -1310,10 +1312,10 @@ send_packets:
 
 					hna_node = list_entry(list_pos, struct hna_node, list);
 
-					hna_buff = debugRealloc(hna_buff, ( num_hna + 1 ) * 5 * sizeof( unsigned char ), 16);
+					hna_buff = debugRealloc(hna_buff, (num_hna + 1) * 5 * sizeof(unsigned char), 16);
 
-					memmove(&hna_buff[ num_hna * 5 ], ( unsigned char *)&hna_node->addr, 4);
-					hna_buff[ ( num_hna * 5 ) + 4 ] = ( unsigned char )hna_node->netmask;
+					memmove(&hna_buff[num_hna * 5], (unsigned char *)&hna_node->addr, 4);
+					hna_buff[(num_hna * 5) + 4] = (unsigned char)hna_node->netmask;
 
 					num_hna++;
 

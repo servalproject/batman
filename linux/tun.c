@@ -25,6 +25,7 @@
 #include <fcntl.h>        /* open(), O_RDWR */
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <arpa/inet.h>    /* inet_ntop() */
 #include <netinet/ip.h>   /* iph */
 #include <linux/if_tun.h> /* TUNSETPERSIST, ... */
 #include <linux/if.h>     /* ifr_if, ifr_tun */
@@ -36,8 +37,11 @@
 #include "../os.h"
 #include "../batman.h"
 
-#define IPTABLES_ADD "iptables -t nat -A POSTROUTING -o %s -j MASQUERADE"
-#define IPTABLES_DEL "iptables -t nat -D POSTROUTING -o %s -j MASQUERADE"
+#define IPTABLES_ADD_MASQ "iptables -t nat -A POSTROUTING -o %s -j MASQUERADE"
+#define IPTABLES_DEL_MASQ "iptables -t nat -D POSTROUTING -o %s -j MASQUERADE"
+
+#define IPTABLES_ADD_ACC "iptables -t nat -I POSTROUTING -s %s/%i -j ACCEPT"
+#define IPTABLES_DEL_ACC "iptables -t nat -D POSTROUTING -s %s/%i -j ACCEPT"
 
 
 int run_cmd(char *cmd) {
@@ -102,17 +106,29 @@ void exec_iptables_rule(char *cmd, int activate) {
 void add_nat_rule(char *dev) {
 	char cmd[100];
 
-	sprintf(cmd, IPTABLES_ADD, dev);
+	sprintf(cmd, IPTABLES_ADD_MASQ, dev);
 	exec_iptables_rule(cmd, 1);
 }
 
 void del_nat_rule(char *dev) {
 	char cmd[100];
 
-	sprintf(cmd, IPTABLES_DEL, dev);
+	sprintf(cmd, IPTABLES_DEL_MASQ, dev);
 	exec_iptables_rule(cmd, 0);
 }
 
+void own_hna_rules(uint32_t hna_ip, uint8_t netmask, int8_t route_action) {
+	char cmd[100], ip_addr[16];
+
+	inet_ntop(AF_INET, &hna_ip, ip_addr, sizeof(ip_addr));
+
+	if (route_action == ROUTE_DEL)
+		sprintf(cmd, IPTABLES_DEL_ACC, ip_addr, netmask);
+	else
+		sprintf(cmd, IPTABLES_ADD_ACC, ip_addr, netmask);
+
+	exec_iptables_rule(cmd, route_action);
+}
 
 /* Probe for tun interface availability */
 int8_t probe_tun(uint8_t print_to_stderr) {
