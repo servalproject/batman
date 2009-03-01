@@ -93,9 +93,12 @@ int probe_nat_tool(void) {
 	return run_cmd("which iptables > /dev/null");
 }
 
-void exec_iptables_rule(char *cmd, int activate) {
+void exec_iptables_rule(char *cmd, int8_t route_action) {
+	if (disable_client_nat)
+		return;
+
 	if (nat_tool_avail == -1) {
-		debug_output(3, "Warning - could not %sactivate NAT: iptables binary not found!\n", (activate ? "" : "de"));
+		debug_output(3, "Warning - could not %sactivate NAT: iptables binary not found!\n", (route_action == ROUTE_ADD ? "" : "de"));
 		debug_output(3, "          You may need to run this command: %s\n", cmd);
 		return;
 	}
@@ -107,14 +110,14 @@ void add_nat_rule(char *dev) {
 	char cmd[100];
 
 	sprintf(cmd, IPTABLES_ADD_MASQ, dev);
-	exec_iptables_rule(cmd, 1);
+	exec_iptables_rule(cmd, ROUTE_ADD);
 }
 
 void del_nat_rule(char *dev) {
 	char cmd[100];
 
 	sprintf(cmd, IPTABLES_DEL_MASQ, dev);
-	exec_iptables_rule(cmd, 0);
+	exec_iptables_rule(cmd, ROUTE_DEL);
 }
 
 void own_hna_rules(uint32_t hna_ip, uint8_t netmask, int8_t route_action) {

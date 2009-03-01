@@ -242,6 +242,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		{"hop-penalty",     required_argument,       0, 'm'},
 		{"purge-timeout",     required_argument,       0, 'q'},
 		{"disable-aggregation",     no_argument,       0, 'x'},
+		{"disable-client-nat",     no_argument,       0, 'z'},
 		{0, 0, 0, 0}
 	};
 
@@ -458,6 +459,11 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			case 'x':
 				aggregation_enabled = 0;
+				found_args++;
+				break;
+
+			case 'z':
+				disable_client_nat = 1;
 				found_args++;
 				break;
 

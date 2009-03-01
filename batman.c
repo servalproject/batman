@@ -126,6 +126,7 @@ uint8_t num_words = (TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE);
 uint8_t aggregation_enabled = 1;
 
 int nat_tool_avail = -1;
+int8_t disable_client_nat = 0;
 
 
 
@@ -147,6 +148,7 @@ void usage(void)
 	fprintf( stderr, "       -s visualization server\n" );
 	fprintf( stderr, "       -v print version\n" );
 	fprintf( stderr, "       --policy-routing-script\n" );
+	fprintf( stderr, "       --disable-client-nat\n" );
 }
 
 
@@ -198,6 +200,7 @@ void verbose_usage(void)
 	fprintf( stderr, "          default: none, allowed values: IP\n\n" );
 	fprintf( stderr, "       -v print version\n" );
 	fprintf( stderr, "       --policy-routing-script send all routing table changes to the script\n" );
+	fprintf(stderr, "       --disable-client-nat deactivates the 'set tunnel NAT rules' feature (useful for half tunneling)\n");
 }
 
 
