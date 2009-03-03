@@ -78,11 +78,9 @@ all:
 $(BINARY_NAME):	$(SRC_O) $(SRC_H) Makefile
 	$(Q_LD)$(CC) -o $@ $(SRC_O) $(LDFLAGS)
 
-%.o: %.c %.h
-	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
-
-%.o: %.c
-	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
+.c.o:
+	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MD -c $< -o $@
+-include $(SRC_C:.c=.d)
 
 sources:
 	mkdir -p $(FILE_NAME)
@@ -99,6 +97,7 @@ sources:
 
 clean:
 	rm -f $(BINARY_NAME) *.o posix/*.o linux/*.o bsd/*.o
+	rm -f `find . -name '*.d' -print`
 
 
 clean-long:
