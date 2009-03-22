@@ -69,18 +69,23 @@ void init_bh_ports(void)
 		bh_udp_ports[i] = htons(bh_udp_ports[i]);
 }
 
-
-
 static uint8_t get_tunneled_protocol(const unsigned char *buff)
 {
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
-       return ((struct ip *)(buff + 1))->ip_p;
+	return ((struct ip *)(buff + 1))->ip_p;
 #else
-       return ((struct iphdr *)(buff + 1))->protocol;
+	return ((struct iphdr *)(buff + 1))->protocol;
 #endif
 }
 
-
+static uint32_t get_tunneled_sender_ip(const unsigned char *buff)
+{
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__Darwin__)
+	return ((struct ip *)(buff + 1))->ip_src;
+#else
+	return ((struct iphdr *)(buff + 1))->saddr;
+#endif
+}
 
 static uint16_t get_tunneled_udpdest(const unsigned char *buff)
 {
@@ -90,8 +95,6 @@ static uint16_t get_tunneled_udpdest(const unsigned char *buff)
        return ((struct udphdr *)(buff + 1 + ((struct iphdr *)(buff + 1))->ihl*4))->dest;
 #endif
 }
-
-
 
 static int8_t get_tun_ip(struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t *tun_addr)
 {
@@ -228,11 +231,11 @@ void *client_to_gw_tun(void *arg)
 	debug_output(3, "Gateway client - got IP (%s) from gateway: %s \n", my_str, gw_str);
 
 
-	if (add_dev_tun(curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi ) <= 0)
+	if (add_dev_tun(curr_gw_data->batman_if, my_tun_addr, tun_if, sizeof(tun_if), &tun_fd, &tun_ifi) <= 0)
 		goto udp_out;
 
-	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 	add_nat_rule(tun_if);
+	add_del_route(0, 0, 0, my_tun_addr, tun_ifi, tun_if, BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 	FD_ZERO(&wait_sockets);
 	FD_SET(udp_sock, &wait_sockets);
@@ -317,39 +320,41 @@ void *client_to_gw_tun(void *arg)
 				if (sendto(udp_sock, buff, buff_len + 1, 0, (struct sockaddr *)&gw_addr, sizeof(struct sockaddr_in)) < 0)
 					debug_output(0, "Error - can't send data to gateway: %s\n", strerror(errno));
 
-			}
+				if ((gw_state == GW_STATE_UNKNOWN) && (gw_state_time == 0)) {
 
-			if (errno != EWOULDBLOCK) {
-				debug_output(0, "Error - gateway client can't read tun data: %s\n", strerror(errno));
-				break;
-			}
+					ignore_packet = 0;
 
-			if ((gw_state == GW_STATE_UNKNOWN) && (gw_state_time == 0)) {
+					if (get_tunneled_protocol(buff) == IPPROTO_ICMP)
+						ignore_packet = 1;
 
-				ignore_packet = 0;
+					if (get_tunneled_protocol(buff) == IPPROTO_UDP) {
 
-				if (get_tunneled_protocol(buff) == IPPROTO_UDP) {
+						for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++) {
 
-					for (i = 0; i < (int)(sizeof(bh_udp_ports)/sizeof(short)); i++) {
+							if (get_tunneled_udpdest(buff) == bh_udp_ports[i]) {
 
-						if (get_tunneled_udpdest(buff) == bh_udp_ports[i]) {
+								ignore_packet = 1;
+								break;
 
-							ignore_packet = 1;
-							break;
+							}
 
 						}
 
 					}
 
-				} else if (((struct iphdr *)(buff + 1))->protocol == IPPROTO_ICMP) {
+					/* if the packet was not natted (half tunnel) don't active the blackhole detection */
+					if (get_tunneled_sender_ip(buff) != my_tun_addr)
+						ignore_packet = 1;
 
-					ignore_packet = 1;
+					if (!ignore_packet)
+						gw_state_time = current_time;
 
 				}
+			}
 
-				if (!ignore_packet)
-					gw_state_time = current_time;
-
+			if (errno != EWOULDBLOCK) {
+				debug_output(0, "Error - gateway client can't read tun data: %s\n", strerror(errno));
+				break;
 			}
 
 		}
