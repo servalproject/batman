@@ -623,7 +623,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 		/* traffic coming from the tunnel client via UDP */
 		if (FD_ISSET(batman_if->udp_tunnel_sock, &tmp_wait_sockets)) {
 
-			while ((buff_len = recvfrom( batman_if->udp_tunnel_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&addr, &addr_len)) > 0) {
+			while ((buff_len = recvfrom(batman_if->udp_tunnel_sock, buff, sizeof(buff) - 1, 0, (struct sockaddr *)&addr, &addr_len)) > 0) {
 
 				if (buff_len < 2) {
 					addr_to_string(addr.sin_addr.s_addr, str, sizeof(str));
@@ -645,12 +645,22 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 						debug_output(0, "Error - got packet from unknown client: %s (tunnelled sender ip %i.%i.%i.%i) \n", str, (uint8_t)buff[13], (uint8_t)buff[14], (uint8_t)buff[15], (uint8_t)buff[16]);
 
 						if (gw_client == NULL) {
-							if (sendto(batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
-								debug_output(0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno));
-						} else {
-							debug_output(0, "Either enable NAT on the client or make sure this host has a route back to the sender address.\n");
-							gw_client->nat_warn++;
+
+							/* TODO: only send refresh if the IP comes from 169.254.x.y ?? */
+							/*if (sendto(batman_if->udp_tunnel_sock, buff, buff_len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
+								debug_output(0, "Error - can't send invalid ip information to client (%s): %s \n", str, strerror(errno));*/
+
+							/* auto assign a dummy address to output the NAT warning only once */
+							gw_client = get_ip_addr(&addr, &wip_hash, &vip_hash, &free_ip_list, next_free_ip);
+
+							addr_to_string(gw_client->vip_addr, str, sizeof(str));
+							addr_to_string(addr.sin_addr.s_addr, gw_addr, sizeof(gw_addr));
+							debug_output(3, "Gateway - assigned %s to unregistered client: %s \n", str, gw_addr);
+
 						}
+
+						debug_output(0, "Either enable NAT on the client or make sure this host has a route back to the sender address.\n");
+						gw_client->nat_warn++;
 					}
 
 					if (write(tun_fd, buff + 1, buff_len - 1) < 0)
