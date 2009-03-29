@@ -116,6 +116,9 @@ Since no topology database is computed by the protocol an additional solution to
 .TP
 .B \-v print version
 .TP
+.B \-\-disable-client-nat
+Since version 0.3.2 batmand uses iptables to set the NAT rules on the gateX interface of the batman client (-r XX). That option disables this feature of batmand and switches the internet tunnel mode to "half tunnels" (the packets towards the gateway are tunneled but not the packets that are coming back) unless NAT was enabled manually. Be sure to know what you are doing! Without NAT the gateway needs to have a route to the client or the packets will be dropped silently.
+.TP
 .B \-\-policy-routing-script
 This option disables the policy routing feature of batmand - all routing changes are send to the script which can make use of this information or not. Firmware and package maintainers can use this option to tightly integrate batmand into their own routing policies. This option is only available in daemon mode.
 .SH EXAMPLES
