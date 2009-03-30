@@ -228,7 +228,7 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 
-	len = recvmsg( netlink_sock, &msg, 0 );
+	len = recvmsg(netlink_sock, &msg, 0);
 	nh = (struct nlmsghdr *)buf;
 
 	while (NLMSG_OK(nh, len)) {

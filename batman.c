@@ -951,7 +951,7 @@ int8_t batman(void)
 	struct bat_packet *bat_packet;
 	uint32_t neigh, hna, netmask, debug_timeout, vis_timeout, select_timeout, curr_time;
 	unsigned char in[2001], *hna_recv_buff;
-	char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN], oldorig_str[ADDR_STR_LEN];
+	char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN], prev_sender_str[ADDR_STR_LEN];
 	int16_t hna_buff_count, hna_buff_len, packet_len, curr_packet_len;
 	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old, if_send_redirects_all_old, if_send_redirects_default_old;
 	uint8_t is_my_addr, is_my_orig, is_my_oldorig, is_broadcast, is_duplicate, is_bidirectional, has_directlink_flag;
@@ -1054,13 +1054,13 @@ int8_t batman(void)
 			bat_packet->seqno = ntohs(bat_packet->seqno);
 
 			addr_to_string(bat_packet->orig, orig_str, sizeof(orig_str));
-			addr_to_string(bat_packet->old_orig, oldorig_str, sizeof(oldorig_str));
+			addr_to_string(bat_packet->prev_sender, prev_sender_str, sizeof(prev_sender_str));
 
 			is_my_addr = is_my_orig = is_my_oldorig = is_broadcast = 0;
 
 			has_directlink_flag = (bat_packet->flags & DIRECTLINK ? 1 : 0);
 
-			debug_output(4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, oldorig_str, bat_packet->seqno, bat_packet->tq, bat_packet->ttl, bat_packet->version, has_directlink_flag);
+			debug_output(4, "Received BATMAN packet via NB: %s, IF: %s %s (from OG: %s, via old OG: %s, seqno %d, tq %d, TTL %d, V %d, IDF %d) \n", neigh_str, if_incoming->dev, ifaddr_str, orig_str, prev_sender_str, bat_packet->seqno, bat_packet->tq, bat_packet->ttl, bat_packet->version, has_directlink_flag);
 
 			hna_buff_len = bat_packet->hna_len * 5;
 			hna_recv_buff = (hna_buff_len > 4 ? (unsigned char *)(bat_packet + 1) : NULL);
@@ -1078,7 +1078,7 @@ int8_t batman(void)
 				if (neigh == batman_if->broad.sin_addr.s_addr)
 					is_broadcast = 1;
 
-				if (bat_packet->old_orig == batman_if->addr.sin_addr.s_addr)
+				if (bat_packet->prev_sender == batman_if->addr.sin_addr.s_addr)
 					is_my_oldorig = 1;
 
 			}
@@ -1244,7 +1244,7 @@ send_packets:
 				list_for_each_safe(list_pos, list_pos_tmp, &hna_chg_list) {
 
 					hna_node = list_entry(list_pos, struct hna_node, list);
-					addr_to_string( hna_node->addr, oldorig_str, sizeof(oldorig_str) );
+					addr_to_string(hna_node->addr, prev_sender_str, sizeof(prev_sender_str));
 
 					hna_node_exist = NULL;
 					prev_list_head = (struct list_head *)&hna_list;
@@ -1256,14 +1256,14 @@ send_packets:
 						if ((hna_node->addr == hna_node_exist->addr) && (hna_node->netmask == hna_node_exist->netmask)) {
 
 							if (hna_node->del) {
-								debug_output(3, "Deleting HNA from announce network list: %s/%i\n", oldorig_str, hna_node->netmask);
+								debug_output(3, "Deleting HNA from announce network list: %s/%i\n", prev_sender_str, hna_node->netmask);
 
 								add_del_own_hna_throw(hna_node, ROUTE_DEL);
 								list_del(prev_list_head, hna_pos, &hna_list);
 
 								debugFree(hna_node_exist, 1109);
 							} else {
-								debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", oldorig_str, hna_node->netmask);
+								debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", prev_sender_str, hna_node->netmask);
 							}
 
 							break;
@@ -1278,9 +1278,9 @@ send_packets:
 					if (hna_node_exist == NULL) {
 
 						if (hna_node->del) {
-							debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", oldorig_str, hna_node->netmask);
+							debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", prev_sender_str, hna_node->netmask);
 						} else {
-							debug_output(3, "Adding HNA to announce network list: %s/%i\n", oldorig_str, hna_node->netmask);
+							debug_output(3, "Adding HNA to announce network list: %s/%i\n", prev_sender_str, hna_node->netmask);
 
 							add_del_own_hna_throw(hna_node, ROUTE_ADD);
 

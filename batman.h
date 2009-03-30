@@ -210,7 +210,7 @@ struct bat_packet
 	uint16_t seqno;
 	uint16_t gwport;
 	uint32_t orig;
-	uint32_t old_orig;
+	uint32_t prev_sender;
 	uint8_t tq;
 	uint8_t hna_len;
 } __attribute__((packed));

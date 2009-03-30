@@ -634,6 +634,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 				switch(buff[0]) {
 				/* client sends us data that should to the internet */
 				case TUNNEL_DATA:
+					/* compare_vip() adds 4 bytes, hence buff + 9 */
 					gw_client = ((struct gw_client *)hash_find(vip_hash, buff + 9));
 
 					/* check whether client IP is known */

@@ -215,7 +215,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 		forw_node_new->direct_link_flags = forw_node_new->direct_link_flags | (1 << forw_node_new->num_packets);
 
 	bat_packet->ttl--;
-	bat_packet->old_orig = neigh;
+	bat_packet->prev_sender = neigh;
 
 	/* rebroadcast tq of our best ranking neighbor to ensure the rebroadcast of our best tq value */
 	if ((orig_node->router != NULL) && (orig_node->router->tq_avg != 0)) {

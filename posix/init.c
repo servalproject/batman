@@ -1043,13 +1043,13 @@ static void activate_interface(struct batman_if *batman_if)
 
 	if ( ioctl( batman_if->udp_recv_sock, SIOCGIFNETMASK, &int_req ) < 0 ) {
 
-		debug_output(3, "Error - can't get netmask address of interface %s: %s\n", batman_if->dev, strerror(errno) );
+		debug_output(3, "Error - can't get netmask address of interface %s: %s\n", batman_if->dev, strerror(errno));
 		goto error;
 
 	}
 
-	batman_if->netaddr = ( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr & batman_if->addr.sin_addr.s_addr );
-	batman_if->netmask = bit_count( ((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr );
+	batman_if->netaddr = (((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr & batman_if->addr.sin_addr.s_addr);
+	batman_if->netmask = bit_count(((struct sockaddr_in *)&int_req.ifr_addr)->sin_addr.s_addr);
 
 	add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_HOSTS, BATMAN_RT_PRIO_DEFAULT + batman_if->if_num, 0, RULE_TYPE_DST, RULE_ADD);
 	add_del_rule(batman_if->netaddr, batman_if->netmask, BATMAN_RT_TABLE_UNREACH, BATMAN_RT_PRIO_UNREACH + batman_if->if_num, 0, RULE_TYPE_DST, RULE_ADD);
@@ -1101,7 +1101,7 @@ static void activate_interface(struct batman_if *batman_if)
 	}
 
 	batman_if->out.orig = batman_if->addr.sin_addr.s_addr;
-	batman_if->out.old_orig = batman_if->addr.sin_addr.s_addr;
+	batman_if->out.prev_sender = batman_if->addr.sin_addr.s_addr;
 
 	batman_if->if_active = 1;
 	active_ifs++;
