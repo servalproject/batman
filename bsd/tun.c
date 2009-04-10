@@ -71,7 +71,7 @@ static int open_tun_any(char *dev_name, size_t dev_name_size)
 	}
 	return -1;
 }
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 static int open_tun_any(char *dev_name, size_t dev_name_size)
 {
 	int fd;

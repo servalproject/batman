@@ -44,6 +44,11 @@ ifeq ($(UNAME),Darwin)
 OS_C=		$(BSD_C) $(POSIX_C)
 endif
 
+ifeq ($(UNAME),GNU/kFreeBSD)
+OS_C=		$(BSD_C) $(POSIX_C)
+LDFLAGS+=	-lfreebsd -lbsd
+endif
+
 ifeq ($(UNAME),FreeBSD)
 OS_C=		$(BSD_C) $(POSIX_C)
 endif
