@@ -513,8 +513,6 @@ void apply_init_args( int argc, char *argv[] ) {
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun(1) ) )
 		exit(EXIT_FAILURE);
 
-	nat_tool_avail = probe_nat_tool();
-
 	if ( !unix_client ) {
 
 		if ( argc <= found_args ) {
@@ -524,6 +522,8 @@ void apply_init_args( int argc, char *argv[] ) {
 			exit(EXIT_FAILURE);
 
 		}
+
+		nat_tool_avail = probe_nat_tool();
 
 		if (policy_routing_script != NULL)
 			create_routing_pipe();
