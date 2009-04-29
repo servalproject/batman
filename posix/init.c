@@ -486,13 +486,12 @@ void apply_init_args( int argc, char *argv[] ) {
 	if ( ( download_speed > 0 ) && ( upload_speed == 0 ) )
 		upload_speed = download_speed / 5;
 
-	if ( download_speed > 0 ) {
+	if (download_speed > 0) {
 
-		gateway_class = get_gw_class( download_speed, upload_speed );
-		get_gw_speeds( gateway_class, &download_speed, &upload_speed );
+		gateway_class = get_gw_class(download_speed, upload_speed);
+		get_gw_speeds(gateway_class, &download_speed, &upload_speed);
 
 	}
-
 
 	if ( ( gateway_class != 0 ) && ( routing_class != 0 ) ) {
 		fprintf( stderr, "Error - routing class can't be set while gateway class is in use !\n" );
@@ -522,6 +521,9 @@ void apply_init_args( int argc, char *argv[] ) {
 			exit(EXIT_FAILURE);
 
 		}
+
+		if ((disable_client_nat) && (routing_class == 0))
+			fprintf(stderr, "Warning - the activated option '--disable-client-nat' has no effect without setting a routing class.\n");
 
 		nat_tool_avail = probe_nat_tool();
 
