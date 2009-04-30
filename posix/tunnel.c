@@ -151,10 +151,11 @@ static int8_t get_tun_ip(struct sockaddr_in *gw_addr, int32_t udp_sock, uint32_t
 			goto next_try;
 		}
 
-		if (sender_addr.sin_addr.s_addr != gw_addr->sin_addr.s_addr) {
+		/* a gateway with multiple interfaces breaks here */
+		/* if (sender_addr.sin_addr.s_addr != gw_addr->sin_addr.s_addr) {
 			debug_output(0, "Error - can't receive ip request: sender IP is not gateway IP \n");
 			goto next_try;
-		}
+		} */
 
 		memcpy(tun_addr, buff + 1, 4);
 		return 1;
@@ -272,10 +273,11 @@ void *client_to_gw_tun(void *arg)
 					continue;
 				}
 
-				if (sender_addr.sin_addr.s_addr != gw_addr.sin_addr.s_addr) {
+				/* a gateway with multiple interfaces breaks here */
+				/*if (sender_addr.sin_addr.s_addr != gw_addr.sin_addr.s_addr) {
 					debug_output(0, "Error - can't receive ip request: sender IP is not gateway IP \n");
 					continue;
-				}
+				}*/
 
 				switch(buff[0]) {
 				/* got data from gateway */
