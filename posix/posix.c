@@ -51,11 +51,49 @@ uint8_t tunnel_running = 0;
 
 static pthread_mutex_t batman_clock_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static struct tms dummy_tms_struct;
+static clock_t
+times_wrapper(void) /* Make times(2) behave rationally on Linux */
+{
+       int             save_errno = errno;
+       clock_t ret;
+
+       /*
+        * times(2) really returns an unsigned value ...
+        *
+        * We don't check to see if we got back the error value (-1), because
+        * the only possibility for an error would be if the address of
+        * dummy_tms_struct was invalid.  Since it's a
+        * compiler-generated address, we assume that errors are impossible.
+        * And, unfortunately, it is quite possible for the correct return
+        * from times(2) to be exactly (clock_t)-1.  Sigh...
+        *
+        */
+       errno   = 0;
+       ret     = times(&dummy_tms_struct);
+
+/*
+ *     This is to work around a bug in the system call interface
+ *     for times(2) found in glibc on Linux (and maybe elsewhere)
+ *     It changes the return values from -1 to -4096 all into
+ *     -1 and then dumps the -(return value) into errno.
+ *
+ *     This totally bizarre behavior seems to be widespread in
+ *     versions of Linux and glibc.
+ *
+ *     Many thanks to Wolfgang Dumhs <wolfgang.dumhs (at) gmx.at>
+ *     for finding and documenting this bizarre behavior.
+ */
+       if (errno != 0) {
+               ret = (clock_t) (-errno);
+       }
+       errno = save_errno;
+       return ret;
+}
 
 static void update_internal_clock(void)
 {
-	struct tms tp;
-	clock_t current_clock_tick = times(&tp);
+	clock_t current_clock_tick = times_wrapper();
 
 	batman_clock_ticks += (current_clock_tick - last_clock_tick);
 	last_clock_tick = current_clock_tick;
@@ -561,7 +599,6 @@ void cleanup(void) {
 int main(int argc, char *argv[])
 {
 	int8_t res;
-	struct tms tp;
 
 	/* check if user is root */
 	if ((getuid()) || (getgid())) {
@@ -581,7 +618,7 @@ int main(int argc, char *argv[])
 
 	/* save start value */
 	system_tick = (float)sysconf(_SC_CLK_TCK);
-	last_clock_tick = times(&tp);
+	last_clock_tick = times_wrapper();
 	update_internal_clock();
 
 	apply_init_args(argc, argv);
