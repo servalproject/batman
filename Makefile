@@ -25,9 +25,12 @@ ifndef V
 endif
 endif
 
+# activate this variable to deactivate policy routing for backward compatibility
+#NO_POLICY_ROUTING = -DNO_POLICY_ROUTING
+
 CC =		gcc
 CFLAGS +=	-pedantic -Wall -W -O1 -g3 -std=gnu99
-EXTRA_CFLAGS =	-DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA -DREVISION_VERSION=$(REVISION_VERSION)
+EXTRA_CFLAGS =	-DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA $(NO_POLICY_ROUTING) -DREVISION_VERSION=$(REVISION_VERSION)
 LDFLAGS +=	-lpthread
 
 SBINDIR =	$(INSTALL_PREFIX)/usr/sbin

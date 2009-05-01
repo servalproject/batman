@@ -49,6 +49,7 @@ static const char *route_type_to_string_script[] = {
 	[ROUTE_TYPE_UNKNOWN]      = "UNKNOWN",
 };
 
+#ifndef NO_POLICY_ROUTING
 static const char *rule_type_to_string[] = {
 	[RULE_TYPE_SRC] = "from",
 	[RULE_TYPE_DST] = "to",
@@ -60,14 +61,115 @@ static const char *rule_type_to_string_script[] = {
 	[RULE_TYPE_DST] = "DST",
 	[RULE_TYPE_IIF] = "IIF",
 };
-
+#endif
 
 
 /***
  *
- * route types: 0 = RTN_UNICAST, 1 = THROW, 2 = UNREACHABLE
+ * route types: 0 = UNICAST, 1 = THROW, 2 = UNREACHABLE
  *
  ***/
+
+#if NO_POLICY_ROUTING
+
+#include <net/route.h>
+
+void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t route_action)
+{
+	struct rtentry route;
+	struct sockaddr_in *addr;
+	char str1[16], str2[16], str3[16];
+	int sock;
+
+	inet_ntop(AF_INET, &dest, str1, sizeof (str1));
+	inet_ntop(AF_INET, &router, str2, sizeof (str2));
+	inet_ntop(AF_INET, &src_ip, str3, sizeof(str3));
+
+
+	if (policy_routing_script != NULL) {
+		dprintf(policy_routing_pipe, "ROUTE %s %s %s %i %s %s %i %s %i\n", (route_action == ROUTE_DEL ? "del" : "add"), route_type_to_string_script[route_type], str1, netmask, str2, str3, ifi, dev, rt_table);
+		return;
+	}
+
+	/* ignore non-unicast routes as we can't handle them */
+	if (route_type != ROUTE_TYPE_UNICAST)
+		return;
+
+	memset(&route, 0, sizeof (struct rtentry));
+	addr = (struct sockaddr_in *)&route.rt_dst;
+
+	addr->sin_family = AF_INET;
+	addr->sin_addr.s_addr = dest;
+
+	addr = (struct sockaddr_in *)&route.rt_genmask;
+
+	addr->sin_family = AF_INET;
+	addr->sin_addr.s_addr = (netmask == 32 ? 0xffffffff : htonl(~(0xffffffff >> netmask)));
+
+	route.rt_flags = (netmask == 32 ? (RTF_HOST | RTF_UP) : RTF_UP);
+	route.rt_metric = 1;
+
+	/* adding default route */
+	if ((router == dest) && (dest == 0)) {
+
+		addr = (struct sockaddr_in *)&route.rt_gateway;
+
+		addr->sin_family = AF_INET;
+		addr->sin_addr.s_addr = router;
+
+		if (route_type != ROUTE_TYPE_UNREACHABLE) {
+			debug_output(3, "%s default route via %s\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), dev);
+			debug_output(4, "%s default route via %s\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), dev);
+		}
+
+	/* single hop neigbor */
+	} else if ((router == dest) && (dest != 0)) {
+
+		debug_output(3, "%s route to %s via 0.0.0.0 (%s)\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), str1, dev);
+		debug_output(4, "%s route to %s via 0.0.0.0 (%s)\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), str1, dev);
+
+	/* multihop neighbor */
+	} else {
+
+		addr = (struct sockaddr_in *)&route.rt_gateway;
+
+		addr->sin_family = AF_INET;
+		addr->sin_addr.s_addr = router;
+
+		debug_output(3, "%s %s to %s/%i via %s (%s)\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), route_type_to_string[route_type], str1, netmask, str2, dev);
+		debug_output(4, "%s %s to %s/%i via %s (%s)\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), route_type_to_string[route_type], str1, netmask, str2, dev);
+
+	}
+
+	route.rt_dev = dev;
+
+	if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+		debug_output(0, "Error - can't create socket for routing table manipulation: %s\n", strerror(errno));
+		return;
+	}
+
+	if (ioctl(sock, (route_action == ROUTE_DEL ? SIOCDELRT : SIOCADDRT), &route) < 0)
+		debug_output(0, "Error - can't %s route to %s/%i via %s: %s\n", (route_action == ROUTE_DEL ? "delete" : "add"), str1, netmask, str2, strerror(errno));
+
+	close(sock);
+}
+
+void add_del_rule(uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, char *iif, int8_t rule_type, int8_t rule_action)
+{
+	return;
+}
+
+int add_del_interface_rules(int8_t rule_action)
+{
+	return 1;
+}
+
+int flush_routes_rules(int8_t is_rule)
+{
+	return 1;
+}
+
+#else
 
 void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t route_action)
 {
@@ -206,7 +308,7 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 
 	}
 
-	if ((netlink_sock = socket( PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0) {
+	if ((netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0) {
 
 		debug_output(0, "Error - can't create netlink socket for routing table manipulation: %s\n", strerror(errno));
 		return;
@@ -682,3 +784,4 @@ int flush_routes_rules(int8_t is_rule)
 	return 1;
 }
 
+#endif

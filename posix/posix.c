@@ -52,8 +52,7 @@ uint8_t tunnel_running = 0;
 static pthread_mutex_t batman_clock_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static struct tms dummy_tms_struct;
-static clock_t
-times_wrapper(void) /* Make times(2) behave rationally on Linux */
+static clock_t times_wrapper(void) /* Make times(2) behave rationally on Linux */
 {
        int             save_errno = errno;
        clock_t ret;
