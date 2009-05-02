@@ -154,17 +154,17 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 	close(sock);
 }
 
-void add_del_rule(uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t prio, char *iif, int8_t rule_type, int8_t rule_action)
+void add_del_rule(uint32_t BATMANUNUSED(network), uint8_t BATMANUNUSED(netmask), int8_t BATMANUNUSED(rt_table), uint32_t BATMANUNUSED(prio), char *BATMANUNUSED(iif), int8_t BATMANUNUSED(rule_type), int8_t BATMANUNUSED(rule_action))
 {
 	return;
 }
 
-int add_del_interface_rules(int8_t rule_action)
+int add_del_interface_rules(int8_t BATMANUNUSED(rule_action))
 {
 	return 1;
 }
 
-int flush_routes_rules(int8_t is_rule)
+int flush_routes_rules(int8_t BATMANUNUSED(is_rule))
 {
 	return 1;
 }
