@@ -40,10 +40,10 @@ endif
 ifeq ($(LINUX_VERSION),$(LINUX26))
 
 all:
-	make -C $(KERNELPATH) REVISION=$(REVISION) M=$(PWD) PWD=$(PWD) modules
+	$(MAKE) -C $(KERNELPATH) REVISION=$(REVISION) M=$(PWD) PWD=$(PWD) modules
 
 clean:
-	make -C $(KERNELPATH) M=$(PWD) PWD=$(PWD) clean
+	$(MAKE) -C $(KERNELPATH) M=$(PWD) PWD=$(PWD) clean
 else
 
 clean:
