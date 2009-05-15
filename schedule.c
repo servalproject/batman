@@ -26,6 +26,7 @@
 #include "os.h"
 #include "batman.h"
 #include "schedule.h"
+#include "hna.h"
 
 
 
@@ -50,13 +51,13 @@ void schedule_own_packet(struct batman_if *batman_if)
 	forw_node_new->direct_link_flags = 0;
 
 	/* non-primary interfaces do not send hna information */
-	if ((num_hna > 0) && (batman_if->if_num == 0)) {
+	if ((num_hna_local > 0) && (batman_if->if_num == 0)) {
 
 		forw_node_new->pack_buff = debugMalloc(MAX_AGGREGATION_BYTES, 502);
 		memcpy(forw_node_new->pack_buff, (unsigned char *)&batman_if->out, sizeof(struct bat_packet));
-		memcpy(forw_node_new->pack_buff + sizeof(struct bat_packet), hna_buff, num_hna * 5);
-		forw_node_new->pack_buff_len = sizeof(struct bat_packet) + num_hna * 5;
-		((struct bat_packet *)forw_node_new->pack_buff)->hna_len = num_hna;
+		memcpy(forw_node_new->pack_buff + sizeof(struct bat_packet), hna_buff_local, num_hna_local * 5);
+		forw_node_new->pack_buff_len = sizeof(struct bat_packet) + num_hna_local * 5;
+		((struct bat_packet *)forw_node_new->pack_buff)->hna_len = num_hna_local;
 
 	} else {
 

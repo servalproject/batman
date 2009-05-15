@@ -151,7 +151,6 @@ extern uint8_t debug_level;
 extern uint8_t debug_level_max;
 extern uint8_t gateway_class;
 extern uint8_t routing_class;
-extern uint8_t num_hna;
 extern int16_t originator_interval;
 extern uint32_t pref_gateway;
 extern char *policy_routing_script;
@@ -161,8 +160,6 @@ extern pid_t policy_routing_script_pid;
 extern int8_t stop;
 extern int nat_tool_avail;
 extern int8_t disable_client_nat;
-
-extern unsigned char *hna_buff;
 
 extern struct gw_node *curr_gateway;
 extern pthread_t curr_gateway_thread_id;
@@ -178,16 +175,11 @@ extern uint8_t log_facility_active;
 extern struct hashtable_t *orig_hash;
 
 extern struct list_head_first if_list;
-extern struct list_head_first hna_list;
-extern struct list_head_first hna_del_list;
-extern struct list_head_first hna_chg_list;
 extern struct list_head_first gw_list;
 extern struct list_head_first forw_list;
 extern struct vis_if vis_if;
 extern struct unix_if unix_if;
 extern struct debug_clients debug_clients;
-
-extern pthread_mutex_t hna_chg_list_mutex;
 
 extern uint8_t tunnel_running;
 extern uint64_t batman_clock_ticks;
@@ -233,12 +225,6 @@ struct orig_node                 /* structure for orig_list maintaining nodes of
 	struct list_head_first neigh_list;
 };
 
-struct hna_element
-{
-	uint32_t hna;
-	uint8_t  netmask;
-} __attribute__((packed));
-
 struct neigh_node
 {
 	struct list_head list;
@@ -252,14 +238,6 @@ struct neigh_node
 	TYPE_OF_WORD *real_bits;
 	struct orig_node *orig_node;
 	struct batman_if *if_incoming;
-};
-
-struct hna_node
-{
-	struct list_head list;
-	uint32_t addr;
-	uint8_t netmask;
-	uint8_t del;
 };
 
 struct forw_node                 /* structure for forw_list maintaining packets to be send/forwarded */
@@ -370,8 +348,6 @@ void update_gw_list(struct orig_node *orig_node, uint8_t new_gwflags, uint16_t g
 void get_gw_speeds(unsigned char gw_class, int *down, int *up);
 unsigned char get_gw_class(int down, int up);
 void choose_gw(void);
-
-void add_hna_to_list(char *hna_string, int8_t del, uint8_t change);
 
 
 #endif

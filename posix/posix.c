@@ -37,7 +37,7 @@
 
 #include "../os.h"
 #include "../batman.h"
-
+#include "../hna.h"
 
 
 #define BAT_LOGO_PRINT(x,y,z) printf( "\x1B[%i;%iH%c", y + 1, x, z )                      /* write char 'z' into column 'x', row 'y' */
@@ -609,11 +609,8 @@ int main(int argc, char *argv[])
 	INIT_LIST_HEAD_FIRST(forw_list);
 	INIT_LIST_HEAD_FIRST(gw_list);
 	INIT_LIST_HEAD_FIRST(if_list);
-	INIT_LIST_HEAD_FIRST(hna_list);
-	INIT_LIST_HEAD_FIRST(hna_del_list);
-	INIT_LIST_HEAD_FIRST(hna_chg_list);
 
-	pthread_mutex_init(&hna_chg_list_mutex, NULL);
+	hna_init();
 
 	/* save start value */
 	system_tick = (float)sysconf(_SC_CLK_TCK);
@@ -627,6 +624,9 @@ int main(int argc, char *argv[])
 	srand(getpid());
 
 	res = batman();
+
+	/* cleaning up */
+	hna_free();
 
 	restore_defaults();
 	cleanup();

@@ -37,7 +37,7 @@
 
 #include "../os.h"
 #include "../batman.h"
-
+#include "../hna.h"
 
 
 void debug_output(int8_t debug_prio, char *format, ...) {
@@ -227,36 +227,18 @@ void *unix_listen(void * BATMANUNUSED(arg)) {
 
 							/* debug_output( 3, "gateway: client sent data via unix socket: %s\n", buff ); */
 
-							if ( buff[0] == 'a' ) {
+							if (buff[0] == 'a') {
 
-								if ( status > 2 ) {
-
-									if ( pthread_mutex_lock(&hna_chg_list_mutex) != 0 )
-										debug_output(0, "Error - could not lock mutex (hna_chg_list_mutex => 1): %s \n", strerror(errno));
-
-									add_hna_to_list(buff + 2, 0, 1);
-
-									if ( pthread_mutex_unlock(&hna_chg_list_mutex) != 0 )
-										debug_output( 0, "Error - could not unlock mutex (hna_chg_list_mutex => 1): %s \n", strerror(errno) );
-
-									dprintf( unix_client->sock, "EOD\n" );
-
+								if (status > 2) {
+									hna_local_task_add_str(buff + 2, ROUTE_ADD, 1);
+									dprintf(unix_client->sock, "EOD\n");
 								}
 
-							} else if ( buff[0] == 'A' ) {
+							} else if (buff[0] == 'A') {
 
-								if ( status > 2 ) {
-
-									if ( pthread_mutex_lock(&hna_chg_list_mutex) != 0 )
-										debug_output(0, "Error - could not lock mutex (hna_chg_list_mutex => 2): %s \n", strerror(errno));
-
-									add_hna_to_list(buff + 2, 1, 1);
-
-									if ( pthread_mutex_unlock(&hna_chg_list_mutex) != 0 )
-										debug_output( 0, "Error - could not unlock mutex (hna_chg_list_mutex => 2): %s \n", strerror(errno) );
-
-									dprintf( unix_client->sock, "EOD\n" );
-
+								if (status > 2) {
+									hna_local_task_add_str(buff + 2, ROUTE_DEL, 1);
+									dprintf(unix_client->sock, "EOD\n");
 								}
 
 							} else if ( buff[0] == 'd' ) {
@@ -457,9 +439,7 @@ void *unix_listen(void * BATMANUNUSED(arg)) {
 									hna_node = list_entry(debug_pos, struct hna_node, list);
 
 									addr_to_string(hna_node->addr, str, sizeof (str));
-
 									dprintf(unix_client->sock, " -a %s/%i", str, hna_node->netmask);
-
 								}
 
 								if (debug_level != 0)

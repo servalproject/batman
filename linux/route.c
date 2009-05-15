@@ -37,8 +37,8 @@
 
 static const char *route_type_to_string[] = {
 	[ROUTE_TYPE_UNICAST]      = "route",
-	[ROUTE_TYPE_UNREACHABLE] = "unreachable route",
-	[ROUTE_TYPE_THROW]       = "throw route",
+	[ROUTE_TYPE_UNREACHABLE]  = "unreachable route",
+	[ROUTE_TYPE_THROW]        = "throw route",
 	[ROUTE_TYPE_UNKNOWN]      = "unknown route type",
 };
 
@@ -46,7 +46,7 @@ static const char *route_type_to_string_script[] = {
 	[ROUTE_TYPE_UNICAST]     = "UNICAST",
 	[ROUTE_TYPE_UNREACHABLE] = "UNREACH",
 	[ROUTE_TYPE_THROW]       = "THROW",
-	[ROUTE_TYPE_UNKNOWN]      = "UNKNOWN",
+	[ROUTE_TYPE_UNKNOWN]     = "UNKNOWN",
 };
 
 #ifndef NO_POLICY_ROUTING

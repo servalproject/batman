@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2006-2009 B.A.T.M.A.N. contributors:
  *
  * Simon Wunderlich, Marek Lindner
@@ -27,8 +27,7 @@
 #include "os.h"
 #include "batman.h"
 #include "originator.h"
-
-
+#include "hna.h"
 
 
 struct neigh_node * create_neighbor(struct orig_node *orig_node, struct orig_node *orig_neigh_node, uint32_t neigh, struct batman_if *if_incoming) {
@@ -358,15 +357,15 @@ void purge_orig(uint32_t curr_time)
 					addr_to_string( neigh_node->addr, neigh_str, ADDR_STR_LEN );
 					debug_output( 4, "Neighbour timeout: originator %s, neighbour: %s, last_valid %u \n", orig_str, neigh_str, neigh_node->last_valid );
 
-					if ( orig_node->router == neigh_node ) {
+					if (orig_node->router == neigh_node) {
 
 						/* we have to delete the route towards this node before it gets purged */
 						debug_output( 4, "Deleting previous route \n" );
 
 						/* remove old announced network(s) */
-						update_hna(orig_node, NULL, 0, orig_node->router);
+						hna_global_update(orig_node, NULL, 0, orig_node->router);
 
-						add_del_route( orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL );
+						add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 
 						/* if the neighbour is the route towards our gateway */
 						if ((curr_gateway != NULL) && (curr_gateway->orig_node == orig_node))

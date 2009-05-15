@@ -39,6 +39,7 @@
 
 #include "../os.h"
 #include "../batman.h"
+#include "../hna.h"
 
 #define IOCSETDEV 1
 
@@ -137,97 +138,12 @@ static void create_routing_pipe(void)
 	}
 }
 
-void add_hna_to_list(char *hna_string, int8_t del, uint8_t change)
-{
-	struct hna_node *hna_node;
-	struct in_addr tmp_ip_holder;
-	uint16_t netmask;
-	char *slash_ptr;
-
-	if ((slash_ptr = strchr(hna_string, '/')) == NULL) {
-
-		if (change) {
-			debug_output(3, "Invalid announced network (netmask is missing): %s\n", hna_string);
-			return;
-		}
-
-		printf("Invalid announced network (netmask is missing): %s\n", hna_string);
-		exit(EXIT_FAILURE);
-	}
-
-	*slash_ptr = '\0';
-
-	if (inet_pton(AF_INET, hna_string, &tmp_ip_holder) < 1) {
-
-		*slash_ptr = '/';
-
-		if (change) {
-			debug_output(3, "Invalid announced network (IP is invalid): %s\n", hna_string);
-			return;
-		}
-
-		printf("Invalid announced network (IP is invalid): %s\n", hna_string);
-		exit(EXIT_FAILURE);
-
-	}
-
-	errno = 0;
-
-	netmask = strtol(slash_ptr + 1, NULL, 10);
-
-	if ((errno == ERANGE) || (errno != 0 && netmask == 0)) {
-
-		if (change)
-			return;
-
-		perror("strtol");
-		exit(EXIT_FAILURE);
-
-	}
-
-	if (netmask < 1 || netmask > 32) {
-
-		*slash_ptr = '/';
-
-		if (change) {
-			debug_output(3, "Invalid announced network (netmask is invalid): %s\n", hna_string );
-			return;
-		}
-
-		printf( "Invalid announced network (netmask is invalid): %s\n", hna_string );
-		exit(EXIT_FAILURE);
-
-	}
-
-	tmp_ip_holder.s_addr = (tmp_ip_holder.s_addr & htonl(0xFFFFFFFF << (32 - netmask)));
-
-	hna_node = debugMalloc( sizeof(struct hna_node), 203 );
-	memset( hna_node, 0, sizeof(struct hna_node) );
-	INIT_LIST_HEAD( &hna_node->list );
-
-	hna_node->addr = tmp_ip_holder.s_addr;
-	hna_node->netmask = netmask;
-
-	if (change) {
-		hna_node->del = del;
-		list_add_tail(&hna_node->list, &hna_chg_list);
-	} else {
-		if (del)
-			list_add_tail(&hna_node->list, &hna_del_list);
-		else
-			list_add_tail(&hna_node->list, &hna_list);
-	}
-
-	*slash_ptr = '/';
-}
-
 void apply_init_args( int argc, char *argv[] ) {
 
 	struct in_addr tmp_ip_holder;
 	struct batman_if *batman_if;
 	struct hna_node *hna_node;
 	struct debug_level_info *debug_level_info;
-	struct list_head *list_pos, *list_pos_tmp;
 	uint8_t found_args = 1, batch_mode = 0, info_output = 0, was_hna = 0;
 	int8_t res;
 
@@ -258,8 +174,7 @@ void apply_init_args( int argc, char *argv[] ) {
 		switch ( optchar ) {
 
 			case 'a':
-
-				add_hna_to_list(optarg, 0, 0);
+				hna_local_task_add_str(optarg, ROUTE_ADD, 0);
 
 				/* increment found_args only by one if optarg and optchar are directly following each other
 				   increment found_args by two if there is some space between the arguments */
@@ -267,8 +182,7 @@ void apply_init_args( int argc, char *argv[] ) {
 				break;
 
 			case 'A':
-
-				add_hna_to_list(optarg, 1, 0);
+				hna_local_task_add_str(optarg, ROUTE_DEL, 0);
 
 				found_args += ((*((char*)( optarg - 1)) == optchar) ? 1 : 2);
 				break;
@@ -512,14 +426,12 @@ void apply_init_args( int argc, char *argv[] ) {
 	if ( ( ( routing_class != 0 ) || ( gateway_class != 0 ) ) && ( !probe_tun(1) ) )
 		exit(EXIT_FAILURE);
 
-	if ( !unix_client ) {
+	if (!unix_client) {
 
-		if ( argc <= found_args ) {
-
-			fprintf( stderr, "Error - no interface specified\n" );
+		if (argc <= found_args) {
+			fprintf(stderr, "Error - no interface specified\n");
 			usage();
 			exit(EXIT_FAILURE);
-
 		}
 
 		if ((disable_client_nat) && (routing_class == 0))
@@ -530,17 +442,6 @@ void apply_init_args( int argc, char *argv[] ) {
 		if (policy_routing_script != NULL)
 			create_routing_pipe();
 
-		/* delete ignored "HNAs to be removed" */
-		list_for_each_safe( list_pos, list_pos_tmp, &hna_del_list ) {
-
-			hna_node = list_entry( list_pos, struct hna_node, list );
-
-			list_del( (struct list_head *)&hna_del_list, list_pos, &hna_del_list );
-
-			debugFree( hna_node, 1299 );
-
-		}
-
 		signal( SIGINT, handler );
 		signal( SIGTERM, handler );
 		signal( SIGPIPE, SIG_IGN );
@@ -550,17 +451,16 @@ void apply_init_args( int argc, char *argv[] ) {
 		debug_clients.mutex = debugMalloc( sizeof(pthread_mutex_t *) * debug_level_max, 209 );
 		debug_clients.clients_num = debugMalloc( sizeof(int16_t) * debug_level_max, 209 );
 
-		for ( res = 0; res < debug_level_max; res++ ) {
+		for (res = 0; res < debug_level_max; res++) {
 
-			debug_clients.fd_list[res] = debugMalloc( sizeof(struct list_head_first), 204 );
+			debug_clients.fd_list[res] = debugMalloc(sizeof(struct list_head_first), 204);
 			((struct list_head_first *)debug_clients.fd_list[res])->next = debug_clients.fd_list[res];
 			((struct list_head_first *)debug_clients.fd_list[res])->prev = debug_clients.fd_list[res];
 
-			debug_clients.mutex[res] = debugMalloc( sizeof(pthread_mutex_t), 209 );
-			pthread_mutex_init( (pthread_mutex_t *)debug_clients.mutex[res], NULL );
+			debug_clients.mutex[res] = debugMalloc(sizeof(pthread_mutex_t), 209);
+			pthread_mutex_init((pthread_mutex_t *)debug_clients.mutex[res], NULL);
 
 			debug_clients.clients_num[res] = 0;
-
 		}
 
 		if ( flush_routes_rules(0) < 0 )
@@ -577,8 +477,8 @@ void apply_init_args( int argc, char *argv[] ) {
 				exit(EXIT_FAILURE);
 			}
 
-			batman_if = debugMalloc( sizeof(struct batman_if), 206 );
-			memset( batman_if, 0, sizeof(struct batman_if) );
+			batman_if = debugMalloc(sizeof(struct batman_if), 206);
+			memset(batman_if, 0, sizeof(struct batman_if));
 			INIT_LIST_HEAD( &batman_if->list );
 
 			batman_if->dev = argv[found_args];
@@ -591,18 +491,8 @@ void apply_init_args( int argc, char *argv[] ) {
 
 			init_interface(batman_if);
 
-			if (batman_if->if_num > 0) {
-
-				hna_node = debugMalloc(sizeof(struct hna_node), 207);
-				memset(hna_node, 0, sizeof(struct hna_node));
-				INIT_LIST_HEAD(&hna_node->list);
-
-				hna_node->addr = batman_if->addr.sin_addr.s_addr;
-				hna_node->netmask = 32;
-
-				list_add_tail( &hna_node->list, &hna_list );
-
-			}
+			if (batman_if->if_num > 0)
+				hna_local_task_add_ip(batman_if->addr.sin_addr.s_addr, 32, ROUTE_ADD);
 
 			if (batman_if->if_active) {
 
@@ -679,31 +569,26 @@ void apply_init_args( int argc, char *argv[] ) {
 		add_del_rule(0, 0, BATMAN_RT_TABLE_NETWORKS, BATMAN_RT_PRIO_UNREACH - 1, 0, RULE_TYPE_DST, RULE_ADD);
 
 		/* add unreachable routing table entry */
-		add_del_route( 0, 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_UNREACHABLE, ROUTE_ADD );
+		add_del_route(0, 0, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_UNREACHABLE, ROUTE_ADD);
 
-		if ( routing_class > 0 ) {
-
+		if (routing_class > 0) {
 			if (add_del_interface_rules(RULE_ADD) < 0) {
 				restore_defaults();
 				exit(EXIT_FAILURE);
 			}
-
 		}
 
-		memset( &vis_if, 0, sizeof(vis_if) );
+		memset(&vis_if, 0, sizeof(vis_if));
 
-		if ( vis_server ) {
-
+		if (vis_server) {
 			vis_if.addr.sin_family = AF_INET;
 			vis_if.addr.sin_port = htons(PORT + 2);
 			vis_if.addr.sin_addr.s_addr = vis_server;
 			vis_if.sock = socket( PF_INET, SOCK_DGRAM, 0 );
-
 		}
 
-		if ( gateway_class != 0 )
+		if (gateway_class != 0)
 			init_interface_gw();
-
 
 		if ( debug_level > 0 ) {
 
@@ -787,35 +672,27 @@ more_hna:
 			batch_mode = 1;
 			snprintf(unix_buff, 20, "q:%u", purge_timeout);
 
-		} else if ( info_output ) {
+		} else if (info_output) {
 
 			batch_mode = 1;
 			snprintf( unix_buff, 10, "i" );
 
-		} else if (!list_empty(&hna_list)) {
+		} else if (!list_empty(&hna_chg_list)) {
 
 			batch_mode = was_hna = 1;
-			hna_node = (struct hna_node *)hna_list.next;
-			addr_to_string( hna_node->addr, str1, sizeof(str1) );
-			snprintf( unix_buff, 30, "a:%s/%i", str1, hna_node->netmask );
+			hna_node = (struct hna_node *)hna_chg_list.next;
+			addr_to_string(hna_node->addr, str1, sizeof(str1));
+			snprintf(unix_buff, 30, "%c:%s/%i",
+			         (hna_node->route_action == ROUTE_ADD ? 'a' : 'A'),
+			         str1, hna_node->netmask);
 
-			list_del((struct list_head *)&hna_list, &hna_node->list, &hna_list);
+			list_del((struct list_head *)&hna_chg_list, &hna_node->list, &hna_chg_list);
 			debugFree(hna_node, 1298);
-
-		} else if (!list_empty( &hna_del_list)) {
-
-			batch_mode = was_hna = 1;
-			hna_node = (struct hna_node *)hna_del_list.next;
-			addr_to_string( hna_node->addr, str1, sizeof(str1) );
-			snprintf( unix_buff, 30, "A:%s/%i", str1, hna_node->netmask );
-
-			list_del((struct list_head *)&hna_del_list, &hna_node->list, &hna_del_list);
-			debugFree(hna_node, 1299);
 
 		} else {
 
 			batch_mode = 1;
-			snprintf( unix_buff, 10, "y" );
+			snprintf(unix_buff, 10, "y");
 
 		}
 
@@ -881,7 +758,7 @@ close_con:
 
 		}
 
-		if ((was_hna) && ((!list_empty(&hna_list)) || (!list_empty(&hna_del_list))))
+		if ((was_hna) && (!list_empty(&hna_chg_list)))
 			goto more_hna;
 
 		exit(EXIT_SUCCESS);

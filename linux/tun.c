@@ -114,7 +114,7 @@ void del_nat_rule(char *dev) {
 	exec_iptables_rule(cmd, ROUTE_DEL);
 }
 
-void own_hna_rules(uint32_t hna_ip, uint8_t netmask, int8_t route_action) {
+void hna_local_update_nat(uint32_t hna_ip, uint8_t netmask, int8_t route_action) {
 	char cmd[100], ip_addr[16];
 
 	inet_ntop(AF_INET, &hna_ip, ip_addr, sizeof(ip_addr));
