@@ -54,7 +54,7 @@ void hna_local_task_add_ip(uint32_t ip_addr, uint16_t netmask, uint8_t route_act
 void hna_local_task_add_str(char *hna_string, uint8_t route_action, uint8_t runtime);
 void hna_local_task_exec(void);
 
-void hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size);
+unsigned char *hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size);
 void hna_local_update_routes(struct hna_node *hna_node, int8_t route_action);
 
 void hna_global_update(struct orig_node *orig_node, unsigned char *new_hna,

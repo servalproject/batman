@@ -256,14 +256,14 @@ unlock_chg_list:
 		debug_output(0, "Error - could not unlock hna_chg_list mutex in %s(): %s \n", __func__, strerror(errno));
 }
 
-void hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size)
+unsigned char *hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size)
 {
 	struct list_head *list_pos;
 	struct hna_node *hna_node;
 	struct vis_data *vis_data;
 
 	if (num_hna_local < 1)
-		return;
+		return vis_packet;
 
 	list_for_each(list_pos, &hna_list) {
 		hna_node = list_entry(list_pos, struct hna_node, list);
@@ -278,6 +278,8 @@ void hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet
 		vis_data->data = hna_node->netmask;
 		vis_data->type = DATA_TYPE_HNA;
 	}
+
+	return vis_packet;
 }
 
 void hna_local_update_routes(struct hna_node *hna_node, int8_t route_action)

@@ -699,7 +699,7 @@ static void generate_vis_packet(void)
 	}
 
 	/* hna announcements */
-	hna_local_update_vis_packet(vis_packet, &vis_packet_size);
+	vis_packet = hna_local_update_vis_packet(vis_packet, &vis_packet_size);
 
 	if (vis_packet_size == sizeof(struct vis_packet)) {
 		debugFree(vis_packet, 1107);
