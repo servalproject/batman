@@ -58,10 +58,9 @@ struct neigh_node * create_neighbor(struct orig_node *orig_node, struct orig_nod
 
 /* needed for hash, compares 2 struct orig_node, but only their ip-addresses. assumes that
  * the ip address is the first field in the struct */
-int compare_orig( void *data1, void *data2 ) {
-
-	return ( memcmp( data1, data2, 4 ) );
-
+int compare_orig( void *data1, void *data2 )
+{
+	return (memcmp(data1, data2, 4) == 0 ? 1 : 0);
 }
 
 

@@ -501,12 +501,12 @@ static struct gw_client *get_ip_addr(struct sockaddr_in *client_addr, struct has
  * the ip address is the first/second field in the struct */
 static int compare_wip(void *data1, void *data2)
 {
-	return (memcmp(data1, data2, 4));
+	return (memcmp(data1, data2, 4) == 0 ? 1 : 0);
 }
 
 static int compare_vip(void *data1, void *data2)
 {
-	return (memcmp(((char *)data1) + 4, ((char *)data2) + 4, 4));
+	return (memcmp(((char *)data1) + 4, ((char *)data2) + 4, 4) == 0 ? 1 : 0);
 }
 
 /* hashfunction to choose an entry in a hash table of given size */

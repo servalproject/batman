@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2006-2009 B.A.T.M.A.N. contributors:
  *
  * Simon Wunderlich, Marek Lindner
@@ -173,8 +173,8 @@ int hash_add(struct hashtable_t *hash, void *data) {
 	index = hash->choose( data, hash->size );
 	bucket = hash->table[index];
 
-	while ( bucket!=NULL ) {
-		if (0 == hash->compare( bucket->data, data ))
+	while (bucket!=NULL) {
+		if (hash->compare(bucket->data, data))
 			return(-1);
 
 		prev_bucket = bucket;
@@ -208,7 +208,7 @@ void *hash_find(struct hashtable_t *hash, void *keydata) {
 	bucket = hash->table[index];
 
 	while ( bucket!=NULL ) {
-		if (0 == hash->compare( bucket->data, keydata ))
+		if (hash->compare(bucket->data, keydata))
 			return( bucket->data );
 
 		bucket= bucket->next;
@@ -252,7 +252,7 @@ void *hash_remove(struct hashtable_t *hash, void *data) {
 	hash_it_t.prev_bucket = NULL;
 
 	while ( hash_it_t.bucket!=NULL ) {
-		if (0 == hash->compare( hash_it_t.bucket->data, data )) {
+		if (hash->compare(hash_it_t.bucket->data, data)) {
 			hash_it_t.first_bucket = (hash_it_t.bucket == hash->table[hash_it_t.index] ? &hash->table[ hash_it_t.index ] : NULL);
 			return( hash_remove_bucket(hash, &hash_it_t) );
 		}
@@ -292,7 +292,7 @@ struct hashtable_t *hash_resize(struct hashtable_t *hash, int size) {
 
 
 /* print the hash table for debugging */
-void hash_debug(struct hashtable_t *hash) {
+/* void hash_debug(struct hashtable_t *hash) {
 	int i;
 	struct element_t *bucket;
 
@@ -309,5 +309,5 @@ void hash_debug(struct hashtable_t *hash) {
 
 	}
 	printf("\n");
-}
+}*/
 
