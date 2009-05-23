@@ -39,7 +39,7 @@ struct hna_element
 	uint8_t  netmask;
 } __attribute__((packed));
 
-struct hna_node
+struct hna_task
 {
 	struct list_head list;
 	uint32_t addr;
@@ -47,6 +47,19 @@ struct hna_node
 	uint8_t route_action;
 };
 
+struct hna_local_entry
+{
+	struct list_head list;
+	uint32_t addr;
+	uint8_t netmask;
+};
+
+struct hna_global_entry
+{
+	struct list_head list;
+	uint32_t addr;
+	uint8_t netmask;
+};
 
 void hna_init(void);
 void hna_free(void);
@@ -55,7 +68,7 @@ void hna_local_task_add_str(char *hna_string, uint8_t route_action, uint8_t runt
 void hna_local_task_exec(void);
 
 unsigned char *hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size);
-void hna_local_update_routes(struct hna_node *hna_node, int8_t route_action);
+void hna_local_update_routes(struct hna_local_entry *hna_local_entry, int8_t route_action);
 
 void hna_global_update(struct orig_node *orig_node, unsigned char *new_hna,
 				int16_t new_hna_len, struct neigh_node *old_router);

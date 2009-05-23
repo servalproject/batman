@@ -50,44 +50,47 @@ static float system_tick;
 uint8_t tunnel_running = 0;
 
 static pthread_mutex_t batman_clock_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 static struct tms dummy_tms_struct;
-static clock_t times_wrapper(void) /* Make times(2) behave rationally on Linux */
+
+
+ /* Make times(2) behave rationally on Linux */
+static clock_t times_wrapper(void)
 {
-       int             save_errno = errno;
-       clock_t ret;
+	int save_errno = errno;
+	clock_t ret;
 
-       /*
-        * times(2) really returns an unsigned value ...
-        *
-        * We don't check to see if we got back the error value (-1), because
-        * the only possibility for an error would be if the address of
-        * dummy_tms_struct was invalid.  Since it's a
-        * compiler-generated address, we assume that errors are impossible.
-        * And, unfortunately, it is quite possible for the correct return
-        * from times(2) to be exactly (clock_t)-1.  Sigh...
-        *
-        */
-       errno   = 0;
-       ret     = times(&dummy_tms_struct);
+	/**
+	 * times(2) really returns an unsigned value ...
+	 *
+	 * We don't check to see if we got back the error value (-1), because
+	 * the only possibility for an error would be if the address of
+	 * dummy_tms_struct was invalid.  Since it's a
+	 * compiler-generated address, we assume that errors are impossible.
+	 * And, unfortunately, it is quite possible for the correct return
+	 * from times(2) to be exactly (clock_t)-1.  Sigh...
+	 *
+	 */
+	errno = 0;
+	ret = times(&dummy_tms_struct);
 
-/*
- *     This is to work around a bug in the system call interface
- *     for times(2) found in glibc on Linux (and maybe elsewhere)
- *     It changes the return values from -1 to -4096 all into
- *     -1 and then dumps the -(return value) into errno.
- *
- *     This totally bizarre behavior seems to be widespread in
- *     versions of Linux and glibc.
- *
- *     Many thanks to Wolfgang Dumhs <wolfgang.dumhs (at) gmx.at>
- *     for finding and documenting this bizarre behavior.
- */
-       if (errno != 0) {
-               ret = (clock_t) (-errno);
-       }
-       errno = save_errno;
-       return ret;
+	/**
+	 * This is to work around a bug in the system call interface
+	 * for times(2) found in glibc on Linux (and maybe elsewhere)
+	 * It changes the return values from -1 to -4096 all into
+	 * -1 and then dumps the -(return value) into errno.
+	 *
+	 * This totally bizarre behavior seems to be widespread in
+	 * versions of Linux and glibc.
+	 *
+	 * Many thanks to Wolfgang Dumhs <wolfgang.dumhs (at) gmx.at>
+	 * for finding and documenting this bizarre behavior.
+	 */
+	if (errno != 0) {
+		ret = (clock_t) (-errno);
+	}
+
+	errno = save_errno;
+	return ret;
 }
 
 static void update_internal_clock(void)
@@ -429,17 +432,17 @@ void del_gw_interface(void)
 	/* TODO: unregister from kernel module per ioctl */
 	if (batman_if->udp_tunnel_sock > 0) {
 
-		if(batman_if->listen_thread_id != 0) {
-			pthread_join( batman_if->listen_thread_id, NULL );
+		if (batman_if->listen_thread_id != 0) {
+			pthread_join(batman_if->listen_thread_id, NULL);
 		} else {
 
-			if(batman_if->dev != NULL ) {
+			if (batman_if->dev != NULL) {
 
-				strncpy( args.dev_name, batman_if->dev, IFNAMSIZ - 1 );
-				args.universal = strlen( batman_if->dev );
+				strncpy(args.dev_name, batman_if->dev, IFNAMSIZ - 1);
+				args.universal = strlen(batman_if->dev);
 
-				if( ioctl( batman_if->udp_tunnel_sock, IOCREMDEV, &args ) < 0)
-					debug_output( 0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno) );
+				if (ioctl(batman_if->udp_tunnel_sock, IOCREMDEV, &args) < 0)
+					debug_output(0, "Error - can't remove device %s from kernel module : %s\n", batman_if->dev,strerror(errno));
 
 			}
 

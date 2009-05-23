@@ -341,8 +341,6 @@ void choose_gw(void)
 	prof_stop( PROF_choose_gw );
 }
 
-
-
 void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, unsigned char *hna_recv_buff, int16_t hna_buff_len)
 {
 	char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
@@ -372,7 +370,7 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			debug_output(4, "Adding new route\n");
 
 			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr,
-							neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
+					neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
@@ -389,7 +387,7 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			hna_global_update(orig_node, NULL, 0, old_router);
 
 			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index,
-							orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
+					orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 
 		/* route changed */
 		} else {
@@ -398,11 +396,11 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 
 			/* add new route */
 			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr,
-							neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
+					neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 			/* delete old route */
 			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index,
-							orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
+					orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 
 
 			orig_node->batman_if = neigh_node->if_incoming;
@@ -979,8 +977,8 @@ int8_t batman(void)
 
 			/* update ranking if it is not a duplicate or has the same seqno and similar ttl as the non-duplicate */
 			if ((is_bidirectional) && ((!is_duplicate) ||
-				((orig_node->last_real_seqno == bat_packet->seqno) &&
-					(orig_node->last_ttl - 3 <= bat_packet->ttl))))
+			     ((orig_node->last_real_seqno == bat_packet->seqno) &&
+			     (orig_node->last_ttl - 3 <= bat_packet->ttl))))
 				update_orig(orig_node, bat_packet, neigh, if_incoming, hna_recv_buff, hna_buff_len, is_duplicate, curr_time);
 
 			/* is single hop (direct) neighbour */
@@ -1013,7 +1011,6 @@ int8_t batman(void)
 
 send_packets:
 		send_outstanding_packets(curr_time);
-
 
 		if ((int)(curr_time - (debug_timeout + 1000)) > 0) {
 

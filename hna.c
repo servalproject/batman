@@ -35,50 +35,35 @@ uint8_t num_hna_local = 0;
 struct list_head_first hna_list;
 struct list_head_first hna_chg_list;
 
-pthread_mutex_t hna_chg_list_mutex;
+static pthread_mutex_t hna_chg_list_mutex;
 
 
 void hna_init(void)
 {
+	/* hna local */
 	INIT_LIST_HEAD_FIRST(hna_list);
 	INIT_LIST_HEAD_FIRST(hna_chg_list);
 
 	pthread_mutex_init(&hna_chg_list_mutex, NULL);
 }
 
-void hna_free(void)
-{
-	struct list_head *list_pos, *list_pos_tmp;
-	struct hna_node *hna_node;
-
-	list_for_each_safe(list_pos, list_pos_tmp, &hna_list) {
-		hna_node = list_entry(list_pos, struct hna_node, list);
-		hna_local_update_routes(hna_node, ROUTE_DEL);
-
-		debugFree(hna_node, 1103);
-	}
-
-	if (hna_buff_local != NULL)
-		debugFree(hna_buff_local, 1104);
-}
-
 /* this function can be called when the daemon starts or at runtime */
 void hna_local_task_add_ip(uint32_t ip_addr, uint16_t netmask, uint8_t route_action)
 {
-	struct hna_node *hna_node;
+	struct hna_task *hna_task;
 
-	hna_node = debugMalloc(sizeof(struct hna_node), 203);
-	memset(hna_node, 0, sizeof(struct hna_node));
-	INIT_LIST_HEAD(&hna_node->list);
+	hna_task = debugMalloc(sizeof(struct hna_task), 203);
+	memset(hna_task, 0, sizeof(struct hna_task));
+	INIT_LIST_HEAD(&hna_task->list);
 
-	hna_node->addr = ip_addr;
-	hna_node->netmask = netmask;
-	hna_node->route_action = route_action;
+	hna_task->addr = ip_addr;
+	hna_task->netmask = netmask;
+	hna_task->route_action = route_action;
 
 	if (pthread_mutex_lock(&hna_chg_list_mutex) != 0)
 		debug_output(0, "Error - could not lock hna_chg_list mutex in %s(): %s \n", __func__, strerror(errno));
 
-	list_add_tail(&hna_node->list, &hna_chg_list);
+	list_add_tail(&hna_task->list, &hna_chg_list);
 
 	if (pthread_mutex_unlock(&hna_chg_list_mutex) != 0)
 		debug_output(0, "Error - could not unlock hna_chg_list mutex in %s(): %s \n", __func__, strerror(errno));
@@ -153,7 +138,7 @@ void hna_local_task_add_str(char *hna_string, uint8_t route_action, uint8_t runt
 static void hna_local_buffer_fill(void)
 {
 	struct list_head *list_pos;
-	struct hna_node *hna_node;
+	struct hna_local_entry *hna_local_entry;
 
 	if (hna_buff_local != NULL)
 		debugFree(hna_buff_local, 1111);
@@ -165,11 +150,11 @@ static void hna_local_buffer_fill(void)
 		return;
 
 	list_for_each(list_pos, &hna_list) {
-		hna_node = list_entry(list_pos, struct hna_node, list);
+		hna_local_entry = list_entry(list_pos, struct hna_local_entry, list);
 		hna_buff_local = debugRealloc(hna_buff_local, (num_hna_local + 1) * 5 * sizeof(unsigned char), 15);
 
-		memmove(&hna_buff_local[num_hna_local * 5], (unsigned char *)&hna_node->addr, 4);
-		hna_buff_local[(num_hna_local * 5) + 4] = (unsigned char)hna_node->netmask;
+		memmove(&hna_buff_local[num_hna_local * 5], (unsigned char *)&hna_local_entry->addr, 4);
+		hna_buff_local[(num_hna_local * 5) + 4] = (unsigned char)hna_local_entry->netmask;
 		num_hna_local++;
 	}
 }
@@ -178,7 +163,8 @@ void hna_local_task_exec(void)
 {
 	struct list_head *list_pos, *list_pos_tmp, *prev_list_head;
 	struct list_head *hna_pos, *hna_pos_tmp;
-	struct hna_node *hna_node, *hna_node_exist;
+	struct hna_task *hna_task;
+	struct hna_local_entry *hna_local_entry;
 	char hna_addr_str[ADDR_STR_LEN];
 
 	if (pthread_mutex_trylock(&hna_chg_list_mutex) != 0)
@@ -189,62 +175,60 @@ void hna_local_task_exec(void)
 
 	list_for_each_safe(list_pos, list_pos_tmp, &hna_chg_list) {
 
-		hna_node = list_entry(list_pos, struct hna_node, list);
-		addr_to_string(hna_node->addr, hna_addr_str, sizeof(hna_addr_str));
+		hna_task = list_entry(list_pos, struct hna_task, list);
+		addr_to_string(hna_task->addr, hna_addr_str, sizeof(hna_addr_str));
 
-		hna_node_exist = NULL;
+		hna_local_entry = NULL;
 		prev_list_head = (struct list_head *)&hna_list;
 
 		list_for_each_safe(hna_pos, hna_pos_tmp, &hna_list) {
 
-			hna_node_exist = list_entry(hna_pos, struct hna_node, list);
+			hna_local_entry = list_entry(hna_pos, struct hna_local_entry, list);
 
-			if ((hna_node->addr == hna_node_exist->addr) && (hna_node->netmask == hna_node_exist->netmask)) {
+			if ((hna_task->addr == hna_local_entry->addr) && (hna_task->netmask == hna_local_entry->netmask)) {
 
-				if (hna_node->route_action == ROUTE_DEL) {
-					debug_output(3, "Deleting HNA from announce network list: %s/%i\n", hna_addr_str, hna_node->netmask);
+				if (hna_task->route_action == ROUTE_DEL) {
+					debug_output(3, "Deleting HNA from announce network list: %s/%i\n", hna_addr_str, hna_task->netmask);
 
-					hna_local_update_routes(hna_node, ROUTE_DEL);
+					hna_local_update_routes(hna_local_entry, ROUTE_DEL);
 					list_del(prev_list_head, hna_pos, &hna_list);
-
-					debugFree(hna_node_exist, 1109);
+					debugFree(hna_local_entry, 1109);
 				} else {
-					debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", hna_addr_str, hna_node->netmask);
+					debug_output(3, "Can't add HNA - already announcing network: %s/%i\n", hna_addr_str, hna_task->netmask);
 				}
 
 				break;
 
 			}
 
-			prev_list_head = &hna_node_exist->list;
-			hna_node_exist = NULL;
+			prev_list_head = &hna_local_entry->list;
+			hna_local_entry = NULL;
 
 		}
 
-		if (hna_node_exist == NULL) {
+		if (hna_local_entry == NULL) {
 
-			if (hna_node->route_action == ROUTE_ADD) {
-				debug_output(3, "Adding HNA to announce network list: %s/%i\n", hna_addr_str, hna_node->netmask);
-
-				hna_local_update_routes(hna_node, ROUTE_ADD);
+			if (hna_task->route_action == ROUTE_ADD) {
+				debug_output(3, "Adding HNA to announce network list: %s/%i\n", hna_addr_str, hna_task->netmask);
 
 				/* add node */
-				hna_node_exist = debugMalloc(sizeof(struct hna_node), 105);
-				memset(hna_node_exist, 0, sizeof(struct hna_node));
-				INIT_LIST_HEAD(&hna_node_exist->list);
+				hna_local_entry = debugMalloc(sizeof(struct hna_local_entry), 105);
+				memset(hna_local_entry, 0, sizeof(struct hna_local_entry));
+				INIT_LIST_HEAD(&hna_local_entry->list);
 
-				hna_node_exist->addr = hna_node->addr;
-				hna_node_exist->netmask = hna_node->netmask;
+				hna_local_entry->addr = hna_task->addr;
+				hna_local_entry->netmask = hna_task->netmask;
 
-				list_add_tail(&hna_node_exist->list, &hna_list);
+				hna_local_update_routes(hna_local_entry, ROUTE_ADD);
+				list_add_tail(&hna_local_entry->list, &hna_list);
 			} else {
-				debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", hna_addr_str, hna_node->netmask);
+				debug_output(3, "Can't delete HNA - network is not announced: %s/%i\n", hna_addr_str, hna_task->netmask);
 			}
 
 		}
 
 		list_del((struct list_head *)&hna_chg_list, list_pos, &hna_chg_list);
-		debugFree(hna_node, 1110);
+		debugFree(hna_task, 1110);
 
 	}
 
@@ -259,39 +243,39 @@ unlock_chg_list:
 unsigned char *hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size)
 {
 	struct list_head *list_pos;
-	struct hna_node *hna_node;
+	struct hna_local_entry *hna_local_entry;
 	struct vis_data *vis_data;
 
 	if (num_hna_local < 1)
 		return vis_packet;
 
 	list_for_each(list_pos, &hna_list) {
-		hna_node = list_entry(list_pos, struct hna_node, list);
+		hna_local_entry = list_entry(list_pos, struct hna_local_entry, list);
 
 		*vis_packet_size += sizeof(struct vis_data);
 
 		vis_packet = debugRealloc(vis_packet, *vis_packet_size, 107);
 		vis_data = (struct vis_data *)(vis_packet + *vis_packet_size - sizeof(struct vis_data));
 
-		memcpy(&vis_data->ip, (unsigned char *)&hna_node->addr, 4);
+		memcpy(&vis_data->ip, (unsigned char *)&hna_local_entry->addr, 4);
 
-		vis_data->data = hna_node->netmask;
+		vis_data->data = hna_local_entry->netmask;
 		vis_data->type = DATA_TYPE_HNA;
 	}
 
 	return vis_packet;
 }
 
-void hna_local_update_routes(struct hna_node *hna_node, int8_t route_action)
+void hna_local_update_routes(struct hna_local_entry *hna_local_entry, int8_t route_action)
 {
 	/* add / delete throw routing entries for own hna */
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, route_action);
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, route_action);
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, route_action);
-	add_del_route(hna_node->addr, hna_node->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_local_entry->addr, hna_local_entry->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_local_entry->addr, hna_local_entry->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_local_entry->addr, hna_local_entry->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_UNREACH, ROUTE_TYPE_THROW, route_action);
+	add_del_route(hna_local_entry->addr, hna_local_entry->netmask, 0, 0, 0, "unknown", BATMAN_RT_TABLE_TUNNEL, ROUTE_TYPE_THROW, route_action);
 
 	/* do not NAT HNA networks automatically */
-	hna_local_update_nat(hna_node->addr, hna_node->netmask, route_action);
+	hna_local_update_nat(hna_local_entry->addr, hna_local_entry->netmask, route_action);
 }
 
 /* hna_buff_delete searches in buf if element e is found.
@@ -324,7 +308,7 @@ static int hna_buff_delete(struct hna_element *buf, int *buf_len, struct hna_ele
 	return 0;
 }
 
-/* update_hna_global() replaces the old add_del_hna function. This function
+/* hna_global_update() replaces the old add_del_hna function. This function
  * updates the new hna buffer for the supplied orig node and
  * adds/deletes/updates the announced routes.
  *
@@ -369,7 +353,7 @@ void hna_global_update(struct orig_node *orig_node, unsigned char *new_hna,
 
 	}
 
-	/* add new routes, or keep old routes */
+	/* add new routes or keep old routes */
 	num_elements = orig_node->hna_buff_len / sizeof(struct hna_element);
 	buf = (struct hna_element *)orig_node->hna_buff;
 
@@ -380,15 +364,17 @@ void hna_global_update(struct orig_node *orig_node, unsigned char *new_hna,
 		 * if the router is the same, and the announcement was already in the old
 		 * buffer, we can keep the route.
 		 *
-		 * NOTE: if the router changed, hna_buff_delete() is not called. */
+		 * NOTE: if the router changed hna_buff_delete() is not called. */
 
 		if ((old_router != orig_node->router)
 			|| (hna_buff_delete((struct hna_element *)old_hna, &old_hna_len, e) == 0)) {
 
 			/* not found / deleted, need to add this new route */
 			if ((e->netmask > 0) && (e->netmask <= 32))
-				add_del_route(e->hna, e->netmask, orig_node->router->addr, orig_node->router->if_incoming->addr.sin_addr.s_addr,
-						orig_node->router->if_incoming->if_index, orig_node->router->if_incoming->dev,
+				add_del_route(e->hna, e->netmask, orig_node->router->addr,
+						orig_node->router->if_incoming->addr.sin_addr.s_addr,
+						orig_node->router->if_incoming->if_index,
+						orig_node->router->if_incoming->dev,
 						BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
 
 		}
@@ -402,12 +388,35 @@ void hna_global_update(struct orig_node *orig_node, unsigned char *new_hna,
 		e = &buf[i];
 
 		if ((e->netmask > 0) && (e->netmask <= 32) && (old_router != NULL))
-			add_del_route(e->hna, e->netmask, old_router->addr, old_router->if_incoming->addr.sin_addr.s_addr,
-						old_router->if_incoming->if_index, old_router->if_incoming->dev, BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
+			add_del_route(e->hna, e->netmask, old_router->addr,
+					old_router->if_incoming->addr.sin_addr.s_addr,
+					old_router->if_incoming->if_index,
+					old_router->if_incoming->dev,
+					BATMAN_RT_TABLE_NETWORKS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 	}
 
 	/* dispose old hna buffer now. */
 	if (old_hna != NULL)
 		debugFree(old_hna, 1101);
 
+}
+
+void hna_free(void)
+{
+	struct list_head *list_pos, *list_pos_tmp;
+	struct hna_local_entry *hna_local_entry;
+
+	/* hna local */
+	list_for_each_safe(list_pos, list_pos_tmp, &hna_list) {
+		hna_local_entry = list_entry(list_pos, struct hna_local_entry, list);
+		hna_local_update_routes(hna_local_entry, ROUTE_DEL);
+
+		debugFree(hna_local_entry, 1103);
+	}
+
+	if (hna_buff_local != NULL)
+		debugFree(hna_buff_local, 1104);
+
+	num_hna_local = 0;
+	hna_buff_local = NULL;
 }

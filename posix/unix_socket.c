@@ -151,7 +151,7 @@ void *unix_listen(void * BATMANUNUSED(arg)) {
 	struct unix_client *unix_client;
 	struct debug_level_info *debug_level_info;
 	struct list_head *list_pos, *unix_pos_tmp, *debug_pos, *debug_pos_tmp, *prev_list_head, *prev_list_head_unix;
-	struct hna_node *hna_node;
+	struct hna_task *hna_task;
 	struct batman_if *batman_if;
 	struct timeval tv;
 	struct sockaddr_un sun_addr;
@@ -436,10 +436,10 @@ void *unix_listen(void * BATMANUNUSED(arg)) {
 
 								list_for_each(debug_pos, &hna_list) {
 
-									hna_node = list_entry(debug_pos, struct hna_node, list);
+									hna_task = list_entry(debug_pos, struct hna_task, list);
 
-									addr_to_string(hna_node->addr, str, sizeof (str));
-									dprintf(unix_client->sock, " -a %s/%i", str, hna_node->netmask);
+									addr_to_string(hna_task->addr, str, sizeof (str));
+									dprintf(unix_client->sock, " -a %s/%i", str, hna_task->netmask);
 								}
 
 								if (debug_level != 0)
