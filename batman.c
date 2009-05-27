@@ -346,12 +346,10 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 	char orig_str[ADDR_STR_LEN], next_str[ADDR_STR_LEN];
 	struct neigh_node *old_router;
 
-	prof_start( PROF_update_routes );
-
+	prof_start(PROF_update_routes);
 	debug_output(4, "update_routes() \n");
 
 	old_router = orig_node->router;
-
 
 	/* also handles orig_node->router == NULL and neigh_node == NULL */
 	if ((orig_node != NULL) && (orig_node->router != neigh_node)) {
@@ -376,7 +374,7 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			orig_node->router = neigh_node;
 
 			/* add new announced network(s) */
-			hna_global_update(orig_node, hna_recv_buff, hna_buff_len, old_router);
+			hna_global_add(orig_node, hna_recv_buff, hna_buff_len);
 
 		/* route deleted */
 		} else if ((orig_node->router != NULL) && (neigh_node == NULL)) {
@@ -384,7 +382,7 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			debug_output(4, "Deleting previous route\n");
 
 			/* remove old announced network(s) */
-			hna_global_update(orig_node, NULL, 0, old_router);
+			hna_global_del(orig_node);
 
 			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index,
 					orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
@@ -771,10 +769,10 @@ int8_t batman(void)
 	struct batman_if *batman_if, *if_incoming;
 	struct forw_node *forw_node;
 	struct bat_packet *bat_packet;
-	uint32_t neigh, hna, netmask, debug_timeout, vis_timeout, select_timeout, curr_time;
+	uint32_t neigh, debug_timeout, vis_timeout, select_timeout, curr_time;
 	unsigned char in[2001], *hna_recv_buff;
 	char orig_str[ADDR_STR_LEN], neigh_str[ADDR_STR_LEN], ifaddr_str[ADDR_STR_LEN], prev_sender_str[ADDR_STR_LEN];
-	int16_t hna_buff_count, hna_buff_len, packet_len, curr_packet_len;
+	int16_t hna_buff_len, packet_len, curr_packet_len;
 	uint8_t forward_old, if_rp_filter_all_old, if_rp_filter_default_old, if_send_redirects_all_old, if_send_redirects_default_old;
 	uint8_t is_my_addr, is_my_orig, is_my_oldorig, is_broadcast, is_duplicate, is_bidirectional, has_directlink_flag;
 	int8_t res;
@@ -890,30 +888,6 @@ int8_t batman(void)
 
 			if (bat_packet->gwflags != 0)
 				debug_output(4, "Is an internet gateway (class %i) \n", bat_packet->gwflags);
-
-			if (hna_recv_buff != NULL) {
-
-				debug_output(4, "HNA information received (%i HNA network%s): \n", hna_buff_len / 5, (hna_buff_len / 5 > 1 ? "s": ""));
-				hna_buff_count = 0;
-
-				while ((hna_buff_count + 1) * 5 <= hna_buff_len) {
-
-					memmove(&hna, (uint32_t *)&hna_recv_buff[hna_buff_count * 5], 4);
-					netmask = (uint32_t)hna_recv_buff[(hna_buff_count * 5) + 4];
-
-					addr_to_string(hna, orig_str, sizeof(orig_str));
-
-					if ((netmask > 0 ) && (netmask < 33))
-						debug_output(4, "hna: %s/%i\n", orig_str, netmask);
-					else
-						debug_output(4, "hna: %s/%i -> ignoring (invalid netmask) \n", orig_str, netmask);
-
-					hna_buff_count++;
-
-				}
-
-			}
-
 
 			if (bat_packet->version != COMPAT_VERSION) {
 				debug_output(4, "Drop packet: incompatible batman version (%i) \n", bat_packet->version);

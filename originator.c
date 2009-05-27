@@ -230,7 +230,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 		update_gw_list( orig_node, in->gwflags, in->gwport );
 
 	orig_node->gwflags = in->gwflags;
-
+	hna_global_check_tq(orig_node);
 
 	/* restart gateway selection if we have more packets and fast or late switching enabled */
 	if ((routing_class > 2) && (orig_node->gwflags != 0) && (curr_gateway != NULL)) {
@@ -362,7 +362,7 @@ void purge_orig(uint32_t curr_time)
 						debug_output( 4, "Deleting previous route \n" );
 
 						/* remove old announced network(s) */
-						hna_global_update(orig_node, NULL, 0, orig_node->router);
+						hna_global_del(orig_node);
 
 						add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index, orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 

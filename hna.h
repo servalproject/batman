@@ -35,7 +35,7 @@ extern struct list_head_first hna_chg_list;
 
 struct hna_element
 {
-	uint32_t hna;
+	uint32_t addr;
 	uint8_t  netmask;
 } __attribute__((packed));
 
@@ -56,9 +56,16 @@ struct hna_local_entry
 
 struct hna_global_entry
 {
-	struct list_head list;
 	uint32_t addr;
 	uint8_t netmask;
+	struct orig_node *curr_orig_node;
+	struct list_head_first orig_list;
+} __attribute__((packed));
+
+struct hna_orig_ptr
+{
+	struct list_head list;
+	struct orig_node *orig_node;
 };
 
 void hna_init(void);
@@ -70,5 +77,8 @@ void hna_local_task_exec(void);
 unsigned char *hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size);
 void hna_local_update_routes(struct hna_local_entry *hna_local_entry, int8_t route_action);
 
+void hna_global_add(struct orig_node *orig_node, unsigned char *new_hna, int16_t new_hna_len);
 void hna_global_update(struct orig_node *orig_node, unsigned char *new_hna,
 				int16_t new_hna_len, struct neigh_node *old_router);
+void hna_global_check_tq(struct orig_node *orig_node);
+void hna_global_del(struct orig_node *orig_node);
