@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <inttypes.h>
+#include <net/if.h>
 
 #include "../os.h"
 #include "../batman.h"
@@ -35,6 +36,9 @@
 
 #define IOCGETNWDEV 1
 
+#ifndef SIOCGIWNAME
+#define SIOCGIWNAME 0x8B01
+#endif
 
 
 static int get_integer_file(const char* filename)
@@ -176,4 +180,21 @@ int32_t use_gateway_module(void)
 	}
 
 	return fd;
+}
+
+int is_wifi_interface(char *dev, int fd)
+{
+	struct ifreq int_req;
+	char *colon_ptr;
+
+	memset(&int_req, 0, sizeof (struct ifreq));
+	strncpy(int_req.ifr_name, dev, IFNAMSIZ - 1);
+
+	if ((colon_ptr = strchr(int_req.ifr_name, ':')) != NULL)
+		*colon_ptr = '\0';
+
+	if (ioctl(fd, SIOCGIWNAME, &int_req) >= 0)
+		return 1;
+
+	return 0;
 }

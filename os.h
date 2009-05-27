@@ -77,6 +77,7 @@ void set_forwarding( int32_t state );
 int32_t get_forwarding( void );
 int8_t bind_to_iface( int32_t sock, char *dev );
 int32_t use_gateway_module(void);
+int is_wifi_interface(char *dev, int fd);
 
 /* posix.c */
 void print_animation( void );

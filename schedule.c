@@ -49,6 +49,7 @@ void schedule_own_packet(struct batman_if *batman_if)
 	forw_node_new->own = 1;
 	forw_node_new->num_packets = 0;
 	forw_node_new->direct_link_flags = 0;
+	forw_node_new->in_if_num[forw_node_new->num_packets] = 255;
 
 	/* non-primary interfaces do not send hna information */
 	if ((num_hna_local > 0) && (batman_if->if_num == 0)) {
@@ -235,10 +236,13 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 	/* apply hop penalty */
 	bat_packet->tq = (bat_packet->tq * (TQ_MAX_VALUE - hop_penalty)) / (TQ_MAX_VALUE);
+
 	debug_output(4, "forwarding: tq_orig: %i, tq_avg: %i, tq_forw: %i, ttl_orig: %i, ttl_forw: %i \n", in->tq, tq_avg, bat_packet->tq, in->ttl - 1, bat_packet->ttl);
 
 	/* change sequence number to network order */
 	bat_packet->seqno = htons(bat_packet->seqno);
+
+	forw_node_new->in_if_num[forw_node_new->num_packets] = if_outgoing->if_num;
 
 	if (directlink)
 		bat_packet->flags = DIRECTLINK;
@@ -299,7 +303,6 @@ void send_outstanding_packets(uint32_t curr_time)
 		if (((directlink) && (bat_packet->ttl == 1)) ||
 			((forw_node->own) && (forw_node->if_outgoing->if_num > 0))) {
 
-
 			debug_output(4, "%s packet (originator %s, seqno %d, TTL %d) on interface %s\n", (forw_node->own ? "Sending own" : "Forwarding"), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, forw_node->if_outgoing->dev);
 
 			if (send_udp_packet(forw_node->pack_buff, forw_node->pack_buff_len, &forw_node->if_outgoing->broad, forw_node->if_outgoing->udp_send_sock, forw_node->if_outgoing) < 0)
@@ -328,7 +331,11 @@ void send_outstanding_packets(uint32_t curr_time)
 				if (curr_packet_num > 0)
 					addr_to_string(bat_packet->orig, orig_str, ADDR_STR_LEN);
 
-				debug_output(4, "%s %spacket (originator %s, seqno %d, TTL %d, IDF %s) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->ttl, (bat_packet->flags & DIRECTLINK ? "on" : "off"), batman_if->dev);
+				/* if the outgoing interface is a wifi interface and the incoming interface add extra penalty */
+				if ((batman_if->is_wifi_if) && (forw_node->in_if_num[curr_packet_num] == batman_if->if_num))
+					bat_packet->tq -= 2 * hop_penalty;
+
+				debug_output(4, "%s %spacket (originator %s, seqno %d, TQ %d, TTL %d, IDF %s) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->tq, bat_packet->ttl, (bat_packet->flags & DIRECTLINK ? "on" : "off"), batman_if->dev);
 
 				curr_packet_len += sizeof(struct bat_packet) + bat_packet->hna_len * 5;
 				curr_packet_num++;
