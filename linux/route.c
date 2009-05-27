@@ -85,7 +85,6 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 	inet_ntop(AF_INET, &router, str2, sizeof (str2));
 	inet_ntop(AF_INET, &src_ip, str3, sizeof(str3));
 
-
 	if (policy_routing_script != NULL) {
 		dprintf(policy_routing_pipe, "ROUTE %s %s %s %i %s %s %i %s %i\n", (route_action == ROUTE_DEL ? "del" : "add"), route_type_to_string_script[route_type], str1, netmask, str2, str3, ifi, dev, rt_table);
 		return;
@@ -780,6 +779,10 @@ int flush_routes_rules(int8_t is_rule)
 				rule_type = ROUTE_TYPE_UNKNOWN;
 				break;
 			}
+
+			/* sometimes dest and router are not reset */
+			if (rule_type == ROUTE_TYPE_UNREACHABLE)
+				dest = router = 0;
 
 			add_del_route(dest, rtm->rtm_dst_len, router, 0, ifi, "unknown", rtm->rtm_table, rule_type, ROUTE_DEL);
 		}
