@@ -207,6 +207,12 @@ void *client_to_gw_tun(void *arg)
 		goto out;
 	}
 
+	sock_opts = 1;
+        if (setsockopt(udp_sock, SOL_SOCKET, SO_REUSEADDR, &sock_opts, sizeof(sock_opts)) < 0) {
+               debug_output(0, "Error - can't set options on udp socket: %s\n", strerror(errno));
+		goto out;
+        }
+
 	if (bind(udp_sock, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in)) < 0) {
 		debug_output(0, "Error - can't bind tunnel socket: %s\n", strerror(errno));
 		goto udp_out;
