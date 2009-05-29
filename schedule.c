@@ -332,8 +332,8 @@ void send_outstanding_packets(uint32_t curr_time)
 					addr_to_string(bat_packet->orig, orig_str, ADDR_STR_LEN);
 
 				/* if the outgoing interface is a wifi interface and the incoming interface add extra penalty */
-				if ((batman_if->is_wifi_if) && (forw_node->in_if_num[curr_packet_num] == batman_if->if_num))
-					bat_packet->tq -= 2 * hop_penalty;
+				if ((batman_if->wifi_if) && (forw_node->in_if_num[curr_packet_num] == batman_if->if_num))
+					bat_packet->tq = (bat_packet->tq * (TQ_MAX_VALUE - (2 * hop_penalty))) / (TQ_MAX_VALUE);
 
 				debug_output(4, "%s %spacket (originator %s, seqno %d, TQ %d, TTL %d, IDF %s) on interface %s\n", (curr_packet_num > 0 ? "Forwarding" : (forw_node->own ? "Sending own" : "Forwarding")), (curr_packet_num > 0 ? "aggregated " : ""), orig_str, ntohs(bat_packet->seqno), bat_packet->tq, bat_packet->ttl, (bat_packet->flags & DIRECTLINK ? "on" : "off"), batman_if->dev);
 

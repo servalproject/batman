@@ -919,7 +919,7 @@ static void activate_interface(struct batman_if *batman_if)
 #else
 	batman_if->if_index = 0;
 #endif
-	batman_if->is_wifi_if = is_wifi_interface(batman_if->dev, batman_if->udp_recv_sock);
+	batman_if->wifi_if = is_wifi_interface(batman_if->dev, batman_if->udp_recv_sock);
 
 	if (ioctl(batman_if->udp_recv_sock, SIOCGIFNETMASK, &int_req) < 0) {
 
