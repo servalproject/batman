@@ -152,6 +152,7 @@
 
 
 #define BATMANUNUSED(x) (x)__attribute__((unused))
+#define ALIGN_WORD __attribute__ ((aligned(sizeof(TYPE_OF_WORD))))
 
 
 

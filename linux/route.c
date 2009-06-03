@@ -185,7 +185,7 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 		struct rtmsg rtm;
 		char buff[4 * (sizeof(struct rtattr) + 4)];
 	} *req;
-	char req_buf[NLMSG_LENGTH(sizeof(struct req_s))];
+	char req_buf[NLMSG_LENGTH(sizeof(struct req_s))] ALIGN_WORD;
 
 	iov.iov_base = buf;
 	iov.iov_len  = sizeof(buf);
@@ -369,7 +369,7 @@ void add_del_rule(uint32_t network, uint8_t netmask, int8_t rt_table, uint32_t p
 		struct rtmsg rtm;
 		char buff[2 * (sizeof(struct rtattr) + 4)];
 	} *req;
-	char req_buf[NLMSG_LENGTH(sizeof(struct req_s))];
+	char req_buf[NLMSG_LENGTH(sizeof(struct req_s))] ALIGN_WORD;
 
 	iov.iov_base = buf;
 	iov.iov_len  = sizeof(buf);
@@ -634,7 +634,7 @@ int flush_routes_rules(int8_t is_rule)
 	struct req_s {
 		struct rtmsg rtm;
 	} *req;
-	char req_buf[NLMSG_LENGTH(sizeof(struct req_s))];
+	char req_buf[NLMSG_LENGTH(sizeof(struct req_s))] ALIGN_WORD;
 
 	struct rtattr *rtap;
 

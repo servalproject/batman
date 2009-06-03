@@ -567,7 +567,7 @@ void *gw_listen(void *BATMANUNUSED(arg)) {
 	unsigned char buff[1501];
 	int32_t res, max_sock, buff_len, tun_fd, tun_ifi;
 	uint32_t addr_len, client_timeout, current_time;
-	uint8_t my_tun_ip[4], next_free_ip[4];
+	uint8_t my_tun_ip[4] ALIGN_WORD, next_free_ip[4] ALIGN_WORD;
 	struct hashtable_t *wip_hash, *vip_hash;
 	struct list_head_first free_ip_list;
 	fd_set wait_sockets, tmp_wait_sockets;
