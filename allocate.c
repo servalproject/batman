@@ -68,16 +68,32 @@ struct memoryUsage
 
 
 static size_t getHeaderPad() {
-	size_t pad = sizeof(uintmax_t) - (sizeof(struct chunkHeader) % sizeof(uintmax_t));
-	if (pad == sizeof(uintmax_t))
+	size_t alignwith, pad;
+
+	if (sizeof(TYPE_OF_WORD) > sizeof(void*))
+		alignwith = sizeof(TYPE_OF_WORD);
+	else
+		alignwith = sizeof(void*);
+
+	pad = alignwith - (sizeof(struct chunkHeader) % alignwith);
+
+	if (pad == alignwith)
 		return 0;
 	else
 		return pad;
 }
 
 static size_t getTrailerPad(size_t length) {
-	size_t pad = sizeof(uintmax_t) - (length % sizeof(uintmax_t));
-	if (pad == sizeof(uintmax_t))
+	size_t alignwith, pad;
+
+	if (sizeof(TYPE_OF_WORD) > sizeof(void*))
+		alignwith = sizeof(TYPE_OF_WORD);
+	else
+		alignwith = sizeof(void*);
+
+	pad = alignwith - (length % alignwith);
+
+	if (pad == alignwith)
 		return 0;
 	else
 		return pad;

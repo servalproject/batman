@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define TYPE_OF_WORD uintmax_t /* you should choose something big, if you don't want to waste cpu */
+
 #include "list-batman.h"
 #include "bitarray.h"
 #include "hash.h"
