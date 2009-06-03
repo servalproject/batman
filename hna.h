@@ -58,8 +58,8 @@ struct hna_global_entry
 {
 	uint32_t addr;
 	uint8_t netmask;
-	struct orig_node *curr_orig_node;
-	struct list_head_first orig_list;
+	struct orig_node *curr_orig_node ALIGN_POINTER;
+	struct list_head_first orig_list ALIGN_POINTER;
 } __attribute__((packed));
 
 struct hna_orig_ptr
