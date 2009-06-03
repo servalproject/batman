@@ -67,6 +67,44 @@ struct memoryUsage
 };
 
 
+static size_t getHeaderPad() {
+	size_t pad = sizeof(uintmax_t) - (sizeof(struct chunkHeader) % sizeof(uintmax_t));
+	if (pad == sizeof(uintmax_t))
+		return 0;
+	else
+		return pad;
+}
+
+static size_t getTrailerPad(size_t length) {
+	size_t pad = sizeof(uintmax_t) - (length % sizeof(uintmax_t));
+	if (pad == sizeof(uintmax_t))
+		return 0;
+	else
+		return pad;
+}
+
+static void fillPadding(unsigned char* padding, size_t length) {
+	unsigned char c = 0x00;
+	size_t i;
+
+	for (i = 0; i < length; i++) {
+		c += 0xA7;
+		padding[i] = c;
+	}
+}
+
+static int checkPadding(unsigned char* padding, size_t length) {
+	unsigned char c = 0x00;
+	size_t i;
+
+	for (i = 0; i < length; i++) {
+		c += 0xA7;
+		if (padding[i] != c)
+			return 0;
+	}
+	return 1;
+}
+
 static void addMemory( uint32_t length, int32_t tag ) {
 
 	struct memoryUsage *walker;
@@ -176,7 +214,7 @@ void checkIntegrity(void)
 
 		memory = (unsigned char *)walker;
 
-		chunkTrailer = (struct chunkTrailer *)(memory + sizeof(struct chunkHeader) + walker->length);
+		chunkTrailer = (struct chunkTrailer *)(memory + sizeof(struct chunkHeader) + getHeaderPad() + walker->length + getTrailerPad(walker->length));
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
@@ -209,7 +247,7 @@ void *debugMalloc(uint32_t length, int32_t tag)
 
 /* 	printf("sizeof(struct chunkHeader) = %u, sizeof (struct chunkTrailer) = %u\n", sizeof (struct chunkHeader), sizeof (struct chunkTrailer)); */
 
-	memory = malloc(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer));
+	memory = malloc(length + sizeof(struct chunkHeader) + sizeof(struct chunkTrailer) + getHeaderPad() + getTrailerPad(length));
 
 	if (memory == NULL)
 	{
@@ -218,8 +256,11 @@ void *debugMalloc(uint32_t length, int32_t tag)
 	}
 
 	chunkHeader = (struct chunkHeader *)memory;
-	chunk = memory + sizeof(struct chunkHeader);
-	chunkTrailer = (struct chunkTrailer *)(memory + sizeof(struct chunkHeader) + length);
+	chunk = memory + sizeof(struct chunkHeader) + getHeaderPad();
+	chunkTrailer = (struct chunkTrailer *)(memory + sizeof(struct chunkHeader) + length + getHeaderPad() + getTrailerPad(length));
+
+	fillPadding((unsigned char*)chunkHeader + sizeof(struct chunkHeader), getHeaderPad());
+	fillPadding(chunk + length, getTrailerPad(length));
 
 	chunkHeader->length = length;
 	chunkHeader->tag = tag;
@@ -251,7 +292,7 @@ void *debugRealloc(void *memoryParameter, uint32_t length, int32_t tag)
 
 	if (memoryParameter) { /* if memoryParameter==NULL, realloc() should work like malloc() !! */
 		memory = memoryParameter;
-		chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader));
+		chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader) - getHeaderPad());
 
 		if (chunkHeader->magicNumber != MAGIC_NUMBER)
 		{
@@ -259,11 +300,21 @@ void *debugRealloc(void *memoryParameter, uint32_t length, int32_t tag)
 			restore_and_exit(0);
 		}
 
-		chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length);
+		if (checkPadding(memory - getHeaderPad(), getHeaderPad()) == 0) {
+			debug_output( 0, "debugRealloc - invalid magic padding in header, malloc tag = %d\n", chunkHeader->tag );
+			restore_and_exit(0);
+		}
+
+		chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length + getTrailerPad(chunkHeader->length));
 
 		if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 		{
 			debug_output( 0, "debugRealloc - invalid magic number in trailer: %08x, malloc tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag );
+			restore_and_exit(0);
+		}
+
+		if (checkPadding(memory + chunkHeader->length, getTrailerPad(chunkHeader->length)) == 0) {
+			debug_output( 0, "debugRealloc - invalid magic padding in trailer, malloc tag = %d\n", chunkHeader->tag );
 			restore_and_exit(0);
 		}
 	}
@@ -292,11 +343,16 @@ void debugFree(void *memoryParameter, int tag)
 	struct chunkHeader *previous;
 
 	memory = memoryParameter;
-	chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader));
+	chunkHeader = (struct chunkHeader *)(memory - sizeof(struct chunkHeader) - getHeaderPad());
 
 	if (chunkHeader->magicNumber != MAGIC_NUMBER)
 	{
 		debug_output( 0, "debugFree - invalid magic number in header: %08x, malloc tag = %d, free tag = %d\n", chunkHeader->magicNumber, chunkHeader->tag, tag );
+		restore_and_exit(0);
+	}
+
+	if (checkPadding(memory - getHeaderPad(), getHeaderPad()) == 0) {
+		debug_output( 0, "debugFree - invalid magic padding in header, malloc tag = %d\n", chunkHeader->tag );
 		restore_and_exit(0);
 	}
 
@@ -326,11 +382,16 @@ void debugFree(void *memoryParameter, int tag)
 
 	pthread_mutex_unlock(&chunk_mutex);
 
-	chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length);
+	chunkTrailer = (struct chunkTrailer *)(memory + chunkHeader->length + getTrailerPad(chunkHeader->length));
 
 	if (chunkTrailer->magicNumber != MAGIC_NUMBER)
 	{
 		debug_output( 0, "debugFree - invalid magic number in trailer: %08x, malloc tag = %d, free tag = %d\n", chunkTrailer->magicNumber, chunkHeader->tag, tag );
+		restore_and_exit(0);
+	}
+
+	if (checkPadding(memory + chunkHeader->length, getTrailerPad(chunkHeader->length)) == 0) {
+		debug_output( 0, "debugFree - invalid magic padding in trailer, malloc tag = %d\n", chunkHeader->tag );
 		restore_and_exit(0);
 	}
 
