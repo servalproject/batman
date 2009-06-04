@@ -144,26 +144,33 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 			/* don't save aggregation position if aggregation is disabled */
 			forw_node_aggregate = forw_node_pos;
 
-			/* we can aggregate the current packet to this packet if:
-			- the send time is within our MAX_AGGREGATION_MS time
-			- the resulting packet wont be bigger than MAX_AGGREGATION_BYTES */
+			/**
+			 * we can aggregate the current packet to this packet if:
+			 * - the send time is within our MAX_AGGREGATION_MS time
+			 * - the resulting packet wont be bigger than MAX_AGGREGATION_BYTES
+			 */
 			if (((int)(forw_node_pos->send_time - send_time) < 0) &&
 				(forw_node_pos->pack_buff_len + sizeof(struct bat_packet) + hna_buff_len <= MAX_AGGREGATION_BYTES)) {
 
 				bat_packet = (struct bat_packet *)forw_node_pos->pack_buff;
 
-				/* if the base packet is sent via one interface only */
-				if (((bat_packet->flags & DIRECTLINK) && (bat_packet->ttl == 1)) ||
-					((forw_node_pos->own) && (forw_node_pos->if_outgoing->if_num > 0))) {
+				/**
+				 * check aggregation compability
+				 * -> direct link packets are broadcasted on their interface only
+				 * -> aggregation apcket if found if the current packet is a "global" packet
+				 *    as well as the base packet
+				 */
 
-					if ((directlink) && (in->ttl == 2) && (forw_node_pos->if_outgoing == if_outgoing))
-						break;
+				/* packets without direct link flag and high TTL are flooded through the net  */
+				if ((!directlink) && (!(bat_packet->flags & DIRECTLINK)) && (bat_packet->ttl != 1) &&
 
-				} else {
-
+				/* own packets originating non-primary interfaces leave only that interface */
+						((!forw_node_pos->own) || (forw_node_pos->if_outgoing->if_num == 0)))
 					break;
 
-				}
+				/* if the incoming packet is sent via this one interface only - we still can aggregate */
+				if ((directlink) && (in->ttl == 2) && (forw_node_pos->if_outgoing == if_outgoing))
+					break;
 
 			}
 
