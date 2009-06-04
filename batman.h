@@ -95,11 +95,8 @@
 #define TQ_HOP_PENALTY 5
 #define DEFAULT_ROUTING_CLASS 30
 
-/**
- * should not be bigger than 512 bytes or change the size of
- * forw_node->direct_link_flags and forw_node->in_if_num
- */
-#define MAX_AGGREGATION_BYTES 512
+
+#define MAX_AGGREGATION_BYTES 512 /* should not be bigger than 512 bytes or change the size of forw_node->direct_link_flags */
 #define MAX_AGGREGATION_MS 100
 
 #define ROUTE_TYPE_UNICAST          0
@@ -260,9 +257,8 @@ struct forw_node                 /* structure for forw_list maintaining packets 
 	unsigned char *pack_buff;
 	uint16_t  pack_buff_len;
 	uint32_t direct_link_flags;
-	uint8_t in_if_num[32];
 	uint8_t num_packets;
-	struct batman_if *if_outgoing;
+	struct batman_if *if_incoming;
 };
 
 struct gw_node
