@@ -30,9 +30,9 @@ http://www.open-mesh.net/wiki/Download to get an overview.
 Download and compile the latest stable sources from the download
 section http://www.open-mesh.net/wiki/Download by executing eg.:
 
-$ wget http://downloads.open-mesh.net/batman/releases/batman-0.3.1/batman-0.3.1.tar.gz
-$ tar xzvf batman-0.3.1.tar.gz
-$ cd batmand-0.3.1
+$ wget http://downloads.open-mesh.net/batman/releases/batman-0.3.2/batman-0.3.2.tar.gz
+$ tar xzvf batman-0.3.2.tar.gz
+$ cd batmand-0.3.2
 $ make
 
 After the compilation process is finished you'll find a executable
