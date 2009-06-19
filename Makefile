@@ -35,55 +35,55 @@ LDFLAGS +=	-lpthread
 
 SBINDIR =	$(INSTALL_PREFIX)/usr/sbin
 
-UNAME=		$(shell uname)
-POSIX_C=	posix/init.c posix/posix.c posix/tunnel.c posix/unix_socket.c
-BSD_C=		bsd/route.c bsd/tun.c bsd/kernel.c bsd/compat.c
+UNAME =		$(shell uname)
+POSIX_C =	posix/init.c posix/posix.c posix/tunnel.c posix/unix_socket.c
+BSD_C =		bsd/route.c bsd/tun.c bsd/kernel.c bsd/compat.c
 
 ifeq ($(UNAME),Linux)
-OS_C=		linux/route.c linux/tun.c linux/kernel.c $(POSIX_C)
+OS_C =		linux/route.c linux/tun.c linux/kernel.c $(POSIX_C)
 endif
 
 ifeq ($(UNAME),Darwin)
-OS_C=		$(BSD_C) $(POSIX_C)
+OS_C =		$(BSD_C) $(POSIX_C)
 endif
 
 ifeq ($(UNAME),GNU/kFreeBSD)
-OS_C=		$(BSD_C) $(POSIX_C)
-LDFLAGS+=	-lfreebsd -lbsd
+OS_C =		$(BSD_C) $(POSIX_C)
+LDFLAGS +=	-lfreebsd -lbsd
 endif
 
 ifeq ($(UNAME),FreeBSD)
-OS_C=		$(BSD_C) $(POSIX_C)
+OS_C =		$(BSD_C) $(POSIX_C)
 endif
 
 ifeq ($(UNAME),OpenBSD)
-OS_C=		$(BSD_C) $(POSIX_C)
+OS_C =		$(BSD_C) $(POSIX_C)
 endif
 
-LOG_BRANCH=	trunk/batman
+LOG_BRANCH =	trunk/batman
 
-SRC_FILES=	"\(\.c\)\|\(\.h\)\|\(Makefile\)\|\(INSTALL\)\|\(LIESMICH\)\|\(README\)\|\(THANKS\)\|\(TRASH\)\|\(Doxyfile\)\|\(./posix\)\|\(./linux\)\|\(./bsd\)\|\(./man\)\|\(./doc\)"
+SRC_FILES = "\(\.c\)\|\(\.h\)\|\(Makefile\)\|\(INSTALL\)\|\(LIESMICH\)\|\(README\)\|\(THANKS\)\|\(TRASH\)\|\(Doxyfile\)\|\(./posix\)\|\(./linux\)\|\(./bsd\)\|\(./man\)\|\(./doc\)"
 
 SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c ring_buffer.c hna.c $(OS_C)
 SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h vis-types.h ring_buffer.h hna.h
 SRC_O= $(SRC_C:.c=.o)
 
-PACKAGE_NAME=	batmand
-BINARY_NAME=	batmand
-SOURCE_VERSION_HEADER= batman.h
+PACKAGE_NAME =	batmand
+BINARY_NAME =	batmand
+SOURCE_VERSION_HEADER = batman.h
 
-REVISION:=	$(shell if [ -d .svn ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
-REVISION_VERSION=\"\ rv$(REVISION)\"
+REVISION :=	$(shell if [ -d .svn ]; then svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'; else if [ -d ~/.svk ]; then echo $$(svk info | grep "Mirrored From" | awk '{print $$5}'); fi; fi)
+REVISION_VERSION =\"\ rv$(REVISION)\"
 
-BAT_VERSION=	$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
-FILE_NAME=	$(PACKAGE_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
+BAT_VERSION =	$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
+FILE_NAME =	$(PACKAGE_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
 NUM_CPUS = $(shell NUM_CPUS=`cat /proc/cpuinfo | grep -v 'model name' | grep processor | tail -1 | awk -F' ' '{print $$3}'`;echo `expr $$NUM_CPUS + 1`)
 
 
 all:
 	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
-$(BINARY_NAME):	$(SRC_O) $(SRC_H) Makefile
+$(BINARY_NAME): $(SRC_O) $(SRC_H) Makefile
 	$(Q_LD)$(CC) -o $@ $(SRC_O) $(LDFLAGS)
 
 .c.o:
