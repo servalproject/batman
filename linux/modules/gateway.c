@@ -503,15 +503,31 @@ static int packet_recv_thread(void *data)
 }
 
 /* bat_netdev part */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+static const struct net_device_ops bat_netdev_ops = {
+	.ndo_open = bat_netdev_open,
+	.ndo_stop = bat_netdev_close,
+	.ndo_start_xmit = bat_netdev_xmit,
+	.ndo_set_mac_address = eth_mac_addr,
+	.ndo_change_mtu = eth_change_mtu
+};
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29) */
 
 static void bat_netdev_setup( struct net_device *dev )
 {
 	struct gate_priv *priv;
 
 	ether_setup(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
 	dev->open = bat_netdev_open;
 	dev->stop = bat_netdev_close;
 	dev->hard_start_xmit = bat_netdev_xmit;
+#ifdef HAVE_VALIDATE_ADDR
+	dev->validate_addr = NULL;
+#endif
+#else
+	dev->netdev_ops = &bat_netdev_ops;
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29) */
 	dev->destructor = free_netdev;
 
 	dev->features        |= NETIF_F_NO_CSUM;
@@ -520,9 +536,6 @@ static void bat_netdev_setup( struct net_device *dev )
 #endif
 	dev->mtu = 1471;
 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-#ifdef HAVE_VALIDATE_ADDR
-	dev->validate_addr = NULL;
-#endif
 
 	priv = netdev_priv( dev );
 	memset( priv, 0, sizeof( struct gate_priv ) );
