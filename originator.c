@@ -149,85 +149,60 @@ struct orig_node *get_orig_node( uint32_t addr ) {
 
 
 
-void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate, uint32_t curr_time ) {
-
+void update_orig(struct orig_node *orig_node, struct bat_packet *in, uint32_t neigh, struct batman_if *if_incoming, unsigned char *hna_recv_buff, int16_t hna_buff_len, uint8_t is_duplicate, uint32_t curr_time)
+{
 	struct list_head *list_pos;
 	struct gw_node *gw_node;
-	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL, *best_neigh_node = NULL;
-	uint8_t max_bcast_own = 0, max_tq = 0;
-	prof_start( PROF_update_originator );
+	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
+	prof_start(PROF_update_originator);
 
+	debug_output(4, "update_originator(): Searching and updating originator entry of received packet,  \n");
 
-	debug_output( 4, "update_originator(): Searching and updating originator entry of received packet,  \n" );
+	list_for_each(list_pos, &orig_node->neigh_list) {
+		tmp_neigh_node = list_entry(list_pos, struct neigh_node, list);
 
-
-	list_for_each( list_pos, &orig_node->neigh_list ) {
-
-		tmp_neigh_node = list_entry( list_pos, struct neigh_node, list );
-
-		if ( ( tmp_neigh_node->addr == neigh ) && ( tmp_neigh_node->if_incoming == if_incoming ) ) {
-
+		if ((tmp_neigh_node->addr == neigh ) && (tmp_neigh_node->if_incoming == if_incoming)) {
 			neigh_node = tmp_neigh_node;
-
-		} else {
-
-			if ( !is_duplicate ) {
-
-				ring_buffer_set(tmp_neigh_node->tq_recv, &tmp_neigh_node->tq_index, 0);
-				tmp_neigh_node->tq_avg = ring_buffer_avg(tmp_neigh_node->tq_recv);
-
-			}
-
-			/* if we got have a better tq value via this neighbour or same tq value if it is currently our best neighbour (to avoid route flipping) */
-			if ( ( tmp_neigh_node->tq_avg > max_tq ) || ( ( tmp_neigh_node->tq_avg == max_tq ) && ( tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == tmp_neigh_node ) && ( tmp_neigh_node->tq_avg == max_tq ) ) ) {
-
-				max_tq = tmp_neigh_node->tq_avg;
-				max_bcast_own = tmp_neigh_node->orig_node->bcast_own_sum[if_incoming->if_num];
-				best_neigh_node = tmp_neigh_node;
-
-			}
-
+			continue;
 		}
 
+		if (is_duplicate)
+			continue;
+
+		ring_buffer_set(tmp_neigh_node->tq_recv, &tmp_neigh_node->tq_index, 0);
+		tmp_neigh_node->tq_avg = ring_buffer_avg(tmp_neigh_node->tq_recv);
 	}
 
-	if ( neigh_node == NULL ) {
-
+	if (!neigh_node)
 		neigh_node = create_neighbor(orig_node, get_orig_node(neigh), neigh, if_incoming);
-
-	} else {
-
-		debug_output( 4, "Updating existing last-hop neighbour of originator\n" );
-
-	}
+	else
+		debug_output(4, "Updating existing last-hop neighbour of originator\n");
 
 	neigh_node->last_valid = curr_time;
 
 	ring_buffer_set(neigh_node->tq_recv, &neigh_node->tq_index, in->tq);
 	neigh_node->tq_avg = ring_buffer_avg(neigh_node->tq_recv);
 
-/* 	is_new_seqno = bit_get_packet( neigh_node->seq_bits, in->seqno - orig_node->last_seqno, 1 );
- 	is_new_seqno = ! get_bit_status( neigh_node->real_bits, orig_node->last_real_seqno, in->seqno ); */
-
-
-	if ( !is_duplicate ) {
-
+	if (!is_duplicate) {
 		orig_node->last_ttl = in->ttl;
 		neigh_node->last_ttl = in->ttl;
-
 	}
 
-	if ( ( neigh_node->tq_avg > max_tq ) || ( ( neigh_node->tq_avg == max_tq ) && ( neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > max_bcast_own ) ) || ( ( orig_node->router == neigh_node ) && ( neigh_node->tq_avg == max_tq ) ) ) {
+	/**
+	 * if we got have a better tq value via this neighbour or
+	 * same tq value but the link is more symetric change the next hop
+	 * router
+	 */
+	if ((orig_node->router != neigh_node) && ((!orig_node->router) ||
+	    (neigh_node->tq_avg > orig_node->router->tq_avg) ||
+	    ((neigh_node->tq_avg == orig_node->router->tq_avg) &&
+	     (neigh_node->orig_node->bcast_own_sum[if_incoming->if_num] > orig_node->router->orig_node->bcast_own_sum[if_incoming->if_num]))))
+		update_routes(orig_node, neigh_node, hna_recv_buff, hna_buff_len);
+	else
+		update_routes(orig_node, orig_node->router, hna_recv_buff, hna_buff_len);
 
-		best_neigh_node = neigh_node;
-
-	}
-
-	/* update routing table and check for changed hna announcements */
-	update_routes( orig_node, best_neigh_node, hna_recv_buff, hna_buff_len );
-
-	if ( orig_node->gwflags != in->gwflags )
-		update_gw_list( orig_node, in->gwflags, in->gwport );
+	if (orig_node->gwflags != in->gwflags)
+		update_gw_list(orig_node, in->gwflags, in->gwport);
 
 	orig_node->gwflags = in->gwflags;
 	hna_global_check_tq(orig_node);
@@ -269,8 +244,7 @@ void update_orig( struct orig_node *orig_node, struct bat_packet *in, uint32_t n
 
 	}
 
-	prof_stop( PROF_update_originator );
-
+	prof_stop(PROF_update_originator);
 }
 
 
