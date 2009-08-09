@@ -27,13 +27,12 @@
 #include <stdio.h>
 #include <errno.h>
 
-
 #include "os.h"
 #include "batman.h"
 #include "originator.h"
 #include "schedule.h"
 #include "hna.h"
-
+#include "types.h"
 
 
 uint8_t debug_level = 0;

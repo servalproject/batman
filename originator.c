@@ -28,7 +28,7 @@
 #include "batman.h"
 #include "originator.h"
 #include "hna.h"
-
+#include "types.h"
 
 struct neigh_node * create_neighbor(struct orig_node *orig_node, struct orig_node *orig_neigh_node, uint32_t neigh, struct batman_if *if_incoming) {
 
