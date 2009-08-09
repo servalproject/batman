@@ -170,7 +170,6 @@ void hna_local_task_add_str(char *hna_string, uint8_t route_action, uint8_t runt
 
 static void hna_local_buffer_fill(void)
 {
-	struct list_head *list_pos;
 	struct hna_local_entry *hna_local_entry;
 
 	if (hna_buff_local != NULL)
@@ -182,8 +181,7 @@ static void hna_local_buffer_fill(void)
 	if (list_empty(&hna_list))
 		return;
 
-	list_for_each(list_pos, &hna_list) {
-		hna_local_entry = list_entry(list_pos, struct hna_local_entry, list);
+	list_for_each_entry(hna_local_entry, &hna_list, list) {
 		hna_buff_local = debugRealloc(hna_buff_local, (num_hna_local + 1) * 5 * sizeof(unsigned char), 15);
 
 		memmove(&hna_buff_local[num_hna_local * 5], (unsigned char *)&hna_local_entry->addr, 4);
@@ -275,16 +273,13 @@ unlock_chg_list:
 
 unsigned char *hna_local_update_vis_packet(unsigned char *vis_packet, uint16_t *vis_packet_size)
 {
-	struct list_head *list_pos;
 	struct hna_local_entry *hna_local_entry;
 	struct vis_data *vis_data;
 
 	if (num_hna_local < 1)
 		return vis_packet;
 
-	list_for_each(list_pos, &hna_list) {
-		hna_local_entry = list_entry(list_pos, struct hna_local_entry, list);
-
+	list_for_each_entry(hna_local_entry, &hna_list, list) {
 		*vis_packet_size += sizeof(struct vis_data);
 
 		vis_packet = debugRealloc(vis_packet, *vis_packet_size, 107);
@@ -313,7 +308,6 @@ void hna_local_update_routes(struct hna_local_entry *hna_local_entry, int8_t rou
 
 static void _hna_global_add(struct orig_node *orig_node, struct hna_element *hna_element)
 {
-	struct list_head *list_pos;
 	struct hna_global_entry *hna_global_entry;
 	struct hna_orig_ptr *hna_orig_ptr = NULL;
 	struct orig_node *old_orig_node = NULL;
@@ -349,9 +343,7 @@ static void _hna_global_add(struct orig_node *orig_node, struct hna_element *hna
 	if (hna_global_entry->curr_orig_node == orig_node)
 		return;
 
-	list_for_each(list_pos, &hna_global_entry->orig_list) {
-		hna_orig_ptr = list_entry(list_pos, struct hna_orig_ptr, list);
-
+	list_for_each_entry(hna_orig_ptr, &hna_global_entry->orig_list, list) {
 		if (hna_orig_ptr->orig_node == orig_node)
 			break;
 
