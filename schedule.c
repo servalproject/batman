@@ -154,7 +154,7 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 				bat_packet = (struct bat_packet *)forw_node_pos->pack_buff;
 
 				/**
-				 * check aggregation compability
+				 * check aggregation compatibility
 				 * -> direct link packets are broadcasted on their interface only
 				 * -> aggregate packet if the current packet is a "global" packet
 				 *    as well as the base packet
