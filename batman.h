@@ -76,7 +76,7 @@
 #define TTL 50                /* Time To Live of broadcast messages */
 #define PURGE_TIMEOUT 200000u  /* purge originators after time in ms if no valid packet comes in -> TODO: check influence on TQ_LOCAL_WINDOW_SIZE */
 #define TQ_LOCAL_WINDOW_SIZE 64     /* sliding packet range of received originator messages in squence numbers (should be a multiple of our word size) */
-#define TQ_GLOBAL_WINDOW_SIZE 5
+#define TQ_GLOBAL_WINDOW_SIZE 10
 #define TQ_LOCAL_BIDRECT_SEND_MINIMUM 1
 #define TQ_LOCAL_BIDRECT_RECV_MINIMUM 1
 #define TQ_TOTAL_BIDRECT_LIMIT 1
