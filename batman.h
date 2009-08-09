@@ -38,7 +38,6 @@
 #include "hash.h"
 #include "allocate.h"
 #include "profile.h"
-#include "vis-types.h"
 #include "ring_buffer.h"
 
 #define SOURCE_VERSION "0.4-alpha" /* put exactly one distinct word inside the string like "0.3-pre-alpha" or "0.3-rc1" or "0.3" */

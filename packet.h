@@ -20,6 +20,11 @@
  */
 
 #define COMPAT_VERSION 5
+#define VIS_COMPAT_VERSION 23
+
+#define DATA_TYPE_NEIGH 1
+#define DATA_TYPE_SEC_IF 2
+#define DATA_TYPE_HNA 3
 
 #define PORT 4305
 #define GW_PORT 4306
@@ -38,4 +43,17 @@ struct bat_packet
 	uint32_t prev_sender;
 	uint8_t tq;
 	uint8_t hna_len;
+} __attribute__((packed));
+
+struct vis_packet {
+	uint32_t sender_ip;
+	uint8_t version;
+	uint8_t gw_class;
+	uint8_t tq_max;
+} __attribute__((packed));
+
+struct vis_data {
+	uint8_t type;
+	uint8_t data;
+	uint32_t ip;
 } __attribute__((packed));

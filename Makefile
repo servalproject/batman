@@ -65,7 +65,7 @@ LOG_BRANCH =	trunk/batman
 SRC_FILES = "\(\.c\)\|\(\.h\)\|\(Makefile\)\|\(INSTALL\)\|\(LIESMICH\)\|\(README\)\|\(THANKS\)\|\(TRASH\)\|\(Doxyfile\)\|\(./posix\)\|\(./linux\)\|\(./bsd\)\|\(./man\)\|\(./doc\)"
 
 SRC_C= batman.c originator.c schedule.c list-batman.c allocate.c bitarray.c hash.c profile.c ring_buffer.c hna.c $(OS_C)
-SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h packet.h types.h vis-types.h ring_buffer.h hna.h
+SRC_H= batman.h originator.h schedule.h list-batman.h os.h allocate.h bitarray.h hash.h profile.h packet.h types.h ring_buffer.h hna.h
 SRC_O= $(SRC_C:.c=.o)
 
 PACKAGE_NAME =	batmand
