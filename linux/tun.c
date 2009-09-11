@@ -40,6 +40,9 @@
 #define IPTABLES_ADD_MASQ "iptables -t nat -A POSTROUTING -o %s -j MASQUERADE"
 #define IPTABLES_DEL_MASQ "iptables -t nat -D POSTROUTING -o %s -j MASQUERADE"
 
+#define IPTABLES_ADD_MSS "iptables -t mangle -I POSTROUTING -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu"
+#define IPTABLES_DEL_MSS "iptables -t mangle -D POSTROUTING -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu"
+
 #define IPTABLES_ADD_ACC "iptables -t nat -I POSTROUTING -s %s/%i -j ACCEPT"
 #define IPTABLES_DEL_ACC "iptables -t nat -D POSTROUTING -s %s/%i -j ACCEPT"
 
@@ -101,16 +104,22 @@ void exec_iptables_rule(char *cmd, int8_t route_action) {
 }
 
 void add_nat_rule(char *dev) {
-	char cmd[100];
+	char cmd[150];
 
 	sprintf(cmd, IPTABLES_ADD_MASQ, dev);
+	exec_iptables_rule(cmd, ROUTE_ADD);
+
+	sprintf(cmd, IPTABLES_ADD_MSS, dev);
 	exec_iptables_rule(cmd, ROUTE_ADD);
 }
 
 void del_nat_rule(char *dev) {
-	char cmd[100];
+	char cmd[150];
 
 	sprintf(cmd, IPTABLES_DEL_MASQ, dev);
+	exec_iptables_rule(cmd, ROUTE_DEL);
+
+	sprintf(cmd, IPTABLES_ADD_MSS, dev);
 	exec_iptables_rule(cmd, ROUTE_DEL);
 }
 
