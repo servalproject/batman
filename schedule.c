@@ -230,10 +230,10 @@ void schedule_forward_packet(struct orig_node *orig_node, struct bat_packet *in,
 
 		/* rebroadcast ogm of best ranking neighbor as is */
 		if (orig_node->router->addr != neigh) {
-
 			bat_packet->tq = orig_node->router->tq_avg;
-			bat_packet->ttl = orig_node->router->last_ttl - 1;
 
+			if (orig_node->router->last_ttl)
+				bat_packet->ttl = orig_node->router->last_ttl - 1;
 		}
 
 		tq_avg = orig_node->router->tq_avg;
