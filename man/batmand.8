@@ -66,7 +66,7 @@ Note that debug level 5 can be disabled at compile time.
 .RE
 .TP
 .B \-g gateway class
-The gateway class is used to tell other nodes in the network your available internet bandwidth. Just enter any number (optionally followed by "kbit" or "mbit") and the daemon will guess your appropriate gateway class. Use "/" to seperate the down\(hy and upload rates. You can omit the upload rate and batmand will assume an upload of download / 5.
+The gateway class is used to tell other nodes in the network your available internet bandwidth. Just enter any number (optionally followed by "kbit" or "mbit") and the daemon will guess your appropriate gateway class. Use "/" to separate the down\(hy and upload rates. You can omit the upload rate and batmand will assume an upload of download / 5.
 .RS 17
 default: 0 \-> gateway disabled
 .RE
@@ -85,7 +85,7 @@ allowed values: 5000
 .TP
 .B \-H verbose help
 .TP
-.B \-o orginator interval in ms
+.B \-o originator interval in ms
 A node transmits broadcast messages (we call them originator message or OGM) to inform the neighboring nodes about it's existence.
 Originator interval is the time to wait after sending one message and before sending the next message. The default value is 1000 ms (1 second).
 In a mobile network, you may want to detect network changes very quickly, so you need to send message very often, for example, use a value of 500 ms.
@@ -93,10 +93,10 @@ In a static network, you can save bandwidth by using a higher value.
 This option is only available in daemon mode.
 .TP
 .B \-p preferred gateway
-Set the internet gateway by yourself. Note: This automatically switches your daemon to "internet search modus" with "\-r 1" unless "\-r" is given. If the preferred gateway is not found the gateway selection will use the current routing class to choose a gateway.
+Set the internet gateway by yourself. Note: This automatically switches your daemon to "internet search mode" with "\-r 1" unless "\-r" is given. If the preferred gateway is not found the gateway selection will use the current routing class to choose a gateway.
 .TP
 .B \-r routing class
-The routing class can be set to four values \(hy it enables "internet search modus". The deamon will choose an internet gateway based on certain criteria (unless "\-p" is specified):
+The routing class can be set to four values \(hy it enables "internet search mode". The daemon will choose an internet gateway based on certain criteria (unless "\-p" is specified):
 .RS 17
 default: 0 \-> set no default route
 .RE
