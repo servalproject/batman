@@ -109,7 +109,7 @@ allowed values: 1 \-> use fast connection
  XX \-> use late\(hyswitch connection
 .RE
 .RS 7
-In level 1, B.A.T.M.A.N tries to find the best available connection by watching the uplinks throughput and the link quality.
+In level 1, B.A.T.M.A.N tries to find the best available connection by considering the gateway's advertised throughput as well as the link quality towards the gateway.
 In level 2, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best link quality.
 In level 3, B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best link quality but switches to another gateway as soon as a better connection is found.
 In level XX (number between 3 and 256) B.A.T.M.A.N compares the link quality of the internet node and chooses the one with the best link quality but switches to another gateway as soon as this gateway has a TQ value which is XX better than the currently selected gateway.
