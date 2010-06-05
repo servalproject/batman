@@ -482,7 +482,7 @@ void update_gw_list(struct orig_node *orig_node, uint8_t new_gwflags, uint16_t g
 void get_gw_speeds(unsigned char gw_class, int *down, int *up)
 {
 	char sbit = (gw_class & 0x80) >> 7;
-	char dpart = (gw_class & 0x7C) >> 3;
+	char dpart = (gw_class & 0x78) >> 3;
 	char upart = (gw_class & 0x07);
 
 	*down = 32 * (sbit + 2) * (1 << dpart);
