@@ -44,9 +44,8 @@
 #define ADDR_STR_LEN 16
 #define TQ_MAX_VALUE 255
 
-#define UNIX_PATH "/var/run/batmand.socket"
-
-
+#define UNIX_PATH "/data/data/org.servalproject/var/batmand.socket"
+#define PEER_PATH "/data/data/org.servalproject/var/batmand.peers"
 
 /***
  *

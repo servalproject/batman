@@ -19,11 +19,16 @@
  *
  */
 
-
+struct reachable_peer {
+  unsigned char addr_len;
+  unsigned char addr[32];
+  unsigned char tq_avg;
+};
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "os.h"
 #include "batman.h"
 #include "originator.h"
@@ -459,6 +464,119 @@ void debug_orig(void) {
 
 		debug_output( 2, "EOD\n" );
 
+	}
+
+	/* PGS 20110314 - Write list of peers out to a file.  
+	   Toggle where we write in the file so that there is always a consistent copy on disk.
+	   XXX - Does not make sure the early-half version doesn't get too big and overwrite the late-half version.
+
+	 */
+	if (1)
+	{
+	  FILE *f=fopen(PEER_PATH,"r+");
+	  struct reachable_peer p;
+	  unsigned int peers=0;
+
+	  if (!f) f=fopen(PEER_PATH,"w+");
+
+	  if (!f) 
+	    {
+	      perror("Couldn't fopen PEER_PATH");
+	    }
+	  else
+	    {
+	    unsigned int offset;
+	    if (fread(&offset,sizeof(int),1,f)==1)
+	      {
+		offset=ntohl(offset);
+		offset^=0x20000;
+		if (fseek(f,offset,SEEK_SET))
+		  perror("fseek() failed writing to peer list file");
+	      }
+	    else
+	      /* Initial writing offset */
+	      offset=0x100;
+	    
+	    unsigned int t=htonl(time(0));
+	    if (fwrite(&t,sizeof(int),1,f)!=1) {
+	      /* Dang it, couldn't write the timestamp */
+	    }
+
+	    while ( NULL != ( hashit = hash_iterate( orig_hash, hashit ) ) ) {
+
+	      orig_node = hashit->bucket->data;
+	      
+	      if ( orig_node->router == NULL )
+		{
+		  continue;
+		}
+
+	      /* Build record to write to file:
+	         Address length (0 for last record in file)
+	         Address
+	         TQ_AVG (i.e. link score)
+	      */
+	      p.addr_len=4;
+	      bzero(&p.addr[0],32);
+	      bcopy((unsigned char *)&orig_node->orig,&p.addr[0],4);
+	      p.tq_avg=orig_node->router->tq_avg;
+	      peers++;
+
+	      /* Write to file */
+	      if (fwrite(&p,sizeof(p),1,f)!=1)
+		{
+		  /* Dang it, the record didn't get written */
+		}
+	    }
+
+#ifdef _POSIX_SYNCHRONIZED_IO
+#if _POSIX_SYNCHRONIZED_IO > 0
+	    fdatasync(fileno(f));
+#else
+	    fsync(fileno(f));
+#endif
+#else
+	    fsync(fileno(f));
+#endif
+	    /* Mark end of data with an empty record */
+	    p.addr_len=0;
+	    bzero(&p.addr[0],32);
+	    p.tq_avg=0;
+	    /* Write to file */
+	    if (fwrite(&p,sizeof(p),1,f)!=1)
+	      {
+		/* Dang it, the record didn't get written */
+	      }
+
+	    /* Update offset toggle */
+	    if (fseek(f,0,SEEK_SET)==0) {
+	      offset=htonl(offset);
+	      if (fwrite(&offset,sizeof(int),1,f)!=1)
+		{
+		  /* Dang it, couldn't write the offset */
+		}
+	    }
+	    else 
+	      {
+		/* Dang it, couldn't seek back to start of file */
+	      }
+
+	    /* Update peer count */
+	    if (fseek(f,4,SEEK_SET)==0) {
+	      peers=htonl(peers);
+	      if (fwrite(&peers,sizeof(int),1,f)!=1)
+		{
+		  /* Dang it, couldn't write the peer count */
+		}
+	    }
+	    else 
+	      {
+		/* Dang it, couldn't seek back to start of file */
+	      }
+
+
+	    fclose(f);
+	  }
 	}
 
 	if ( ( debug_clients.clients_num[0] > 0 ) || ( debug_clients.clients_num[3] > 0 ) ) {
