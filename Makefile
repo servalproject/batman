@@ -31,7 +31,7 @@ NO_POLICY_ROUTING = -DNO_POLICY_ROUTING
 CC =		gcc
 CFLAGS +=	-pedantic -Wall -W -Os -g3 -std=gnu99
 EXTRA_CFLAGS =	-DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA $(NO_POLICY_ROUTING) -DREVISION_VERSION=$(REVISION_VERSION)
-LDFLAGS +=	-lpthread -static
+LDFLAGS +=	-lpthread -Xlinker -I/data/data/org.servalproject/lib/ld-linux.so.3 -R/data/data/org.servalproject/lib -Xlinker -rpath=/data/data/org.servalproject/lib
 
 SBINDIR =	$(INSTALL_PREFIX)/usr/sbin
 
