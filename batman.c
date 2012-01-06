@@ -399,6 +399,15 @@ void update_routes(struct orig_node *orig_node, struct neigh_node *neigh_node, u
 			add_del_route(orig_node->orig, 32, orig_node->router->addr, 0, orig_node->batman_if->if_index,
 					orig_node->batman_if->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_DEL);
 
+#ifdef NO_POLICY_ROUTING
+			/* add new route AGAIN, if not using policy based routing as the process of deleting the old route can actually delete the new route
+			 as well. */
+			add_del_route(orig_node->orig, 32, neigh_node->addr, neigh_node->if_incoming->addr.sin_addr.s_addr,
+					neigh_node->if_incoming->if_index, neigh_node->if_incoming->dev, BATMAN_RT_TABLE_HOSTS, ROUTE_TYPE_UNICAST, ROUTE_ADD);
+
+
+#endif
+
 
 			orig_node->batman_if = neigh_node->if_incoming;
 			orig_node->router = neigh_node;
