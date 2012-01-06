@@ -74,6 +74,24 @@ static const char *rule_type_to_string_script[] = {
 
 #include <net/route.h>
 
+int sa2s_rotor=0;
+char sa2s_ret[4][64];
+char *sockaddr2str(struct sockaddr sa)
+{
+  sa2s_rotor++; sa2s_rotor&=3;
+  
+  struct sockaddr_in *in=(struct sockaddr_in *)&sa;
+
+  snprintf(sa2s_ret[sa2s_rotor],64,"%d:%d.%d.%d.%d",
+	   in->sin_family,
+	   (in->sin_addr.s_addr>> 0)&0xff,
+	   (in->sin_addr.s_addr>> 8)&0xff,
+	   (in->sin_addr.s_addr>>16)&0xff,
+	   (in->sin_addr.s_addr>>32)&0xff);
+
+  return sa2s_ret[sa2s_rotor];
+}
+
 void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src_ip, int32_t ifi, char *dev, uint8_t rt_table, int8_t route_type, int8_t route_action)
 {
 	struct rtentry route;
@@ -108,6 +126,10 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 	route.rt_flags = (netmask == 32 ? (RTF_HOST | RTF_UP) : RTF_UP);
 	route.rt_metric = 1;
 
+	/* Make sure gateway field address type is set *
+	addr = (struct sockaddr_in *)&route.rt_gateway;
+	addr->sin_family = AF_INET;
+
 	/* adding default route */
 	if ((router == dest) && (dest == 0)) {
 
@@ -134,6 +156,7 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 
 		addr->sin_family = AF_INET;
 		addr->sin_addr.s_addr = router;
+		route.rt_flags|=RTF_GATEWAY;
 
 		debug_output(3, "%s %s to %s/%i via %s (%s)\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), route_type_to_string[route_type], str1, netmask, str2, dev);
 		debug_output(4, "%s %s to %s/%i via %s (%s)\n", (route_action == ROUTE_DEL ? "Deleting" : "Adding"), route_type_to_string[route_type], str1, netmask, str2, dev);
@@ -146,6 +169,12 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 		debug_output(0, "Error - can't create socket for routing table manipulation: %s\n", strerror(errno));
 		return;
 	}
+
+	debug_output(3,"%s rt.dst=%s, rt.genmask=%s, rt.gateway=%s\n",
+		     (route_action==ROUTE_DEL ? "ROUTE_DEL" : "ROUTE_ADD"),
+		     sockaddr2str(route.rt_dst),
+		     sockaddr2str(route.rt_genmask),
+		     sockaddr2str(route.rt_gateway));
 
 	if (ioctl(sock, (route_action == ROUTE_DEL ? SIOCDELRT : SIOCADDRT), &route) < 0)
 		debug_output(0, "Error - can't %s route to %s/%i via %s: %s\n", (route_action == ROUTE_DEL ? "delete" : "add"), str1, netmask, str2, strerror(errno));
