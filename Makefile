@@ -31,7 +31,7 @@ NO_POLICY_ROUTING = -DNO_POLICY_ROUTING
 CC =		gcc
 CFLAGS +=	-pedantic -Wall -W -Os -g3 -std=gnu99
 EXTRA_CFLAGS =	-DDEBUG_MALLOC -DMEMORY_USAGE -DPROFILE_DATA $(NO_POLICY_ROUTING) -DREVISION_VERSION=$(REVISION_VERSION)
-LDFLAGS +=	-lpthread -Xlinker -I/data/data/org.servalproject/lib/ld-linux.so.3 -R/data/data/org.servalproject/lib -Xlinker -rpath=/data/data/org.servalproject/lib
+LDFLAGS +=	-lpthread -Xlinker -I/data/data/org.servalproject/libs/ld-linux.so.3 -R/data/data/org.servalproject/libs -Xlinker -rpath=/data/data/org.servalproject/libs
 
 SBINDIR =	$(INSTALL_PREFIX)/usr/sbin
 
@@ -77,7 +77,8 @@ REVISION_VERSION =\"\ rv$(REVISION)\"
 
 BAT_VERSION =	$(shell grep "^\#define SOURCE_VERSION " $(SOURCE_VERSION_HEADER) | sed -e '1p' -n | awk -F '"' '{print $$2}' | awk '{print $$1}')
 FILE_NAME =	$(PACKAGE_NAME)_$(BAT_VERSION)-rv$(REVISION)_$@
-NUM_CPUS = $(shell NUM_CPUS=`cat /proc/cpuinfo | grep -v 'model name' | grep processor | tail -1 | awk -F' ' '{print $$3}'`;echo `expr $$NUM_CPUS + 1`)
+#NUM_CPUS = $(shell NUM_CPUS=`cat /proc/cpuinfo | grep -v 'model name' | grep processor | tail -1 | awk -F' ' '{print $$3}'`;echo `expr $$NUM_CPUS + 1`)
+NUM_CPUS = 1
 
 
 all:

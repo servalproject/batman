@@ -29,7 +29,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-#include <net/if_tun.h>
+//#include <net/if_tun.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -158,12 +158,12 @@ int8_t add_dev_tun(struct batman_if *batman_if, uint32_t tun_addr,
 {
 	int so;
 	struct ifreq ifr_tun, ifr_if;
-	struct tuninfo ti;
+//	struct tuninfo ti;
 	char *tun_ifname;
 
 	memset(&ifr_tun, 0, sizeof(ifr_tun));
 	memset(&ifr_if, 0, sizeof(ifr_if));
-	memset(&ti, 0, sizeof(ti));
+//	memset(&ti, 0, sizeof(ti));
 
 	if ((*fd = open_tun_any(tun_dev, tun_dev_size)) < 0) {
 		perror("Could not open tun device");
@@ -173,11 +173,11 @@ int8_t add_dev_tun(struct batman_if *batman_if, uint32_t tun_addr,
 	printf("Using %s\n", tun_dev);
 
 	/* Initialise tuninfo to defaults. */
-	if (ioctl(*fd, TUNGIFINFO, &ti) < 0) {
-		perror("TUNGIFINFO");
-		del_dev_tun(*fd);
+//	if (ioctl(*fd, TUNGIFINFO, &ti) < 0) {
+//		perror("TUNGIFINFO");
+//		del_dev_tun(*fd);
 		return -1;
-	}
+//	}
 
 	/* Set name of interface to configure ("tunX") */
 	tun_ifname = strstr(tun_dev, "tun");
@@ -224,12 +224,12 @@ int8_t add_dev_tun(struct batman_if *batman_if, uint32_t tun_addr,
 	if (ifr_if.ifr_mtu < 100) {
 		fprintf(stderr, "Warning: MTU smaller than 100 - cannot reduce MTU anymore\n" );
 	} else {
-		ti.mtu = ifr_if.ifr_mtu - 28;
-		if (ioctl(*fd, TUNSIFINFO, &ti) < 0) {
-			perror("TUNSIFINFO");
-			del_dev_tun(*fd);
+//		ti.mtu = ifr_if.ifr_mtu - 28;
+//		if (ioctl(*fd, TUNSIFINFO, &ti) < 0) {
+//			perror("TUNSIFINFO");
+//			del_dev_tun(*fd);
 			return -1;
-		}
+//		}
 	}
 
 	strlcpy(tun_dev, ifr_tun.ifr_name, tun_dev_size);

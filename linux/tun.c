@@ -46,9 +46,8 @@
 #define IPTABLES_ADD_ACC "iptables -t nat -I POSTROUTING -s %s/%i -j ACCEPT"
 #define IPTABLES_DEL_ACC "iptables -t nat -D POSTROUTING -s %s/%i -j ACCEPT"
 
-
 int run_cmd(char *cmd) {
-	int error, pipes[2], stderr = -1, ret = 0;
+	int error; int pipes[2]; int stderrfd = -1; int ret = 0;
 	char error_log[256];
 
 	if (pipe(pipes) < 0) {
@@ -59,7 +58,7 @@ int run_cmd(char *cmd) {
 	memset(error_log, 0, 256);
 
 	/* save stderr */
-	stderr = dup(STDERR_FILENO);
+	stderrfd = dup(STDERR_FILENO);
 
 	/* connect the commands output with the pipe for later logging */
 	dup2(pipes[1], STDERR_FILENO);
@@ -68,8 +67,8 @@ int run_cmd(char *cmd) {
 	error = system(cmd);
 
 	/* copy stderr back */
-	dup2(stderr, STDERR_FILENO);
-	close(stderr);
+	dup2(stderrfd, STDERR_FILENO);
+	close(stderrfd);
 
 	if ((error < 0) || (WEXITSTATUS(error) != 0)) {
 		ret = read(pipes[0], error_log, sizeof(error_log));
