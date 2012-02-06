@@ -126,7 +126,7 @@ void add_del_route(uint32_t dest, uint8_t netmask, uint32_t router, uint32_t src
 	route.rt_flags = (netmask == 32 ? (RTF_HOST | RTF_UP) : RTF_UP);
 	route.rt_metric = 1;
 
-	/* Make sure gateway field address type is set *
+	/* Make sure gateway field address type is set */
 	addr = (struct sockaddr_in *)&route.rt_gateway;
 	addr->sin_family = AF_INET;
 
