@@ -603,8 +603,9 @@ int main(int argc, char *argv[])
 	int8_t res;
 
 	/* check if user is root */
-	if ((getuid()) || (getgid())) {
-		fprintf(stderr, "Error - you must be root to run '%s' !\n", argv[0]);
+	/* PGS: On some Android phones, it is not possible to set gid to zero.  So only check uid. */
+	if ((getuid()) /* || (getgid()) */) {
+		fprintf(stderr, "Error - you must be root to run '%s' ! (uid=%d, gid=%d)\n", argv[0],getuid(),getgid());
 		exit(EXIT_FAILURE);
 	}
 
